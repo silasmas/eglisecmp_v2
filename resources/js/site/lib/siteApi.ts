@@ -280,6 +280,52 @@ export type SiteInquiryKind = 'prayer_request' | 'appointment';
  * @param payload Corps validé côté API (`kind`, `name`, `message`, champs optionnels).
  * @returns Confirmation `{ ok: true }` si l’enregistrement a réussi.
  */
+export type AppointmentMinisterRow = {
+  id: number;
+  fullname: string;
+  image_url: string;
+  bio: string;
+};
+
+export type AppointmentSlotRow = {
+  starts_at: string;
+  ends_at: string;
+  label: string;
+};
+
+export type LeadershipMinisterRow = {
+  id: number;
+  fullname: string;
+  image_url: string;
+  bio: string;
+  role: string;
+  is_titular: boolean;
+};
+
+/** Tous les pasteurs actifs (page Leadership). */
+export async function fetchPublicMinisters(): Promise<LeadershipMinisterRow[]> {
+  return fetchSiteList<LeadershipMinisterRow>('ministers');
+}
+
+/** Pasteurs avec horaires de réception pour les rendez-vous. */
+export async function fetchAppointmentMinisters(): Promise<AppointmentMinisterRow[]> {
+  return fetchSiteList<AppointmentMinisterRow>('appointments/ministers');
+}
+
+/** Dates disponibles (Y-m-d) pour un pasteur. */
+export async function fetchAppointmentDates(ministerId: number): Promise<string[]> {
+  const query = new URLSearchParams({ minister_id: String(ministerId) });
+  const body = await fetchSiteData<{ dates: string[] }>(`appointments/dates?${query.toString()}`);
+  return Array.isArray(body.dates) ? body.dates : [];
+}
+
+/** Créneaux disponibles pour un pasteur à une date. */
+export async function fetchAppointmentSlots(ministerId: number, date: string): Promise<AppointmentSlotRow[]> {
+  const query = new URLSearchParams({ minister_id: String(ministerId), date });
+  const body = await fetchSiteData<{ slots: AppointmentSlotRow[] }>(`appointments/slots?${query.toString()}`);
+  return Array.isArray(body.slots) ? body.slots : [];
+}
+
 export async function submitSiteInquiry(payload: {
   kind: SiteInquiryKind;
   name: string;
@@ -287,6 +333,7 @@ export async function submitSiteInquiry(payload: {
   email?: string;
   phone?: string;
   preferred_at?: string;
+  minister_id?: number;
 }): Promise<{ ok: boolean }> {
   const body: Record<string, unknown> = {
     kind: payload.kind,
@@ -301,6 +348,9 @@ export async function submitSiteInquiry(payload: {
   }
   if (payload.preferred_at !== undefined && payload.preferred_at.trim() !== '') {
     body.preferred_at = payload.preferred_at.trim();
+  }
+  if (payload.minister_id !== undefined) {
+    body.minister_id = payload.minister_id;
   }
 
   const res = await fetchSitePostJson<{ data: { ok: boolean } }>('inquiries', body);

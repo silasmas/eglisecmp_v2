@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\SiteInquiryResource\Pages;
 use App\Models\SiteInquiry;
 use BackedEnum;
+use Filament\Actions\Action;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -51,6 +52,15 @@ class SiteInquiryResource extends Resource
                     ->columns(12)
                     ->schema([
                         TextEntry::make('kind')->label('Type')->columnSpan(4),
+                        TextEntry::make('minister.fullname')
+                            ->label('Pasteur')
+                            ->visible(fn (SiteInquiry $record): bool => $record->kind === SiteInquiry::KIND_APPOINTMENT)
+                            ->formatStateUsing(fn ($state): string => MinisterResource::normalizeLegacyValue($state) ?? '—')
+                            ->columnSpan(4),
+                        TextEntry::make('appointment_status')
+                            ->label('Statut RDV')
+                            ->visible(fn (SiteInquiry $record): bool => $record->kind === SiteInquiry::KIND_APPOINTMENT)
+                            ->columnSpan(4),
                         TextEntry::make('name')->label('Nom')->columnSpan(8),
                         TextEntry::make('email')->columnSpan(6),
                         TextEntry::make('phone')->columnSpan(6),
@@ -91,6 +101,15 @@ class SiteInquiryResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->actions([
                 ViewAction::make(),
+                Action::make('confirmAppointment')
+                    ->label('Confirmer')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->visible(fn (SiteInquiry $record): bool => $record->kind === SiteInquiry::KIND_APPOINTMENT
+                        && $record->appointment_status === SiteInquiry::STATUS_PENDING)
+                    ->action(fn (SiteInquiry $record) => $record->update([
+                        'appointment_status' => SiteInquiry::STATUS_CONFIRMED,
+                    ])),
                 DeleteAction::make(),
             ])
             ->bulkActions([

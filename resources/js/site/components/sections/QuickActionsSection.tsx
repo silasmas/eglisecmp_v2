@@ -5,7 +5,6 @@ import { Link } from 'react-router-dom';
 import SectionHeader from '../ui/SectionHeader';
 import CTAButton from '../ui/CTAButton';
 import ReactionBar from '../ui/ReactionBar';
-import SocialShareToolbar from '../ui/SocialShareToolbar';
 import { useFeaturedPosts } from '../../hooks/useFeaturedPosts';
 import ImageWithSkeleton from '../ui/ImageWithSkeleton';
 import { FeaturedHeroSkeleton } from '../ui/Skeleton';
@@ -167,14 +166,6 @@ export default function QuickActionsSection() {
             ) : featured ? (
               <div className="relative">
                 <FeaturedHeroCard featured={featured} />
-                <div className="pointer-events-auto absolute top-6 right-6 z-20 max-w-[min(92vw,20rem)]">
-                  <SocialShareToolbar
-                    title={featured.title}
-                    description={featured.excerpt}
-                    sharePath={featured.href.startsWith('/') ? featured.href : '/teachings'}
-                    compact
-                  />
-                </div>
               </div>
             ) : (
               <Link

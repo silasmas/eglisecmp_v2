@@ -15,6 +15,7 @@ class DatabaseSeeder extends Seeder
             DbSqlImportSeeder::class,
             FactoryDataSeeder::class,
             SiteStatisticSeeder::class,
+            MinisterReceptionScheduleSeeder::class,
         ]);
     }
 }

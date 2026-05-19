@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\Site\PublicAppointmentController;
+use App\Http\Controllers\Api\Site\PublicMinisterController;
 use App\Http\Controllers\Api\Site\PublicContentReactionController;
 use App\Http\Controllers\Api\Site\PublicDailyVerseController;
 use App\Http\Controllers\Api\Site\PublicEventController;
@@ -36,6 +38,10 @@ Route::prefix('site')->group(function (): void {
     Route::get('statistics', [PublicSiteStatisticController::class, 'index']);
     Route::post('inquiries', [PublicSiteInquiryController::class, 'store'])
         ->middleware('throttle:20,1');
+    Route::get('ministers', [PublicMinisterController::class, 'index']);
+    Route::get('appointments/ministers', [PublicAppointmentController::class, 'ministers']);
+    Route::get('appointments/dates', [PublicAppointmentController::class, 'dates']);
+    Route::get('appointments/slots', [PublicAppointmentController::class, 'slots']);
     Route::get('hero-meta', [PublicHeroMetaController::class, 'show']);
     Route::get('reaction-keys', [PublicContentReactionController::class, 'keys']);
     Route::get('reactions', [PublicContentReactionController::class, 'index']);

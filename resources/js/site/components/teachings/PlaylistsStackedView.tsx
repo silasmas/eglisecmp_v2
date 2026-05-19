@@ -150,7 +150,18 @@ export default function PlaylistsStackedView({
                 ))}
               </motion.div>
 
-              {group.items.length > STACK_VISIBLE ? (
+              {groupIndex === 0 ? (
+                <div className="mt-8 flex justify-center border-t border-surface-200 pt-6">
+                  <Link
+                    to={`/teachings/playlist/${encodeURIComponent(
+                      group.eventId !== 'sans-evenement' ? group.eventId : String(group.items[0]?.eventId ?? group.items[0]?.id ?? ''),
+                    )}`}
+                    className="inline-flex items-center gap-2 rounded-full bg-burgundy-900 px-6 py-3 text-sm font-semibold text-white transition hover:bg-burgundy-800"
+                  >
+                    Voir tous les messages de la playlist
+                  </Link>
+                </div>
+              ) : group.items.length > STACK_VISIBLE ? (
                 <ul className="mt-8 space-y-3 border-t border-surface-200 pt-6">
                   {group.items.slice(STACK_VISIBLE).map((item) => (
                     <li

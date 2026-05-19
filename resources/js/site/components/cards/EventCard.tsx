@@ -1,7 +1,19 @@
+import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Calendar, MapPin, ArrowRight } from 'lucide-react';
 import type { Event } from '../../data/types';
 import { cn } from '../../lib/utils';
+
+const DEFAULT_EVENT_IMAGE =
+  'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1200&h=800&fit=crop';
+
+function resolveEventImage(image: string | undefined): string {
+  if (image !== undefined && image.trim() !== '') {
+    return image;
+  }
+
+  return DEFAULT_EVENT_IMAGE;
+}
 
 interface EventCardProps {
   event: Event;
@@ -10,6 +22,8 @@ interface EventCardProps {
 }
 
 export default function EventCard({ event, featured, banner }: EventCardProps) {
+  const [imageSrc, setImageSrc] = useState(() => resolveEventImage(event.image));
+
   const formattedDate = new Date(event.date).toLocaleDateString('fr-FR', {
     day: 'numeric',
     month: 'long',
@@ -26,9 +40,10 @@ export default function EventCard({ event, featured, banner }: EventCardProps) {
         )}
       >
         <img
-          src={event.image}
+          src={imageSrc}
           alt={event.title}
           className="absolute inset-0 h-full w-full object-cover img-hover"
+          onError={() => setImageSrc(DEFAULT_EVENT_IMAGE)}
         />
         <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(9,9,11,0.88)_0%,rgba(9,9,11,0.52)_45%,rgba(9,9,11,0.24)_100%)]" />
         <div className="absolute inset-0 bg-gradient-to-t from-surface-950/80 via-transparent to-white/5" />
@@ -74,9 +89,10 @@ export default function EventCard({ event, featured, banner }: EventCardProps) {
       className="group block rounded-2xl overflow-hidden relative h-full hover:shadow-xl transition-all duration-500"
     >
       <img
-        src={event.image}
+        src={imageSrc}
         alt={event.title}
         className="absolute inset-0 w-full h-full object-cover img-hover"
+        onError={() => setImageSrc(DEFAULT_EVENT_IMAGE)}
       />
       {/* Gradient — stronger at bottom for text readability */}
       <div className="absolute inset-0 bg-gradient-to-t from-surface-950/90 via-surface-950/40 to-transparent" />

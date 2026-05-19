@@ -71,7 +71,7 @@ class MinisterResource extends Resource
         ];
     }
 
-    protected static function normalizeLegacyValue(mixed $value): ?string
+    public static function normalizeLegacyValue(mixed $value): ?string
     {
         if (is_array($value)) {
             return (string) (collect($value)->first(fn ($item): bool => filled($item)) ?? '');

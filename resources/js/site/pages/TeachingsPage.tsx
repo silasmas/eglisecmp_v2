@@ -1,7 +1,6 @@
 import { useEffect } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import PageHero from '../components/ui/PageHero';
-import SocialShareToolbar from '../components/ui/SocialShareToolbar';
 import MeditationsByThemeView from '../components/teachings/MeditationsByThemeView';
 import MessagesGridView from '../components/teachings/MessagesGridView';
 import PlaylistsStackedView from '../components/teachings/PlaylistsStackedView';
@@ -15,7 +14,6 @@ import { prefetchImageUrls } from '../lib/imagePrefetch';
 export default function TeachingsPage() {
   const [searchParams] = useSearchParams();
   const tab = resolveTeachingsTab(searchParams);
-  const tabShareLabel = tab === 'sermons' ? 'Messages' : tab === 'meditations' ? 'Méditations' : 'Playlists';
   const { items, loading, loadingMore, error, hasMore, loadMore } = useInfiniteSitePosts(tab);
 
   useEffect(() => {
@@ -46,14 +44,6 @@ export default function TeachingsPage() {
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <TeachingsTabBar />
-          <div className="mb-8 flex justify-end">
-            <SocialShareToolbar
-              title={`CMP — ${tabShareLabel}`}
-              description="Enseignements du Centre Missionnaire Philadelphie"
-              sharePath={`/teachings?tab=${tab}`}
-              compact
-            />
-          </div>
 
           {tab === 'sermons' ? <MessagesGridView {...viewProps} /> : null}
           {tab === 'meditations' ? <MeditationsByThemeView {...viewProps} /> : null}

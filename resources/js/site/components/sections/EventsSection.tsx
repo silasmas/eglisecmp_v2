@@ -3,7 +3,6 @@ import { motion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CalendarDays, MapPin } from 'lucide-react';
 import CTAButton from '../ui/CTAButton';
 import { events as fallbackEvents } from '../../data/content';
-import SocialShareToolbar from '../ui/SocialShareToolbar';
 import { useSiteEvents } from '../../hooks/useSiteEvents';
 import ImageWithSkeleton from '../ui/ImageWithSkeleton';
 import { EventCarouselSkeleton } from '../ui/Skeleton';
@@ -140,12 +139,6 @@ export default function EventsSection() {
                               <h3 className="mt-2 font-heading text-[2rem] font-extrabold leading-[0.96] tracking-tight text-white sm:text-[3.3rem]">{event.title}</h3>
                               <p className="mt-3 max-w-lg text-sm leading-relaxed text-white/68 sm:text-[15px]">{event.description}</p>
                               <div className="mt-6 flex flex-wrap items-center gap-3">
-                                <SocialShareToolbar
-                                  title={event.title}
-                                  description={event.description}
-                                  sharePath={`/events?event=${encodeURIComponent(event.id)}`}
-                                  compact
-                                />
                                 <CTAButton to="/events" variant="white" className="shadow-lg shadow-black/25">
                                   Voir l&apos;événement
                                 </CTAButton>

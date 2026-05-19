@@ -7,8 +7,6 @@ import CollapsibleRichText from '../components/ui/CollapsibleRichText';
 import ReactionBar from '../components/ui/ReactionBar';
 import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
 import PageHero from '../components/ui/PageHero';
-import SocialShareToolbar from '../components/ui/SocialShareToolbar';
-
 /**
  * Page de lecture d'une playlist sur le site (lecteur embed, texte du message, navigation).
  */
@@ -208,14 +206,6 @@ export default function PlaylistWatchPage() {
               <header>
                 <h1 className="font-heading text-2xl font-bold text-surface-950 dark:text-white sm:text-3xl">{current.title}</h1>
                 <p className="mt-2 text-sm text-surface-500 dark:text-surface-400">{current.speaker}</p>
-                <div className="mt-4">
-                  <SocialShareToolbar
-                    title={current.title}
-                    description={current.description}
-                    sharePath={`${location.pathname}${location.search}`}
-                    compact
-                  />
-                </div>
               </header>
 
               {current.reactableKey ? (

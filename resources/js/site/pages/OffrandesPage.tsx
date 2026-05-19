@@ -13,7 +13,23 @@ import {
 
 const PHONE_HELPER = 'Utilisez le format international RD Congo : commence par 243, puis le numéro sans le 0 initial (ex. : 2438XXXXXXXX ou 2439XXXXXXXX selon votre opérateur).';
 
-type MobileTreatmentStep = 'idle' | 'sending' | 'await_device' | 'checking' | 'done' | 'error';
+/** Intervalle entre deux vérifications FlexPay (ms). */
+const PAYMENT_POLL_INTERVAL_MS = 2000;
+
+/** Durée d’une phase de vérification du statut (ms). */
+const PAYMENT_VERIFICATION_PHASE_MS = 20000;
+
+/** Nombre de phases de vérification avant message final. */
+const PAYMENT_VERIFICATION_MAX_PHASES = 3;
+
+type MobileTreatmentStep =
+  | 'idle'
+  | 'sending'
+  | 'await_device'
+  | 'checking'
+  | 'done'
+  | 'error'
+  | 'verification_exhausted';
 
 /** Forme attendue : 243 suivi de 9 chiffres (format international RD Congo). */
 function normalizePhoneRuanda(input: string): string | null {
@@ -57,15 +73,104 @@ export default function OffrandesPage() {
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [mobileTreatment, setMobileTreatment] = useState<MobileTreatmentStep>('idle');
+  const [verificationPhase, setVerificationPhase] = useState(0);
+  const [step3Notice, setStep3Notice] = useState<string | null>(null);
 
   const pollRef = useRef<number | null>(null);
+  const verificationPhaseRef = useRef(0);
+  const phaseStartedAtRef = useRef(0);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current !== null) {
-      window.clearInterval(pollRef.current);
+      window.clearTimeout(pollRef.current);
       pollRef.current = null;
     }
   }, []);
+
+  /** Remet le parcours à zéro après un paiement confirmé (nouvelle offrande possible). */
+  const resetAfterSuccessfulPayment = useCallback(() => {
+    stopPolling();
+    setMontant('');
+    setFullname('');
+    setMessage('');
+    setPaymentPhone('');
+    setReference(null);
+    setChannel('');
+    setBusy(false);
+    setErrorBanner(null);
+    setMobileTreatment('idle');
+    setVerificationPhase(0);
+    setStep3Notice(null);
+    verificationPhaseRef.current = 0;
+    phaseStartedAtRef.current = 0;
+    setOffrandeId((current) => {
+      if (offrandes.length === 0) {
+        return current;
+      }
+      const firstId = offrandes[0]?.id;
+      return firstId !== undefined ? firstId : '';
+    });
+  }, [offrandes, stopPolling]);
+
+  const startMobilePaymentPolling = useCallback(
+    (paymentReference: string) => {
+      verificationPhaseRef.current = 0;
+      phaseStartedAtRef.current = Date.now();
+      setVerificationPhase(0);
+      setStep3Notice(null);
+
+      const pollOnce = async (): Promise<void> => {
+        if (Date.now() - phaseStartedAtRef.current >= PAYMENT_VERIFICATION_PHASE_MS) {
+          if (verificationPhaseRef.current < PAYMENT_VERIFICATION_MAX_PHASES - 1) {
+            verificationPhaseRef.current += 1;
+            phaseStartedAtRef.current = Date.now();
+            setVerificationPhase(verificationPhaseRef.current);
+            setStep3Notice('Nous poursuivons la vérification auprès de l’opérateur de paiement…');
+          } else {
+            stopPolling();
+            setBusy(false);
+            setMobileTreatment('verification_exhausted');
+            setStep3Notice(
+              'La confirmation prend plus de temps que prévu. Si le montant a bien été débité, conservez votre référence : notre équipe finalisera votre offrande sous peu.',
+            );
+            return;
+          }
+        }
+
+        try {
+          setMobileTreatment((previous) =>
+            previous === 'await_device' || previous === 'sending' ? 'checking' : previous,
+          );
+          const stat = await fetchOffrandePaymentStatus(paymentReference);
+          if (stat.paid) {
+            setSuccessBanner('Merci — votre paiement Mobile money est confirmé !');
+            resetAfterSuccessfulPayment();
+            return;
+          }
+          if (stat.cancelled) {
+            stopPolling();
+            setMobileTreatment('error');
+            setStep3Notice('Le paiement Mobile money a été annulé ou a expiré. Vous pouvez réessayer depuis l’étape 2.');
+            setBusy(false);
+            return;
+          }
+        } catch {
+          stopPolling();
+          setMobileTreatment('error');
+          setStep3Notice('Une erreur est survenue lors de la vérification. Réessayez ou contactez-nous avec votre référence.');
+          setBusy(false);
+          return;
+        }
+
+        pollRef.current = window.setTimeout(() => {
+          void pollOnce();
+        }, PAYMENT_POLL_INTERVAL_MS);
+      };
+
+      void pollOnce();
+    },
+    [resetAfterSuccessfulPayment, stopPolling],
+  );
 
   const clearCarteQuery = useCallback(() => {
     const next = new URLSearchParams(searchParams);
@@ -114,9 +219,7 @@ export default function OffrandesPage() {
 
     if (carte === 'success') {
       setSuccessBanner(`Merci ! Votre paiement carte a bien été confirmé (réf. ${ref ?? '—'}).`);
-      setReference(null);
-      setChannel('');
-      setMobileTreatment('idle');
+      resetAfterSuccessfulPayment();
       clearCarteQuery();
     } else if (carte === 'cancel') {
       setErrorBanner('Paiement carte annulé par l\'opérateur.');
@@ -128,7 +231,7 @@ export default function OffrandesPage() {
       setErrorBanner('Impossible de finaliser cette offrande. Contactez-nous avec votre reçu si besoin.');
       clearCarteQuery();
     }
-  }, [clearCarteQuery, searchParams]);
+  }, [clearCarteQuery, resetAfterSuccessfulPayment, searchParams]);
 
   const selectedOffrande = useMemo(
     () => offrandes.find((row) => row.id === Number(offrandeId)),
@@ -141,19 +244,30 @@ export default function OffrandesPage() {
     if (!step1Done) {
       return 1;
     }
-    if (
-      busy &&
-      channel === 'mobile_money' &&
-      mobileTreatment !== 'idle' &&
-      mobileTreatment !== 'error'
-    ) {
-      return 3;
+    if (channel === 'mobile_money') {
+      if (
+        mobileTreatment === 'done' ||
+        mobileTreatment === 'verification_exhausted' ||
+        (busy && mobileTreatment !== 'idle' && mobileTreatment !== 'error')
+      ) {
+        return 3;
+      }
     }
     if (mobileTreatment === 'done') {
       return 3;
     }
     return 2;
   }, [busy, channel, mobileTreatment, step1Done]);
+
+  const handleRetryVerification = useCallback(() => {
+    if (reference === null || reference === '') {
+      return;
+    }
+    setStep3Notice(null);
+    setBusy(true);
+    setMobileTreatment('await_device');
+    startMobilePaymentPolling(reference);
+  }, [reference, startMobilePaymentPolling]);
 
   const step1InputsLocked = step1Done;
 
@@ -243,52 +357,14 @@ export default function OffrandesPage() {
         }
 
         setMobileTreatment('await_device');
-
-        pollRef.current = window.setInterval(() => {
-          void (async () => {
-            try {
-              setMobileTreatment((previous) =>
-                previous === 'await_device' || previous === 'sending' ? 'checking' : previous,
-              );
-              const stat = await fetchOffrandePaymentStatus(reference);
-              if (stat.paid) {
-                stopPolling();
-                setMobileTreatment('done');
-                setSuccessBanner('Merci — votre paiement Mobile money est confirmé !');
-                setBusy(false);
-              }
-              if (stat.cancelled) {
-                stopPolling();
-                setMobileTreatment('error');
-                setErrorBanner('Paiement Mobile money annulé ou expiré.');
-                setBusy(false);
-              }
-            } catch {
-              stopPolling();
-              setMobileTreatment('error');
-              setErrorBanner('Erreur lors du suivi du paiement.');
-              setBusy(false);
-            }
-          })();
-        }, 3500);
-
-        window.setTimeout(() => {
-          if (pollRef.current !== null) {
-            stopPolling();
-            setBusy(false);
-            setMobileTreatment('error');
-            setErrorBanner((current) =>
-              current === null ? 'Délai dépassé. Si vous avez payé, gardez la référence et contactez-nous.' : current,
-            );
-          }
-        }, 180000);
+        startMobilePaymentPolling(reference);
       }
     } catch (err) {
       setMobileTreatment(channel === 'mobile_money' ? 'error' : 'idle');
       setErrorBanner(err instanceof Error ? err.message : 'Erreur de paiement.');
       setBusy(false);
     }
-  }, [channel, paymentPhone, reference, stopPolling]);
+  }, [channel, paymentPhone, reference, startMobilePaymentPolling, stopPolling]);
 
   useEffect(() => {
     return () => stopPolling();
@@ -361,6 +437,7 @@ export default function OffrandesPage() {
             <article
               className={cn(
                 'flex min-h-[320px] w-[min(100%,340px)] shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color,opacity] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                focusStep === 1
                   ? 'border-burgundy-400/60 shadow-lg shadow-burgundy-900/10 ring-2 ring-burgundy-500/25 dark:border-burgundy-600/50'
                   : 'border-surface-200 opacity-80 dark:border-surface-700',
                 step1Done && 'opacity-100',
@@ -594,6 +671,7 @@ export default function OffrandesPage() {
             <article
               className={cn(
                 'flex min-h-[320px] w-[min(100%,340px)] shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                focusStep === 3
                   ? 'border-gold-500/50 shadow-md ring-2 ring-gold-400/20 dark:border-gold-600/45'
                   : 'border-surface-200 opacity-95 dark:border-surface-700',
               )}
@@ -604,9 +682,13 @@ export default function OffrandesPage() {
                 </span>
                 <h2 className="font-heading text-base font-bold text-surface-950 dark:text-white">Traitement</h2>
               </div>
-              <p className="mb-6 text-xs text-surface-500 dark:text-surface-400">
-                Suivi du paiement Mobile money ou confirmation du retour carte.
-              </p>
+              {focusStep === 3 ? (
+                <p className="mb-6 text-xs leading-relaxed text-surface-600 dark:text-surface-400">
+                  {channel === 'card'
+                    ? 'Après le paiement par carte, vous serez redirigé ici pour la confirmation.'
+                    : 'Validez la demande sur votre téléphone lorsque votre opérateur vous l’indique. Le statut se met à jour automatiquement dès confirmation.'}
+                </p>
+              ) : null}
 
               <div className="flex flex-row flex-wrap items-stretch gap-2 sm:flex-nowrap sm:justify-between">
                 {processingSubsteps.map((step) => (
@@ -631,9 +713,39 @@ export default function OffrandesPage() {
                 </div>
               ) : null}
 
-              {mobileTreatment === 'idle' && !busy && step1Done ? (
+              {focusStep === 3 && mobileTreatment === 'idle' && !busy && step1Done ? (
                 <p className="mt-8 rounded-xl bg-surface-100 px-3 py-2 text-[11px] text-surface-500 dark:bg-surface-800 dark:text-surface-400">
-                  Les jalons ci-dessus avanceront automatiquement pendant un paiement Mobile money.
+                  Les étapes ci-dessus s’activent lorsque vous lancez un paiement Mobile money.
+                </p>
+              ) : null}
+
+              {focusStep === 3 && step3Notice !== null ? (
+                <p
+                  className={cn(
+                    'mt-6 rounded-xl px-4 py-3 text-xs leading-relaxed',
+                    mobileTreatment === 'verification_exhausted' || mobileTreatment === 'error'
+                      ? 'border border-amber-200/80 bg-amber-50 text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-100'
+                      : 'border border-surface-200 bg-surface-50 text-surface-600 dark:border-surface-600 dark:bg-surface-900/60 dark:text-surface-300',
+                  )}
+                  role="status"
+                >
+                  {step3Notice}
+                </p>
+              ) : null}
+
+              {focusStep === 3 && mobileTreatment === 'verification_exhausted' && reference !== null ? (
+                <button
+                  type="button"
+                  onClick={handleRetryVerification}
+                  className="mt-4 w-full rounded-xl bg-burgundy-900 py-3 text-sm font-semibold text-white transition hover:bg-burgundy-800"
+                >
+                  Relancer la vérification
+                </button>
+              ) : null}
+
+              {focusStep === 3 && verificationPhase > 0 && mobileTreatment === 'checking' ? (
+                <p className="mt-3 text-center text-[11px] text-surface-400 dark:text-surface-500">
+                  Vérification en cours…
                 </p>
               ) : null}
             </article>

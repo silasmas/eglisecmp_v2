@@ -176,6 +176,15 @@ final class FlexPayGatewayService
             return ['reponse' => false, 'message' => 'Réponse statut FlexPay invalide.'];
         }
 
+        $apiCode = $json['code'] ?? null;
+        if ($apiCode !== '0' && $apiCode !== 0) {
+            return [
+                'reponse' => false,
+                'message' => (string) ($json['message'] ?? 'Statut FlexPay non disponible.'),
+                'raw' => $json,
+            ];
+        }
+
         $status = $json['transaction']['status'] ?? null;
 
         return [

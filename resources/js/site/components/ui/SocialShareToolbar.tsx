@@ -1,4 +1,5 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
+import { AnimatePresence, motion } from 'framer-motion';
 import { Copy, Facebook, Linkedin, Share2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { buildShareUrl } from '../../lib/share';
@@ -10,8 +11,12 @@ export interface SocialShareToolbarProps {
   description?: string;
   /** Chemin relatif sur le site (ex. `/teachings/message/12`). */
   sharePath: string;
-  /** Affichage compact (icônes seules). */
+  /** Affichage compact (icône seule sur le déclencheur). */
   compact?: boolean;
+  /** `spread` : les RS apparaissent en ligne avec animation (style menu flottant). */
+  menuStyle?: 'popover' | 'spread';
+  /** Contraste du bouton principal sur fond sombre. */
+  tone?: 'light' | 'dark';
   className?: string;
 }
 
@@ -34,17 +39,23 @@ function IconWhatsApp({ className }: { className?: string }) {
 }
 
 const BRAND_BTN =
-  'inline-flex items-center justify-center rounded-full p-2 text-white shadow-sm transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:ring-white/70';
+  'inline-flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-white shadow-md transition hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2';
 
-/** Barre de partage (réseaux aux couleurs dédiées, Web Share API, copier le lien). */
+/**
+ * Bouton de partage unique : au clic, affiche les réseaux avec animation type menu flottant.
+ */
 export default function SocialShareToolbar({
   title,
   description,
   sharePath,
   compact = false,
+  menuStyle = 'spread',
+  tone = 'light',
   className,
 }: SocialShareToolbarProps) {
+  const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const url = buildShareUrl(sharePath);
   const text = description && description.trim() !== '' ? `${title} — ${description}` : title;
 
@@ -71,90 +82,177 @@ export default function SocialShareToolbar({
     }
   }, [url]);
 
+  useEffect(() => {
+    if (!open) {
+      return undefined;
+    }
+
+    const handlePointerDown = (event: MouseEvent) => {
+      if (rootRef.current !== null && !rootRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+
+    const handleEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        setOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handlePointerDown);
+    document.addEventListener('keydown', handleEscape);
+
+    return () => {
+      document.removeEventListener('mousedown', handlePointerDown);
+      document.removeEventListener('keydown', handleEscape);
+    };
+  }, [open]);
+
   const links = [
     {
+      key: 'device',
+      label: 'Partager via l’appareil',
+      className: 'bg-surface-700 hover:bg-surface-600',
+      onClick: () => void shareNative(),
+      BrandIcon: Share2,
+    },
+    {
+      key: 'facebook',
       label: 'Facebook',
-      BrandIcon: Facebook,
-      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
       className: 'bg-[#1877F2] hover:bg-[#166FE5]',
+      href: `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+      BrandIcon: Facebook,
     },
     {
+      key: 'x',
       label: 'X',
-      BrandIcon: IconX,
-      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
       className: 'bg-black hover:bg-neutral-900',
+      href: `https://twitter.com/intent/tweet?text=${encodeURIComponent(text)}&url=${encodeURIComponent(url)}`,
+      BrandIcon: IconX,
     },
     {
+      key: 'linkedin',
       label: 'LinkedIn',
-      BrandIcon: Linkedin,
-      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
       className: 'bg-[#0A66C2] hover:bg-[#095faa]',
+      href: `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`,
+      BrandIcon: Linkedin,
     },
     {
+      key: 'whatsapp',
       label: 'WhatsApp',
-      BrandIcon: IconWhatsApp,
-      href: `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`,
       className: 'bg-[#25D366] hover:bg-[#20bd5a]',
+      href: `https://wa.me/?text=${encodeURIComponent(`${text} ${url}`)}`,
+      BrandIcon: IconWhatsApp,
+    },
+    {
+      key: 'copy',
+      label: copied ? 'Lien copié' : 'Copier le lien',
+      className: 'bg-surface-600 hover:bg-surface-500',
+      onClick: () => void copyLink(),
+      BrandIcon: Copy,
     },
   ];
 
+  const triggerClass =
+    tone === 'dark'
+      ? 'border-white/20 bg-white/10 text-white hover:bg-white/20 focus-visible:ring-white/50'
+      : 'border-surface-300 bg-surface-800 text-white hover:bg-surface-700 focus-visible:ring-burgundy-500';
+
+  const menuItems = (
+    <AnimatePresence>
+      {open ? (
+        <motion.div
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 0.15 }}
+          className={cn(
+            menuStyle === 'spread'
+              ? 'flex flex-wrap items-center gap-2'
+              : 'absolute z-30 left-0 top-full mt-2 flex flex-wrap items-center gap-2 rounded-2xl border border-surface-200 bg-white p-2 shadow-lg dark:border-surface-600 dark:bg-surface-900',
+          )}
+          role="menu"
+        >
+          {links.map((item, index) => {
+            const content = (
+              <item.BrandIcon className="h-4 w-4 shrink-0 text-white" aria-hidden />
+            );
+
+            const motionProps = {
+              initial: { opacity: 0, scale: 0.6, x: menuStyle === 'spread' ? -12 : 0, y: menuStyle === 'spread' ? 0 : 8 },
+              animate: { opacity: 1, scale: 1, x: 0, y: 0 },
+              exit: { opacity: 0, scale: 0.6, x: menuStyle === 'spread' ? -8 : 0 },
+              transition: { duration: 0.2, delay: index * 0.04 },
+            };
+
+            if (item.href !== undefined) {
+              return (
+                <motion.a
+                  key={item.key}
+                  {...motionProps}
+                  role="menuitem"
+                  href={item.href}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(BRAND_BTN, item.className)}
+                  aria-label={`Partager sur ${item.label}`}
+                  onClick={() => setOpen(false)}
+                >
+                  {content}
+                </motion.a>
+              );
+            }
+
+            return (
+              <motion.button
+                key={item.key}
+                {...motionProps}
+                type="button"
+                role="menuitem"
+                className={cn(BRAND_BTN, item.className)}
+                aria-label={item.label}
+                onClick={() => {
+                  item.onClick?.();
+                  if (item.key !== 'copy') {
+                    setOpen(false);
+                  }
+                }}
+              >
+                {content}
+              </motion.button>
+            );
+          })}
+        </motion.div>
+      ) : null}
+    </AnimatePresence>
+  );
+
   return (
-    <div
+    <motion.div
+      ref={rootRef}
       className={cn(
-        'flex flex-wrap items-center gap-2',
-        compact ? '' : 'rounded-2xl border border-surface-200 bg-surface-50/80 px-3 py-2 dark:border-surface-700 dark:bg-surface-900/50',
+        menuStyle === 'spread' ? 'flex flex-wrap items-center gap-2' : 'relative inline-flex',
         className,
       )}
     >
-      <span
-        className={cn(
-          'text-[11px] font-semibold uppercase tracking-wide text-surface-500 dark:text-surface-400',
-          compact && 'sr-only',
-        )}
-      >
-        Partager
-      </span>
-
-      <button
+      <motion.button
         type="button"
-        onClick={() => void shareNative()}
+        whileTap={{ scale: 0.94 }}
+        onClick={() => setOpen((previous) => !previous)}
         className={cn(
-          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-semibold transition hover:bg-surface-50 dark:hover:bg-surface-800',
-          'border-surface-300 bg-surface-800 text-white dark:border-surface-600 dark:bg-surface-950',
+          'inline-flex items-center justify-center rounded-full border shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+          triggerClass,
+          compact ? 'h-10 w-10' : 'gap-1.5 px-3.5 py-2 text-xs font-semibold',
         )}
-        aria-label="Partager via votre appareil"
+        aria-expanded={open}
+        aria-haspopup="true"
+        aria-label={open ? 'Fermer les options de partage' : 'Partager'}
       >
-        <Share2 className="h-3.5 w-3.5 shrink-0" aria-hidden />
-        {!compact ? 'Partager…' : null}
-      </button>
+        <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+        {!compact ? <span>Partager</span> : null}
+      </motion.button>
 
-      {links.map((item) => (
-        <a
-          key={item.label}
-          href={item.href}
-          target="_blank"
-          rel="noopener noreferrer"
-          className={cn(
-            BRAND_BTN,
-            compact ? 'h-9 w-9 shrink-0' : 'gap-1.5 px-3 py-1.5 text-xs font-medium',
-            item.className,
-          )}
-          aria-label={`Partager sur ${item.label}`}
-        >
-          <item.BrandIcon className="h-3.5 w-3.5 shrink-0 text-white" aria-hidden />
-          {!compact ? <span>{item.label}</span> : null}
-        </a>
-      ))}
-
-      <button
-        type="button"
-        onClick={() => void copyLink()}
-        className="inline-flex items-center gap-1.5 rounded-full border border-surface-600 bg-surface-700 px-3 py-1.5 text-xs font-semibold text-white transition hover:bg-surface-600"
-        aria-label="Copier le lien"
-      >
-        <Copy className="h-3.5 w-3.5" aria-hidden />
-        {copied ? 'Copié !' : !compact ? 'Copier le lien' : null}
-      </button>
-    </div>
+      {menuItems}
+    </motion.div>
   );
 }

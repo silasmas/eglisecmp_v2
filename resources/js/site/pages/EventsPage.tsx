@@ -18,14 +18,6 @@ export default function EventsPage() {
 
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-8 flex justify-end">
-            <SocialShareToolbar
-              title="Événements — CMP"
-              description="Centre Missionnaire Philadelphie"
-              sharePath="/events"
-              compact
-            />
-          </div>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
@@ -41,6 +33,7 @@ export default function EventsPage() {
                     description={event.description}
                     sharePath="/events"
                     compact
+                    menuStyle="spread"
                   />
                 </div>
                 <EventCard event={event} featured={event.featured} />

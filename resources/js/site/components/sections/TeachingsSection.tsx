@@ -220,17 +220,15 @@ export default function TeachingsSection() {
                   year: 'numeric',
                 })}
               </p>
-              {featured.reactableKey ? (
-                <div className="mt-4">
-                  <ReactionBar reactableKey={featured.reactableKey} />
-                </div>
-              ) : null}
-              <div className="mt-4">
+              <div className="mt-4 flex flex-wrap items-center gap-3">
+                {featured.reactableKey ? <ReactionBar reactableKey={featured.reactableKey} /> : null}
                 <SocialShareToolbar
                   title={featured.title}
                   description={featured.description}
                   sharePath={`/teachings/message/${featured.id}`}
                   compact
+                  menuStyle="spread"
+                  tone="dark"
                 />
               </div>
             </div>

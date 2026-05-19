@@ -39,4 +39,14 @@ class Minister extends Model
     {
         return $this->hasMany(Post::class);
     }
+
+    /**
+     * Plages horaires de réception pour les rendez-vous.
+     *
+     * @return HasMany<MinisterReceptionSchedule, $this>
+     */
+    public function receptionSchedules(): HasMany
+    {
+        return $this->hasMany(MinisterReceptionSchedule::class);
+    }
 }

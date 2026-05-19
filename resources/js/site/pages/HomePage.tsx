@@ -1,5 +1,4 @@
 import HeroSection from '../components/sections/HeroSection';
-import SocialShareToolbar from '../components/ui/SocialShareToolbar';
 import QuickActionsSection from '../components/sections/QuickActionsSection';
 import AboutPreviewSection from '../components/sections/AboutPreviewSection';
 import TeachingsSection from '../components/sections/TeachingsSection';
@@ -13,16 +12,6 @@ export default function HomePage() {
   return (
     <>
       <HeroSection />
-      <div className="border-b border-surface-200 bg-white dark:border-surface-800 dark:bg-surface-950">
-        <div className="mx-auto flex max-w-7xl justify-end px-4 py-5 sm:px-6 lg:px-8">
-          <SocialShareToolbar
-            title="Centre Missionnaire Philadelphie"
-            description="Accueil — messages, événements et enseignements"
-            sharePath="/"
-            compact
-          />
-        </div>
-      </div>
       <QuickActionsSection />
       <AboutPreviewSection />
       <TeachingsSection />

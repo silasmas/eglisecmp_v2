@@ -164,7 +164,13 @@ final class PublicOffrandePaymentController extends Controller
             ]);
         }
 
-        $remote = $flexPay->fetchRemoteStatus($reference);
+        $flexPayReference = $this->resolveFlexPayCheckReference($transaction);
+
+        $remote = $flexPay->fetchRemoteStatus($flexPayReference);
+
+        if (! ($remote['reponse'] ?? false) && $flexPayReference !== $transaction->reference) {
+            $remote = $flexPay->fetchRemoteStatus($transaction->reference);
+        }
 
         if (! ($remote['reponse'] ?? false)) {
             return response()->json([
@@ -201,5 +207,23 @@ final class PublicOffrandePaymentController extends Controller
                 'reference' => $transaction->reference,
             ],
         ]);
+    }
+
+    /**
+     * FlexPay attend en général le numéro de commande opérateur, pas la référence locale CMP.
+     */
+    private function resolveFlexPayCheckReference(Transaction $transaction): string
+    {
+        $orderNumber = trim((string) ($transaction->order_number ?? ''));
+        if ($orderNumber !== '') {
+            return $orderNumber;
+        }
+
+        $providerReference = trim((string) ($transaction->provider_reference ?? ''));
+        if ($providerReference !== '') {
+            return $providerReference;
+        }
+
+        return (string) $transaction->reference;
     }
 }

@@ -235,12 +235,13 @@ export default function MessageWatchPage() {
                   {current.title}
                 </h1>
                 <p className="mt-2 text-sm text-surface-500 dark:text-surface-400">{current.speaker}</p>
-                <div className="mt-4">
+                <div className="mt-4 max-w-full">
                   <SocialShareToolbar
                     title={current.title}
                     description={current.description}
                     sharePath={`/teachings/message/${current.id}`}
                     compact
+                    menuStyle="spread"
                   />
                 </div>
               </header>
