@@ -78,6 +78,6 @@ Le front a été copié depuis le projet Vite autonome ; pour réimporter une é
 
 ## Dépannage rapide
 
-- **Page blanche** : vérifier la console navigateur et que `npm run dev` tourne ; contrôler que `@vite` pointe bien vers `resources/js/site/main.tsx`.
+- **Page blanche** : en prod, vérifier que `public/build/manifest.json` existe (`npm run build`) et qu’il n’y a **pas** de fichier `public/hot`. En local sans Vite, supprimer `public/hot` ou lancer `npm run dev` en parallèle de `php artisan serve`.
 - **404 sur une URL profonde** (ex. `/events` après rechargement) : le serveur web doit rediriger toutes les URLs « front » vers `public/index.php` (déjà le cas avec `php artisan serve` et une config Apache/Nginx standard Laravel).
 - **Filament inaccessible** : vérifier que l’URL commence bien par `/admin` ; la contrainte sur `path` dans `web.php` exclut explicitement ce préfixe.

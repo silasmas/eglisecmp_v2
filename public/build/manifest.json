@@ -1,0 +1,34 @@
+{
+  "resources/css/app.css": {
+    "file": "assets/app-ZexSsKuj.css",
+    "src": "resources/css/app.css",
+    "isEntry": true
+  },
+  "resources/css/filament/admin/theme.css": {
+    "file": "assets/theme-CJY4gFPl.css",
+    "src": "resources/css/filament/admin/theme.css",
+    "isEntry": true
+  },
+  "resources/js/app.js": {
+    "file": "assets/app-BbzB21r_.js",
+    "name": "app",
+    "src": "resources/js/app.js",
+    "isEntry": true
+  },
+  "resources/js/site/assets/Logo-CMP-2023-new.png": {
+    "file": "assets/Logo-CMP-2023-new-BaryjCFu.png",
+    "src": "resources/js/site/assets/Logo-CMP-2023-new.png"
+  },
+  "resources/js/site/main.tsx": {
+    "file": "assets/main-D6QkfkbU.js",
+    "name": "main",
+    "src": "resources/js/site/main.tsx",
+    "isEntry": true,
+    "css": [
+      "assets/main-CdPRf8-Z.css"
+    ],
+    "assets": [
+      "assets/Logo-CMP-2023-new-BaryjCFu.png"
+    ]
+  }
+}
