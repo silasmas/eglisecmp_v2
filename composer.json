@@ -1,0 +1,98 @@
+{
+    "$schema": "https://getcomposer.org/schema.json",
+    "name": "laravel/laravel",
+    "type": "project",
+    "description": "The skeleton application for the Laravel framework.",
+    "keywords": ["laravel", "framework"],
+    "license": "MIT",
+    "require": {
+        "php": "^8.3",
+        "ahmed-abdelrhman/filament-media-gallery": "^2.0",
+        "awcodes/richer-editor": "^2.1",
+        "bezhansalleh/filament-shield": "^4.2",
+        "cms-multi/filament-clear-cache": "^3.0",
+        "devletes/filament-pinnable-navigation": "^1.0",
+        "filament/filament": "^5.5",
+        "flexpik/filament-studio": "^1.2",
+        "jibaymcs/tabbed": "^1.0",
+        "laravel/framework": "^12.0",
+        "laravel/tinker": "^2.10.1",
+        "livewire/livewire": "^4.2",
+        "mradder/filament-logger": "^1.2",
+        "notebrainslab/filament-menu-manager": "^1.0",
+        "oliwol/filament-rich-editor-heroicons": "^1.1",
+        "rawand201/filament-connection-badge": "^1.0",
+        "slimani/filament-media-manager": "^0.11.0",
+        "tinusg/filament-hover-image-column": "^1.0",
+        "wezlo/filament-record-watcher": "^1.0",
+        "wezlo/filament-search-spotlight": "^1.0"
+    },
+    "require-dev": {
+        "fakerphp/faker": "^1.23",
+        "laravel/pail": "^1.2.2",
+        "laravel/pint": "^1.13",
+        "laravel/sail": "^1.41",
+        "mockery/mockery": "^1.6",
+        "nunomaduro/collision": "^8.6",
+        "phpunit/phpunit": "^11.5.3"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\": "app/",
+            "Database\\Factories\\": "database/factories/",
+            "Database\\Seeders\\": "database/seeders/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Tests\\": "tests/"
+        }
+    },
+    "scripts": {
+        "post-autoload-dump": [
+            "Illuminate\\Foundation\\ComposerScripts::postAutoloadDump",
+            "@php artisan package:discover --ansi",
+            "@php artisan filament:upgrade",
+            "@studio:patch-fr"
+        ],
+        "post-update-cmd": [
+            "@php artisan vendor:publish --tag=laravel-assets --ansi --force"
+        ],
+        "post-root-package-install": [
+            "@php -r \"file_exists('.env') || copy('.env.example', '.env');\""
+        ],
+        "post-create-project-cmd": [
+            "@php artisan key:generate --ansi",
+            "@php -r \"file_exists('database/database.sqlite') || touch('database/database.sqlite');\"",
+            "@php artisan migrate --graceful --ansi"
+        ],
+        "dev": [
+            "Composer\\Config::disableProcessTimeout",
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
+        ],
+        "studio:patch-fr": [
+            "@php scripts/apply-studio-fr-patch.php"
+        ]
+    },
+    "extra": {
+        "branch-alias": {
+            "dev-master": "12.x-dev"
+        },
+        "laravel": {
+            "dont-discover": [
+                "wezlo/filament-record-watcher"
+            ]
+        }
+    },
+    "config": {
+        "optimize-autoloader": true,
+        "preferred-install": "dist",
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "dev",
+    "prefer-stable": true
+}

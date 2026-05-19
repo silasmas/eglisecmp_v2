@@ -1,0 +1,11 @@
+@import '../../../../vendor/filament/filament/resources/css/theme.css';
+@import '../../../../vendor/awcodes/richer-editor/resources/css/index.css';
+@import '../../../../vendor/slimani/filament-media-manager/resources/css/media-manager.css';
+
+@source '../../../../app/Filament/**/*';
+@source '../../../../resources/views/filament/**/*';
+@source '../../../../vendor/wezlo/filament-search-spotlight/resources/views/**/*';
+@source '../../../../vendor/wezlo/filament-record-watcher/resources/views/**/*';
+@source '../../../../vendor/jibaymcs/tabbed/resources/**/*.blade.php';
+@source '../../../../vendor/awcodes/richer-editor/resources/views/**/*.blade.php';
+@source '../../../../vendor/slimani/filament-media-manager/resources/**/*';

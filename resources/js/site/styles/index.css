@@ -1,0 +1,186 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Sora:wght@300;400;500;600;700;800&display=swap');
+@import "tailwindcss";
+
+@source "../**/*.{tsx,ts}";
+
+@theme {
+  /* Brand colors — CMP identity: burgundy / red / black / white */
+  --color-burgundy-50: #fdf2f4;
+  --color-burgundy-100: #fce7eb;
+  --color-burgundy-200: #f9d0d9;
+  --color-burgundy-300: #f4a9ba;
+  --color-burgundy-400: #ec7896;
+  --color-burgundy-500: #df4d74;
+  --color-burgundy-600: #cc2d5a;
+  --color-burgundy-700: #ab1e47;
+  --color-burgundy-800: #8b1a3b;
+  --color-burgundy-900: #7b1d3e;
+  --color-burgundy-950: #440a1c;
+
+  --color-gold-50: #fdf9ef;
+  --color-gold-100: #f9f0d4;
+  --color-gold-200: #f3dfa8;
+  --color-gold-300: #ebc872;
+  --color-gold-400: #e4af46;
+  --color-gold-500: #db9828;
+  --color-gold-600: #c2781e;
+  --color-gold-700: #a1591b;
+  --color-gold-800: #84471d;
+  --color-gold-900: #6d3b1c;
+  --color-gold-950: #3e1e0c;
+
+  --color-surface-50: #fafafa;
+  --color-surface-100: #f4f4f5;
+  --color-surface-200: #e4e4e7;
+  --color-surface-300: #d4d4d8;
+  --color-surface-400: #a1a1aa;
+  --color-surface-500: #71717a;
+  --color-surface-600: #52525b;
+  --color-surface-700: #3f3f46;
+  --color-surface-800: #27272a;
+  --color-surface-900: #18181b;
+  --color-surface-950: #09090b;
+
+  --color-dark: #09090b;
+  --color-dark-card: #ffffff;
+  --color-dark-elevated: #f8f8fa;
+  --color-dark-border: #e4e4e7;
+
+  /* Font families — modern sans-serif only */
+  --font-heading: "Sora", system-ui, sans-serif;
+  --font-body: "Inter", system-ui, sans-serif;
+}
+
+/* Base styles */
+html {
+  scroll-behavior: smooth;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  font-family: var(--font-body);
+  background-color: #ffffff;
+  color: var(--color-surface-800);
+  margin: 0;
+}
+
+h1, h2, h3, h4, h5, h6 {
+  font-family: var(--font-heading);
+  letter-spacing: -0.02em;
+}
+
+::selection {
+  background-color: var(--color-burgundy-100);
+  color: var(--color-burgundy-900);
+}
+
+/* Focus styles */
+:focus-visible {
+  outline: 2px solid var(--color-burgundy-500);
+  outline-offset: 2px;
+}
+
+/* Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--color-surface-100);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--color-surface-300);
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--color-surface-400);
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+/* ─── Motion utilities ──────────────────────────────── */
+
+/* Shimmer sweep — apply to skeleton loaders or card highlights */
+@keyframes shimmer {
+  0% { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+.shimmer {
+  background: linear-gradient(
+    90deg,
+    var(--color-surface-100) 25%,
+    var(--color-surface-50) 50%,
+    var(--color-surface-100) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.6s ease-in-out infinite;
+}
+
+/* Soft pulse glow — for live indicators and CTA accents */
+@keyframes glow-pulse {
+  0%, 100% { opacity: 0.6; }
+  50% { opacity: 1; }
+}
+
+.glow-pulse {
+  animation: glow-pulse 2.4s ease-in-out infinite;
+}
+
+/* Float — subtle vertical float for decorative elements */
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+/* Smooth image reveal on load */
+img {
+  transition: opacity 0.3s ease;
+}
+
+/* GPU compositing hint for animated elements */
+[data-motion],
+.motion-safe\:translate-y-0 {
+  will-change: transform, opacity;
+}
+
+/* ─── Image hover — Ken Burns lite ─────────────────────
+   Subtly zooms (1.04) + drifts toward top-left + slight
+   brightness lift. Smooth cubic-bezier for elegance.
+   Usage: add class "img-hover" to any <img> inside .group
+──────────────────────────────────────────────────────── */
+.img-hover {
+  transition:
+    transform 0.85s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    filter 0.85s ease;
+}
+
+.group:hover .img-hover {
+  transform: scale(1.04) translate(-0.6%, -0.5%);
+  filter: brightness(1.04);
+}
+
+.img-hover-fast {
+  transition:
+    transform 0.6s cubic-bezier(0.25, 0.46, 0.45, 0.94),
+    filter 0.6s ease;
+}
+
+.group:hover .img-hover-fast {
+  transform: scale(1.04) translate(-0.5%, -0.4%);
+  filter: brightness(1.04);
+}
