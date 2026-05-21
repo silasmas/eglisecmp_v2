@@ -52,6 +52,43 @@ function normalizePhoneRuanda(input: string): string | null {
 }
 
 /**
+ * Reformule le message opérateur pour le visiteur (solde, refus, etc.).
+ *
+ * @param raw Message brut FlexPay ou API.
+ * @returns Texte clair en français.
+ */
+function formatPaymentErrorMessage(raw: string | undefined | null): string {
+  const trimmed = (raw ?? '').trim();
+  if (trimmed === '') {
+    return 'Le paiement n’a pas pu être effectué. Vérifiez votre solde Mobile money ou réessayez avec un autre moyen de paiement.';
+  }
+
+  const lower = trimmed.toLowerCase();
+  if (
+    lower.includes('solde') ||
+    lower.includes('insuffis') ||
+    lower.includes('insufficient') ||
+    lower.includes('balance')
+  ) {
+    return 'Solde insuffisant sur votre compte Mobile money. Rechargez votre compte ou réduisez le montant, puis réessayez.';
+  }
+
+  if (lower.includes('annul') || lower.includes('cancel')) {
+    return 'Paiement annulé. Vous pouvez relancer une nouvelle tentative depuis l’étape 2.';
+  }
+
+  if (lower.includes('expir') || lower.includes('timeout')) {
+    return 'La demande de paiement a expiré. Relancez le paiement et validez rapidement sur votre téléphone.';
+  }
+
+  if (lower.includes('refus') || lower.includes('declin') || lower.includes('reject')) {
+    return 'Paiement refusé par l’opérateur. Vérifiez votre numéro et votre solde, puis réessayez.';
+  }
+
+  return trimmed;
+}
+
+/**
  * Page offrandes : parcours en 3 colonnes (détails → mode → suivi),
  * téléphone après choix Mobile money, polling avec bouton en chargement.
  */
@@ -79,6 +116,20 @@ export default function OffrandesPage() {
   const pollRef = useRef<number | null>(null);
   const verificationPhaseRef = useRef(0);
   const phaseStartedAtRef = useRef(0);
+  const errorBannerRef = useRef<HTMLParagraphElement | null>(null);
+
+  /** Affiche un message d’échec visible (bandeau + étape 3 si Mobile money). */
+  const reportPaymentError = useCallback((rawMessage: string | undefined | null, step3Fallback?: string) => {
+    const label = formatPaymentErrorMessage(rawMessage);
+    setErrorBanner(label);
+    setSuccessBanner(null);
+    setStep3Notice(step3Fallback !== undefined ? formatPaymentErrorMessage(step3Fallback) : label);
+    setMobileTreatment('error');
+    setBusy(false);
+    window.requestAnimationFrame(() => {
+      errorBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, []);
 
   const stopPolling = useCallback(() => {
     if (pollRef.current !== null) {
@@ -147,18 +198,21 @@ export default function OffrandesPage() {
             resetAfterSuccessfulPayment();
             return;
           }
-          if (stat.cancelled) {
+          if (stat.cancelled || stat.flexpay_status === 1) {
             stopPolling();
-            setMobileTreatment('error');
-            setStep3Notice('Le paiement Mobile money a été annulé ou a expiré. Vous pouvez réessayer depuis l’étape 2.');
-            setBusy(false);
+            const remoteMessage = stat.failure_message ?? stat.message;
+            reportPaymentError(
+              remoteMessage,
+              'Le paiement n’a pas abouti. Consultez le message ci-dessus, puis réessayez depuis l’étape 2.',
+            );
             return;
           }
         } catch {
           stopPolling();
-          setMobileTreatment('error');
-          setStep3Notice('Une erreur est survenue lors de la vérification. Réessayez ou contactez-nous avec votre référence.');
-          setBusy(false);
+          reportPaymentError(
+            null,
+            'Une erreur est survenue lors de la vérification. Réessayez ou contactez-nous avec votre référence.',
+          );
           return;
         }
 
@@ -169,7 +223,7 @@ export default function OffrandesPage() {
 
       void pollOnce();
     },
-    [resetAfterSuccessfulPayment, stopPolling],
+    [reportPaymentError, resetAfterSuccessfulPayment, stopPolling],
   );
 
   const clearCarteQuery = useCallback(() => {
@@ -248,7 +302,8 @@ export default function OffrandesPage() {
       if (
         mobileTreatment === 'done' ||
         mobileTreatment === 'verification_exhausted' ||
-        (busy && mobileTreatment !== 'idle' && mobileTreatment !== 'error')
+        mobileTreatment === 'error' ||
+        (busy && mobileTreatment !== 'idle')
       ) {
         return 3;
       }
@@ -263,6 +318,7 @@ export default function OffrandesPage() {
     if (reference === null || reference === '') {
       return;
     }
+    setErrorBanner(null);
     setStep3Notice(null);
     setBusy(true);
     setMobileTreatment('await_device');
@@ -299,7 +355,7 @@ export default function OffrandesPage() {
       setMobileTreatment('idle');
     } catch (err) {
       setReference(null);
-      setErrorBanner(err instanceof Error ? err.message : 'Erreur lors de l\'initialisation.');
+      setErrorBanner(formatPaymentErrorMessage(err instanceof Error ? err.message : null));
     } finally {
       setBusy(false);
     }
@@ -350,21 +406,25 @@ export default function OffrandesPage() {
 
       if (channel === 'mobile_money') {
         if (!result.success) {
-          setMobileTreatment('error');
-          setErrorBanner(result.message !== undefined && result.message !== '' ? result.message : 'Échec Mobile money.');
-          setBusy(false);
+          reportPaymentError(result.message, 'Impossible d’envoyer la demande Mobile money. Corrigez le problème indiqué puis réessayez.');
           return;
         }
 
+        setErrorBanner(null);
+        setStep3Notice(null);
         setMobileTreatment('await_device');
         startMobilePaymentPolling(reference);
       }
     } catch (err) {
-      setMobileTreatment(channel === 'mobile_money' ? 'error' : 'idle');
-      setErrorBanner(err instanceof Error ? err.message : 'Erreur de paiement.');
-      setBusy(false);
+      if (channel === 'mobile_money') {
+        reportPaymentError(err instanceof Error ? err.message : null, 'Erreur lors du paiement Mobile money.');
+      } else {
+        setMobileTreatment('idle');
+        setErrorBanner(formatPaymentErrorMessage(err instanceof Error ? err.message : null));
+        setBusy(false);
+      }
     }
-  }, [channel, paymentPhone, reference, startMobilePaymentPolling, stopPolling]);
+  }, [channel, paymentPhone, reference, reportPaymentError, startMobilePaymentPolling, stopPolling]);
 
   useEffect(() => {
     return () => stopPolling();
@@ -414,7 +474,12 @@ export default function OffrandesPage() {
         {loadingList ? <p className="mb-6 text-sm text-surface-500 dark:text-surface-400">Chargement...</p> : null}
 
         {errorBanner !== null ? (
-          <p className="mb-6 rounded-xl border border-burgundy-300 bg-burgundy-50 px-4 py-3 text-sm text-burgundy-900 dark:bg-burgundy-950/30 dark:text-burgundy-100">
+          <p
+            ref={errorBannerRef}
+            role="alert"
+            aria-live="assertive"
+            className="mb-6 rounded-xl border border-burgundy-300 bg-burgundy-50 px-4 py-3 text-sm font-medium text-burgundy-900 dark:bg-burgundy-950/30 dark:text-burgundy-100"
+          >
             {errorBanner}
           </p>
         ) : null}
@@ -654,6 +719,15 @@ export default function OffrandesPage() {
                     </div>
                   ) : null}
 
+                  {channel === 'mobile_money' && mobileTreatment === 'error' && errorBanner !== null ? (
+                    <p
+                      role="alert"
+                      className="mt-4 rounded-xl border border-burgundy-300 bg-burgundy-50 px-3 py-2.5 text-xs leading-relaxed text-burgundy-900 dark:border-burgundy-700 dark:bg-burgundy-950/40 dark:text-burgundy-100"
+                    >
+                      {errorBanner}
+                    </p>
+                  ) : null}
+
                   <button
                     type="button"
                     disabled={busy || channel === '' || mobileTreatment === 'done'}
@@ -719,16 +793,31 @@ export default function OffrandesPage() {
                 </p>
               ) : null}
 
-              {focusStep === 3 && step3Notice !== null ? (
+              {focusStep === 3 && mobileTreatment === 'error' && errorBanner !== null ? (
+                <p
+                  role="alert"
+                  className="mt-6 rounded-xl border border-burgundy-300 bg-burgundy-50 px-4 py-3 text-xs font-medium leading-relaxed text-burgundy-900 dark:border-burgundy-700 dark:bg-burgundy-950/40 dark:text-burgundy-100"
+                >
+                  {errorBanner}
+                </p>
+              ) : null}
+
+              {focusStep === 3 && step3Notice !== null && mobileTreatment !== 'error' ? (
                 <p
                   className={cn(
                     'mt-6 rounded-xl px-4 py-3 text-xs leading-relaxed',
-                    mobileTreatment === 'verification_exhausted' || mobileTreatment === 'error'
+                    mobileTreatment === 'verification_exhausted'
                       ? 'border border-amber-200/80 bg-amber-50 text-amber-950 dark:border-amber-800/50 dark:bg-amber-950/30 dark:text-amber-100'
                       : 'border border-surface-200 bg-surface-50 text-surface-600 dark:border-surface-600 dark:bg-surface-900/60 dark:text-surface-300',
                   )}
                   role="status"
                 >
+                  {step3Notice}
+                </p>
+              ) : null}
+
+              {focusStep === 3 && step3Notice !== null && mobileTreatment === 'error' ? (
+                <p className="mt-3 text-[11px] leading-relaxed text-surface-500 dark:text-surface-400" role="status">
                   {step3Notice}
                 </p>
               ) : null}

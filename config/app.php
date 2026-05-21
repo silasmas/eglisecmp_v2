@@ -123,4 +123,16 @@ return [
         'store' => env('APP_MAINTENANCE_STORE', 'database'),
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Jeton de déploiement HTTP
+    |--------------------------------------------------------------------------
+    |
+    | Protège les routes de maintenance (ex. /deploy/storage-link/{token}).
+    | Laisser vide pour désactiver l'accès.
+    |
+    */
+
+    'deploy_token' => env('DEPLOY_TOKEN'),
+
 ];

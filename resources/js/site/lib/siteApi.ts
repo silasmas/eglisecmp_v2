@@ -29,6 +29,45 @@ type SiteListResponse<T> = {
 };
 
 /**
+ * Extrait un message lisible depuis une réponse JSON d’erreur Laravel / FlexPay.
+ *
+ * @param parsed Corps JSON déjà parsé (peut être null).
+ * @returns Message utilisateur ou chaîne vide si introuvable.
+ */
+export function extractApiErrorMessage(parsed: unknown): string {
+  if (parsed === null || typeof parsed !== 'object') {
+    return '';
+  }
+
+  const root = parsed as Record<string, unknown>;
+
+  if (typeof root.message === 'string' && root.message.trim() !== '') {
+    return root.message.trim();
+  }
+
+  if (root.data !== null && typeof root.data === 'object') {
+    const data = root.data as Record<string, unknown>;
+    if (typeof data.message === 'string' && data.message.trim() !== '') {
+      return data.message.trim();
+    }
+  }
+
+  if (root.errors !== null && typeof root.errors === 'object') {
+    const errors = root.errors as Record<string, unknown>;
+    for (const value of Object.values(errors)) {
+      if (Array.isArray(value) && value.length > 0 && typeof value[0] === 'string') {
+        return value[0];
+      }
+      if (typeof value === 'string' && value.trim() !== '') {
+        return value.trim();
+      }
+    }
+  }
+
+  return '';
+}
+
+/**
  * Effectue un GET JSON vers l'API site public.
  *
  * @param route Chemin relatif sous la base API (ex. `events?limit=10`).
@@ -42,7 +81,9 @@ export async function fetchSiteJson<T>(route: string): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`Requête API échouée (${response.status})`);
+    const parsed: unknown = await response.json().catch(() => null);
+    const message = extractApiErrorMessage(parsed);
+    throw new Error(message !== '' ? message : `Requête API échouée (${response.status})`);
   }
 
   return response.json() as Promise<T>;
@@ -92,14 +133,7 @@ export async function fetchSitePostJson<T>(route: string, body: Record<string, u
 
   if (!response.ok) {
     const parsed: unknown = await response.json().catch(() => null);
-    const message =
-      parsed !== null &&
-      typeof parsed === 'object' &&
-      'message' in parsed &&
-      typeof (parsed as { message?: unknown }).message === 'string'
-        ? (parsed as { message: string }).message
-        : '';
-
+    const message = extractApiErrorMessage(parsed);
     throw new Error(message !== '' ? message : `Requête API échouée (${response.status})`);
   }
 
@@ -259,6 +293,7 @@ export async function fetchOffrandePaymentStatus(reference: string): Promise<{
   flexpay_status?: number;
   reference?: string;
   message?: string;
+  failure_message?: string;
 }> {
   const query = new URLSearchParams({ reference });
   const res = await fetchSiteJson<{ data: Record<string, unknown> }>(`offrandes/status?${query.toString()}`);
@@ -269,6 +304,7 @@ export async function fetchOffrandePaymentStatus(reference: string): Promise<{
     flexpay_status?: number;
     reference?: string;
     message?: string;
+    failure_message?: string;
   };
 }
 

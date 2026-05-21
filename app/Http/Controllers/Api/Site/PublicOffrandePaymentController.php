@@ -103,15 +103,19 @@ final class PublicOffrandePaymentController extends Controller
             $phone = (string) ($validated['phone'] ?? '');
             $result = $flexPay->initiateMobileMoney($transaction, $phone);
 
+            $mobileSuccess = (bool) ($result['reponse'] ?? false);
+            $mobileMessage = (string) ($result['message'] ?? '');
+
             return response()->json([
+                'message' => $mobileMessage !== '' ? $mobileMessage : 'Échec du paiement Mobile money.',
                 'data' => [
                     'channel' => 'mobile_money',
-                    'success' => (bool) ($result['reponse'] ?? false),
-                    'message' => (string) ($result['message'] ?? ''),
+                    'success' => $mobileSuccess,
+                    'message' => $mobileMessage,
                     'reference' => $transaction->reference,
                     'orderNumber' => $result['orderNumber'] ?? null,
                 ],
-            ], ($result['reponse'] ?? false) ? 200 : 422);
+            ], $mobileSuccess ? 200 : 422);
         }
 
         $label = 'Offrande — '.($transaction->fullname ?: 'Bienfaiteur');
@@ -186,6 +190,7 @@ final class PublicOffrandePaymentController extends Controller
 
         $code = $remote['status'] ?? null;
         $codeInt = is_numeric($code) ? (int) $code : -1;
+        $failureMessage = $this->resolveFlexPayFailureMessage($remote, $codeInt);
 
         match ($codeInt) {
             0 => $transaction->update(['etat' => 'paid']),
@@ -205,6 +210,8 @@ final class PublicOffrandePaymentController extends Controller
                 'cancelled' => $cancelled,
                 'flexpay_status' => $codeInt,
                 'reference' => $transaction->reference,
+                'failure_message' => $failureMessage,
+                'message' => $failureMessage,
             ],
         ]);
     }
@@ -212,6 +219,34 @@ final class PublicOffrandePaymentController extends Controller
     /**
      * FlexPay attend en général le numéro de commande opérateur, pas la référence locale CMP.
      */
+    /**
+     * Message opérateur lors d’un refus / annulation (ex. solde insuffisant).
+     *
+     * @param  array<string, mixed>  $remote
+     */
+    private function resolveFlexPayFailureMessage(array $remote, int $statusCode): ?string
+    {
+        if ($statusCode !== 1) {
+            return null;
+        }
+
+        $candidates = [
+            $remote['message'] ?? null,
+            is_array($remote['raw'] ?? null) ? ($remote['raw']['message'] ?? null) : null,
+            is_array($remote['raw'] ?? null) && is_array($remote['raw']['transaction'] ?? null)
+                ? ($remote['raw']['transaction']['message'] ?? null)
+                : null,
+        ];
+
+        foreach ($candidates as $candidate) {
+            if (is_string($candidate) && trim($candidate) !== '') {
+                return trim($candidate);
+            }
+        }
+
+        return null;
+    }
+
     private function resolveFlexPayCheckReference(Transaction $transaction): string
     {
         $orderNumber = trim((string) ($transaction->order_number ?? ''));
