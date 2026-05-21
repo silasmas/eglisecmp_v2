@@ -135,4 +135,16 @@ return [
 
     'deploy_token' => env('DEPLOY_TOKEN'),
 
+    /*
+    |--------------------------------------------------------------------------
+    | Shield — super admin (déploiement HTTP)
+    |--------------------------------------------------------------------------
+    |
+    | ID utilisateur à promouvoir super_admin lors de /deploy/shield-sync.
+    | Si vide, seuls les utilisateurs déjà super_admin sont resynchronisés.
+    |
+    */
+
+    'shield_super_admin_user_id' => env('SHIELD_SUPER_ADMIN_USER_ID'),
+
 ];
