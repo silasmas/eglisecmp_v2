@@ -61,6 +61,7 @@ return [
             'summary' => '4524, avenue des Forces Armées… · Kinshasa / Gombe',
             'description' => "Centre Missionnaire Philadelphie\n4524, Avenue des Forces armées (ex Haut-Commandement), Kinshasa / Gombe\nB.P. 14 Kinshasa 2\nTél. (+243) 81 046 68 83 - 081 783 64 11\ninfo@cm-philadelphie.org",
             'banner_image' => 'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1200&h=600&fit=crop',
+            'maps_url' => 'https://www.google.com/maps/search/?api=1&query=Centre+Missionnaire+Philadelphie,+4524+Avenue+des+Forces+Arm%C3%A9es,+Kinshasa,+Gombe',
         ],
     ],
 

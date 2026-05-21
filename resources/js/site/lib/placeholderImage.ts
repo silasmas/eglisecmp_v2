@@ -67,7 +67,12 @@ export function formatLivePrimaryLabel(
   now: Date,
   countdown: string,
   apiDays?: number | null,
+  liveStatus?: 'live' | 'upcoming' | null,
 ): string {
+  if (liveStatus === 'live') {
+    return 'Live en cours';
+  }
+
   if (targetIso) {
     const days =
       apiDays != null && apiDays > 0 ? apiDays : daysUntilTarget(targetIso, now);

@@ -147,6 +147,49 @@ h1, h2, h3, h4, h5, h6 {
   animation: float 4s ease-in-out infinite;
 }
 
+@keyframes fab-blink {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.55);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 14px rgba(212, 175, 55, 0);
+    transform: scale(1.04);
+  }
+}
+
+.fab-blink {
+  animation: fab-blink 1.5s ease-in-out infinite;
+}
+
+@keyframes fab-blink-main {
+  0%, 100% {
+    box-shadow: 0 10px 30px rgba(127, 29, 29, 0.35), 0 0 0 0 rgba(212, 175, 55, 0.45);
+  }
+  50% {
+    box-shadow: 0 10px 30px rgba(127, 29, 29, 0.35), 0 0 0 12px rgba(212, 175, 55, 0);
+  }
+}
+
+.fab-blink-main {
+  animation: fab-blink-main 1.5s ease-in-out infinite;
+}
+
+@keyframes badge-blink {
+  0%, 100% {
+    box-shadow: 0 0 0 0 rgba(212, 175, 55, 0.55);
+    transform: scale(1);
+  }
+  50% {
+    box-shadow: 0 0 0 10px rgba(212, 175, 55, 0);
+    transform: scale(1.03);
+  }
+}
+
+.badge-blink {
+  animation: badge-blink 1.5s ease-in-out infinite;
+}
+
 /* Smooth image reveal on load */
 img {
   transition: opacity 0.3s ease;

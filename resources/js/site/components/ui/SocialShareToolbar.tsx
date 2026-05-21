@@ -3,6 +3,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { Copy, Facebook, Linkedin, Share2 } from 'lucide-react';
 import { cn } from '../../lib/utils';
 import { buildShareUrl } from '../../lib/share';
+import ShareToast from './ShareToast';
 
 export interface SocialShareToolbarProps {
   /** Titre du contenu partagé. */
@@ -17,6 +18,10 @@ export interface SocialShareToolbarProps {
   menuStyle?: 'popover' | 'spread';
   /** Contraste du bouton principal sur fond sombre. */
   tone?: 'light' | 'dark';
+  /** Affiche les boutons RS directement, sans menu déroulant. */
+  inline?: boolean;
+  /** Animation au clic sur chaque bouton de partage. */
+  animateOnClick?: boolean;
   className?: string;
 }
 
@@ -51,13 +56,26 @@ export default function SocialShareToolbar({
   compact = false,
   menuStyle = 'spread',
   tone = 'light',
+  inline = false,
+  animateOnClick = false,
   className,
 }: SocialShareToolbarProps) {
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [toastVisible, setToastVisible] = useState(false);
+  const [activeKey, setActiveKey] = useState<string | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
   const url = buildShareUrl(sharePath);
   const text = description && description.trim() !== '' ? `${title} — ${description}` : title;
+
+  const triggerShareAnimation = useCallback((key: string) => {
+    if (!animateOnClick) {
+      return;
+    }
+
+    setActiveKey(key);
+    window.setTimeout(() => setActiveKey(null), 420);
+  }, [animateOnClick]);
 
   const shareNative = useCallback(async () => {
     if (typeof navigator === 'undefined' || !navigator.share) {
@@ -76,11 +94,17 @@ export default function SocialShareToolbar({
     try {
       await navigator.clipboard.writeText(url);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2000);
+      setToastVisible(true);
+      triggerShareAnimation('copy');
+      window.setTimeout(() => {
+        setCopied(false);
+        setToastVisible(false);
+      }, 2200);
     } catch {
       setCopied(false);
+      setToastVisible(false);
     }
-  }, [url]);
+  }, [triggerShareAnimation, url]);
 
   useEffect(() => {
     if (!open) {
@@ -147,7 +171,7 @@ export default function SocialShareToolbar({
     {
       key: 'copy',
       label: copied ? 'Lien copié' : 'Copier le lien',
-      className: 'bg-surface-600 hover:bg-surface-500',
+      className: copied ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-surface-600 hover:bg-surface-500',
       onClick: () => void copyLink(),
       BrandIcon: Copy,
     },
@@ -157,6 +181,83 @@ export default function SocialShareToolbar({
     tone === 'dark'
       ? 'border-white/20 bg-white/10 text-white hover:bg-white/20 focus-visible:ring-white/50'
       : 'border-surface-300 bg-surface-800 text-white hover:bg-surface-700 focus-visible:ring-burgundy-500';
+
+  const renderLinkButton = (item: (typeof links)[number], index: number, inlineMode: boolean) => {
+    const content = (
+      <item.BrandIcon className="h-4 w-4 shrink-0 text-white" aria-hidden />
+    );
+
+    const isActive = activeKey === item.key;
+    const clickAnimation = animateOnClick
+      ? {
+          animate: isActive ? { scale: [1, 1.18, 1], rotate: [0, -8, 0] } : { scale: 1, rotate: 0 },
+          transition: { duration: 0.35 },
+        }
+      : {};
+
+    const motionProps = inlineMode
+      ? clickAnimation
+      : {
+          initial: { opacity: 0, scale: 0.6, x: menuStyle === 'spread' ? -12 : 0, y: menuStyle === 'spread' ? 0 : 8 },
+          animate: { opacity: 1, scale: 1, x: 0, y: 0, ...(clickAnimation.animate ?? {}) },
+          exit: { opacity: 0, scale: 0.6, x: menuStyle === 'spread' ? -8 : 0 },
+          transition: { duration: 0.2, delay: index * 0.04 },
+        };
+
+    if (item.href !== undefined) {
+      return (
+        <motion.a
+          key={item.key}
+          {...motionProps}
+          role="menuitem"
+          href={item.href}
+          target="_blank"
+          rel="noopener noreferrer"
+          className={cn(BRAND_BTN, item.className, isActive && 'ring-2 ring-white/70 ring-offset-2 ring-offset-white')}
+          aria-label={`Partager sur ${item.label}`}
+          onClick={() => {
+            triggerShareAnimation(item.key);
+            setOpen(false);
+          }}
+          whileTap={{ scale: 0.88 }}
+        >
+          {content}
+        </motion.a>
+      );
+    }
+
+    return (
+      <motion.button
+        key={item.key}
+        {...motionProps}
+        type="button"
+        role="menuitem"
+        className={cn(BRAND_BTN, item.className, isActive && 'ring-2 ring-white/70 ring-offset-2 ring-offset-white')}
+        aria-label={item.label}
+        onClick={() => {
+          item.onClick?.();
+          if (item.key !== 'copy') {
+            triggerShareAnimation(item.key);
+            setOpen(false);
+          }
+        }}
+        whileTap={{ scale: 0.88 }}
+      >
+        {content}
+      </motion.button>
+    );
+  };
+
+  if (inline) {
+    return (
+      <>
+        <div className={cn('flex flex-wrap items-center gap-2', className)} role="menu">
+          {links.map((item, index) => renderLinkButton(item, index, true))}
+        </div>
+        <ShareToast message="Lien copié dans le presse-papiers" visible={toastVisible} />
+      </>
+    );
+  }
 
   const menuItems = (
     <AnimatePresence>
@@ -173,86 +274,41 @@ export default function SocialShareToolbar({
           )}
           role="menu"
         >
-          {links.map((item, index) => {
-            const content = (
-              <item.BrandIcon className="h-4 w-4 shrink-0 text-white" aria-hidden />
-            );
-
-            const motionProps = {
-              initial: { opacity: 0, scale: 0.6, x: menuStyle === 'spread' ? -12 : 0, y: menuStyle === 'spread' ? 0 : 8 },
-              animate: { opacity: 1, scale: 1, x: 0, y: 0 },
-              exit: { opacity: 0, scale: 0.6, x: menuStyle === 'spread' ? -8 : 0 },
-              transition: { duration: 0.2, delay: index * 0.04 },
-            };
-
-            if (item.href !== undefined) {
-              return (
-                <motion.a
-                  key={item.key}
-                  {...motionProps}
-                  role="menuitem"
-                  href={item.href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={cn(BRAND_BTN, item.className)}
-                  aria-label={`Partager sur ${item.label}`}
-                  onClick={() => setOpen(false)}
-                >
-                  {content}
-                </motion.a>
-              );
-            }
-
-            return (
-              <motion.button
-                key={item.key}
-                {...motionProps}
-                type="button"
-                role="menuitem"
-                className={cn(BRAND_BTN, item.className)}
-                aria-label={item.label}
-                onClick={() => {
-                  item.onClick?.();
-                  if (item.key !== 'copy') {
-                    setOpen(false);
-                  }
-                }}
-              >
-                {content}
-              </motion.button>
-            );
-          })}
+          {links.map((item, index) => renderLinkButton(item, index, false))}
         </motion.div>
       ) : null}
     </AnimatePresence>
   );
 
   return (
-    <motion.div
-      ref={rootRef}
-      className={cn(
-        menuStyle === 'spread' ? 'flex flex-wrap items-center gap-2' : 'relative inline-flex',
-        className,
-      )}
-    >
-      <motion.button
-        type="button"
-        whileTap={{ scale: 0.94 }}
-        onClick={() => setOpen((previous) => !previous)}
+    <>
+      <motion.div
+        ref={rootRef}
         className={cn(
-          'inline-flex items-center justify-center rounded-full border shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
-          triggerClass,
-          compact ? 'h-10 w-10' : 'gap-1.5 px-3.5 py-2 text-xs font-semibold',
+          menuStyle === 'spread' ? 'flex flex-wrap items-center gap-2' : 'relative inline-flex',
+          className,
         )}
-        aria-expanded={open}
-        aria-haspopup="true"
-        aria-label={open ? 'Fermer les options de partage' : 'Partager'}
       >
-        <Share2 className="h-4 w-4 shrink-0" aria-hidden />
-        {!compact ? <span>Partager</span> : null}
-      </motion.button>
+        <motion.button
+          type="button"
+          whileTap={{ scale: 0.94 }}
+          onClick={() => setOpen((previous) => !previous)}
+          className={cn(
+            'inline-flex items-center justify-center rounded-full border shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-offset-2',
+            triggerClass,
+            compact ? 'h-10 w-10' : 'gap-1.5 px-3.5 py-2 text-xs font-semibold',
+          )}
+          aria-expanded={open}
+          aria-haspopup="true"
+          aria-label={open ? 'Fermer les options de partage' : 'Partager'}
+        >
+          <Share2 className="h-4 w-4 shrink-0" aria-hidden />
+          {!compact ? <span>Partager</span> : null}
+        </motion.button>
 
-      {menuItems}
-    </motion.div>
+        {menuItems}
+      </motion.div>
+      <ShareToast message="Lien copié dans le presse-papiers" visible={toastVisible} />
+    </>
   );
 }

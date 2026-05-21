@@ -40,4 +40,29 @@ class PublicEventController extends Controller
 
         return response()->json(['data' => $payload]);
     }
+
+    /**
+     * Retourne l'événement mis en avant programmé (modale d'accueil).
+     *
+     * @param  Request  $request  Requête (`locale` optionnel).
+     * @return JsonResponse Objet événement ou `null` dans `data`.
+     */
+    public function spotlight(Request $request): JsonResponse
+    {
+        $locale = SitePublicSerializer::localeFromRequest($request);
+        $fallback = SitePublicSerializer::fallbackLocale();
+
+        $event = Event::query()
+            ->featuredSpotlightNow()
+            ->orderBy('date_debut')
+            ->first();
+
+        if ($event === null) {
+            return response()->json(['data' => null]);
+        }
+
+        return response()->json([
+            'data' => SitePublicSerializer::eventToPublicArray($event, $locale, $fallback),
+        ]);
+    }
 }

@@ -1,13 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Heart, HandHeart, Calendar } from 'lucide-react';
+import { Plus, X, Heart, HandHeart, Calendar, Sparkles } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { cn } from '../../lib/utils';
+import { useFeaturedEvent } from '../../context/FeaturedEventContext';
 
-/** Actions flottantes présentes sur tout le site public (offrande, prière, rendez-vous). */
+/** Actions flottantes présentes sur tout le site public (offrande, prière, rendez-vous, événement à la une). */
 export default function FloatingActionsMenu() {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement | null>(null);
+  const { spotlightEvent, showSpotlightFab, pulseMainFab, openSpotlightModal } = useFeaturedEvent();
 
   useEffect(() => {
     if (!open) {
@@ -41,13 +43,36 @@ export default function FloatingActionsMenu() {
             transition={{ duration: 0.2 }}
             className="pointer-events-auto flex flex-col gap-2.5"
           >
+            {showSpotlightFab && spotlightEvent !== null ? (
+              <motion.div
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 28 }}
+                transition={{ duration: 0.2 }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    openSpotlightModal();
+                    setOpen(false);
+                  }}
+                  className={cn(
+                    'fab-blink flex items-center gap-3 rounded-full bg-gold-500 px-4 py-2.5 text-sm font-semibold text-surface-950 shadow-lg transition hover:bg-gold-400',
+                  )}
+                >
+                  <Sparkles className="h-5 w-5 shrink-0" aria-hidden />
+                  {spotlightEvent.title}
+                </button>
+              </motion.div>
+            ) : null}
+
             {items.map(({ to, label, Icon, className }, index) => (
               <motion.div
                 key={to}
                 initial={{ opacity: 0, x: 28 }}
                 animate={{ opacity: 1, x: 0 }}
                 exit={{ opacity: 0, x: 28 }}
-                transition={{ duration: 0.2, delay: index * 0.04 }}
+                transition={{ duration: 0.2, delay: (showSpotlightFab ? index + 1 : index) * 0.04 }}
               >
                 <Link
                   to={to}
@@ -66,13 +91,30 @@ export default function FloatingActionsMenu() {
         ) : null}
       </AnimatePresence>
 
+      {showSpotlightFab && spotlightEvent !== null && !open ? (
+        <motion.button
+          type="button"
+          initial={{ opacity: 0, scale: 0.8 }}
+          animate={{ opacity: 1, scale: 1 }}
+          whileTap={{ scale: 0.94 }}
+          onClick={openSpotlightModal}
+          aria-label={`Voir l'événement : ${spotlightEvent.title}`}
+          className="fab-blink pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-gold-500 text-surface-950 shadow-xl ring-4 ring-gold-300/35"
+        >
+          <Sparkles className="h-5 w-5" aria-hidden />
+        </motion.button>
+      ) : null}
+
       <motion.button
         type="button"
         whileTap={{ scale: 0.94 }}
         onClick={() => setOpen((previous) => !previous)}
         aria-expanded={open}
         aria-label={open ? 'Fermer le menu rapide' : 'Ouvrir le menu rapide'}
-        className="pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-burgundy-800 text-white shadow-2xl shadow-burgundy-900/40 ring-4 ring-white/25 transition hover:bg-burgundy-700 dark:ring-surface-950/40"
+        className={cn(
+          'pointer-events-auto flex h-14 w-14 items-center justify-center rounded-full bg-burgundy-800 text-white shadow-2xl shadow-burgundy-900/40 ring-4 ring-white/25 transition hover:bg-burgundy-700 dark:ring-surface-950/40',
+          pulseMainFab && 'fab-blink-main',
+        )}
       >
         {open ? <X className="h-7 w-7" strokeWidth={2.25} /> : <Plus className="h-7 w-7" strokeWidth={2.25} />}
       </motion.button>

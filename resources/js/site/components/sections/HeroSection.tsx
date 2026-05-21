@@ -3,58 +3,18 @@ import { motion } from 'framer-motion';
 import { ArrowRight, Play, MapPin, BookOpen, CalendarDays } from 'lucide-react';
 import CTAButton from '../ui/CTAButton';
 import HeroStripModal from '../ui/HeroStripModal';
-import { churchInfo, events as fallbackEvents } from '../../data/content';
+import { churchInfo } from '../../data/content';
 import { useHeroMeta } from '../../hooks/useHeroMeta';
-import { useSiteEvents } from '../../hooks/useSiteEvents';
-import type { Event, HeroLiveSlot, HeroStripCard, HeroStripCards } from '../../data/types';
-import { excerptText, formatLivePrimaryLabel } from '../../lib/placeholderImage';
-
-const DEFAULT_LIVE_SLOTS: HeroLiveSlot[] = [
-  { weekday: 3, hour: 17, minute: 30, label: 'Mercredi', subtitle: '' },
-  { weekday: 4, hour: 17, minute: 30, label: 'Jeudi', subtitle: '' },
-  { weekday: 0, hour: 8, minute: 0, label: 'Dimanche', subtitle: '' },
-];
-
-type NextLiveState = HeroLiveSlot & { start: Date };
+import type { HeroStripCard, HeroStripCards } from '../../data/types';
+import { formatLivePrimaryLabel } from '../../lib/placeholderImage';
 
 type StripModalKey = keyof HeroStripCards;
 
-/**
- * Calcule le prochain créneau live à partir des créneaux configurés (API ou valeurs par défaut).
- *
- * @param now Horloge de référence.
- * @param slots Liste des créneaux (jour de la semaine 0–6, heure, minute).
- * @returns Créneau avec date de prochaine occurrence, ou null si aucun créneau.
- */
-function getNextLiveFromSlots(now: Date, slots: HeroLiveSlot[]): NextLiveState | null {
-  if (slots.length === 0) {
-    return null;
-  }
-
-  const candidates = slots.map((slot) => {
-    const next = new Date(now);
-    const diff = (slot.weekday - now.getDay() + 7) % 7;
-    next.setDate(now.getDate() + diff);
-    next.setHours(slot.hour, slot.minute, 0, 0);
-
-    if (next <= now) {
-      next.setDate(next.getDate() + 7);
-    }
-
-    return { ...slot, start: next };
-  });
-
-  const sorted = candidates.sort((a, b) => a.start.getTime() - b.start.getTime());
-
-  return sorted[0] ?? null;
-}
+const stripTileClass =
+  'flex w-full min-w-0 cursor-pointer text-left items-center gap-3 px-4 py-3.5 rounded-2xl backdrop-blur-md border transition-colors hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-300/80';
 
 /**
  * Compte à rebours texte HH:MM:SS jusqu'à la date cible.
- *
- * @param target Date / heure cible.
- * @param now Instant présent.
- * @returns Chaîne formatée.
  */
 function getCountdown(target: Date, now: Date): string {
   const diff = Math.max(0, target.getTime() - now.getTime());
@@ -67,38 +27,34 @@ function getCountdown(target: Date, now: Date): string {
 }
 
 /**
- * Prochain événement futur dans une liste triée par date de début.
- *
- * @param now Référence temporelle.
- * @param eventsList Événements issus de l'API (même forme que le mock).
- * @returns Événement ou null.
+ * Lit le libellé principal d'une tuile (API prioritaire, repli local).
  */
-function getNextEvent(now: Date, eventsList: Event[]): Event | null {
-  const upcomingEvents = eventsList
-    .map((event) => {
-      const firstSegment = event.time.split('-')[0]?.trim() ?? event.time;
-      const timeParts = firstSegment.split(':');
-      const startHour = Number.parseInt(timeParts[0] ?? '0', 10);
-      const startMinute = Number.parseInt(timeParts[1] ?? '0', 10);
-      const start = new Date(event.date);
-      start.setHours(startHour, startMinute, 0, 0);
+function tilePrimary(card: HeroStripCard | undefined, fallback: string): string {
+  if (card?.tilePrimary && card.tilePrimary.trim() !== '') {
+    return card.tilePrimary;
+  }
 
-      return { ...event, start };
-    })
-    .filter((event) => event.start.getTime() > now.getTime())
-    .sort((a, b) => a.start.getTime() - b.start.getTime());
-
-  return upcomingEvents[0] ?? null;
+  return fallback;
 }
 
-const stripTileClass =
-  'flex w-full min-w-0 cursor-pointer text-left items-center gap-3 px-4 py-3.5 rounded-2xl backdrop-blur-md border transition-colors hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-300/80';
+/**
+ * Lit le sous-titre d'une tuile (API prioritaire, repli local).
+ */
+function tileSecondary(card: HeroStripCard | undefined, fallback: string): string {
+  if (card?.tileSecondary && card.tileSecondary.trim() !== '') {
+    return card.tileSecondary;
+  }
 
+  return fallback;
+}
+
+/**
+ * Section hero de l'accueil avec bandeau dynamique (live, programme, lecture, localisation).
+ */
 export default function HeroSection() {
   const [now, setNow] = useState(() => new Date());
   const [stripModal, setStripModal] = useState<StripModalKey | null>(null);
   const { meta: heroMeta } = useHeroMeta();
-  const { events: apiEvents } = useSiteEvents(fallbackEvents, 24);
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -108,9 +64,12 @@ export default function HeroSection() {
     return () => window.clearInterval(timer);
   }, []);
 
-  const liveSlots = heroMeta.liveSlots.length > 0 ? heroMeta.liveSlots : DEFAULT_LIVE_SLOTS;
-  const nextLive = useMemo(() => getNextLiveFromSlots(now, liveSlots), [now, liveSlots]);
-  const nextEvent = useMemo(() => getNextEvent(now, apiEvents), [now, apiEvents]);
+  const strip = heroMeta.stripCards;
+  const liveCard = strip?.live;
+  const eventCard = strip?.event;
+  const readingCard = strip?.reading;
+  const locationCard = strip?.location;
+  const isLiveNow = liveCard?.status === 'live' || heroMeta.liveTiming?.status === 'live';
 
   const countdownTarget = useMemo(() => {
     const iso = heroMeta.liveTiming?.targetIso;
@@ -123,8 +82,8 @@ export default function HeroSection() {
       }
     }
 
-    return nextLive?.start ?? null;
-  }, [heroMeta.liveTiming?.targetIso, nextLive?.start]);
+    return null;
+  }, [heroMeta.liveTiming?.targetIso]);
 
   const countdown = useMemo(() => {
     if (!countdownTarget) {
@@ -134,62 +93,46 @@ export default function HeroSection() {
     return getCountdown(countdownTarget, now);
   }, [countdownTarget, now]);
 
-  const livePrimary = useMemo(() => {
-    const targetIso = heroMeta.liveTiming?.targetIso ?? countdownTarget?.toISOString();
+  const livePrimary = isLiveNow && countdown !== '00:00:00'
+    ? `Live en cours · fin dans ${countdown}`
+    : isLiveNow
+      ? 'Live en cours'
+      : tilePrimary(
+          liveCard,
+          formatLivePrimaryLabel(
+            heroMeta.liveTiming?.targetIso,
+            now,
+            countdown,
+            heroMeta.liveTiming?.displayMode === 'days' ? heroMeta.liveTiming.daysUntil : null,
+            heroMeta.liveTiming?.status ?? liveCard?.status ?? null,
+          ),
+        );
 
-    return formatLivePrimaryLabel(
-      targetIso,
-      now,
-      countdown,
-      heroMeta.liveTiming?.displayMode === 'days' ? heroMeta.liveTiming.daysUntil : null,
-    );
-  }, [heroMeta.liveTiming, countdownTarget, countdown, now]);
-
-  const verse = heroMeta.verse;
-  const strip = heroMeta.stripCards;
-
-  const liveSubtitle =
-    nextLive && nextLive.subtitle && nextLive.subtitle.trim() !== ''
-      ? nextLive.subtitle
-      : nextLive?.label === 'Dimanche'
-        ? 'Culte dominical'
-        : "Culte d'enseignement";
+  const liveSecondary = isLiveNow
+    ? tileSecondary(liveCard, 'Rejoignez-nous en direct')
+    : tileSecondary(liveCard, 'Culte dominical');
+  const eventTitle = tilePrimary(eventCard, 'Programme de la semaine');
+  const eventSubtitle = tileSecondary(eventCard, 'Consultez nos rendez-vous');
+  const readingTitle = tilePrimary(readingCard, 'Lecture du jour');
+  const readingSubtitle = tileSecondary(
+    readingCard,
+    heroMeta.verse?.excerpt?.trim() || 'Cliquez ici pour découvrir la parole du jour ✨',
+  );
+  const locationTitle = tilePrimary(locationCard, 'Nous trouver');
+  const locationSubtitle = tileSecondary(locationCard, churchInfo.shortAddress);
 
   const modalCard: HeroStripCard | null =
     stripModal && strip?.[stripModal]
       ? strip[stripModal]
       : null;
 
-  const eventCard = strip?.event;
-  const eventTitle =
-    eventCard && eventCard.title.trim() !== ''
-      ? eventCard.title
-      : nextEvent
-        ? 'Prochain événement'
-        : 'Événement à venir';
-  const eventSubtitle =
-    eventCard && eventCard.subtitle.trim() !== ''
-      ? eventCard.subtitle
-      : nextEvent
-        ? `${nextEvent.title} · ${new Date(nextEvent.date).toLocaleDateString('fr-FR', { day: 'numeric', month: 'short' })}`
-        : 'Bientôt annoncé';
+  const openLocationMap = () => {
+    const mapUrl = locationCard?.mapUrl?.trim();
 
-  const readingCard = strip?.reading;
-  const readingTitle = 'Lecture du jour';
-  const readingExcerpt =
-    verse?.excerpt?.trim() ||
-    (verse?.text?.trim() ? excerptText(verse.text, 100) : '') ||
-    (readingCard?.subtitle?.trim() ?? '');
-  const readingSubtitle =
-    readingExcerpt !== ''
-      ? readingExcerpt
-      : 'Publiez une lecture du jour dans l’admin (fenêtre 24 h).';
-
-  const locationCard = strip?.location;
-  const locationTitle =
-    locationCard && locationCard.title.trim() !== '' ? locationCard.title : 'Nous trouver';
-  const locationSubtitle =
-    locationCard && locationCard.subtitle.trim() !== '' ? locationCard.subtitle : churchInfo.shortAddress;
+    if (mapUrl) {
+      window.open(mapUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   return (
     <section className="relative min-h-screen flex flex-col overflow-hidden">
@@ -259,34 +202,36 @@ export default function HeroSection() {
       >
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-            {nextLive && (
-              <button
-                type="button"
-                className={`${stripTileClass} bg-burgundy-800/34 border-burgundy-600/25`}
-                onClick={() => {
-                  if (heroMeta.stripCards) {
-                    setStripModal('live');
-                  }
-                }}
-              >
-                <div className="w-9 h-9 rounded-xl bg-burgundy-700/35 flex items-center justify-center shrink-0">
-                  <span className="relative flex h-2.5 w-2.5">
-                    <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-red-500 opacity-75" />
-                    <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-white text-sm font-semibold">{livePrimary}</p>
-                  <p className="text-white/55 text-[12px] mt-0.5">
-                    {liveSubtitle} · {String(nextLive.hour).padStart(2, '0')}:{String(nextLive.minute).padStart(2, '0')}
-                  </p>
-                </div>
-              </button>
-            )}
+            <button
+              type="button"
+              className={`${stripTileClass} ${
+                isLiveNow
+                  ? 'bg-red-900/40 border-red-500/30'
+                  : 'bg-burgundy-800/34 border-burgundy-600/25'
+              }`}
+              onClick={() => {
+                if (heroMeta.stripCards) {
+                  setStripModal('live');
+                }
+              }}
+            >
+              <div className="w-9 h-9 rounded-xl bg-burgundy-700/35 flex items-center justify-center shrink-0">
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isLiveNow ? 'animate-ping bg-red-500' : 'animate-ping bg-red-500'}`} />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-white text-sm font-semibold">{livePrimary}</p>
+                <p className="text-white/55 text-[12px] mt-0.5 line-clamp-2">{liveSecondary}</p>
+              </div>
+            </button>
 
             <button
               type="button"
-              className={`${stripTileClass} bg-white/[0.08] border-white/10`}
+              className={`${stripTileClass} ${
+                eventCard?.status === 'live' ? 'bg-emerald-900/25 border-emerald-500/25' : 'bg-white/[0.08] border-white/10'
+              }`}
               onClick={() => {
                 if (heroMeta.stripCards) {
                   setStripModal('event');
@@ -297,7 +242,7 @@ export default function HeroSection() {
                 <CalendarDays className="w-4 h-4 text-white/50" />
               </div>
               <div className="min-w-0">
-                <p className="text-white text-sm font-semibold">{eventTitle}</p>
+                <p className="text-white text-sm font-semibold line-clamp-1">{eventTitle}</p>
                 <p className="text-white/55 text-[12px] mt-0.5 line-clamp-2">{eventSubtitle}</p>
               </div>
             </button>
@@ -346,6 +291,8 @@ export default function HeroSection() {
         onClose={() => setStripModal(null)}
         card={modalCard}
         showReadingShare={stripModal === 'reading'}
+        onOpenMap={stripModal === 'location' ? openLocationMap : undefined}
+        showLivePlayer={stripModal === 'live'}
       />
     </section>
   );

@@ -146,8 +146,11 @@ final class SitePublicSerializer
         $title = self::text($event->designation, $locale, $fallbackLocale);
         $description = self::text($event->description, $locale, $fallbackLocale);
         $image = self::imageUrl($event->image_url, $locale, $fallbackLocale);
+        $hasPoster = false;
         if ($image === '') {
             $image = $placeholder;
+        } else {
+            $hasPoster = $image !== $placeholder;
         }
 
         $lieuRaw = $event->getAttribute('lieu');
@@ -167,7 +170,12 @@ final class SitePublicSerializer
             'location' => $location !== '' ? $location : '—',
             'description' => $description !== '' ? $description : '',
             'image' => $image,
-            'featured' => (bool) $event->est_a_la_une,
+            'hasPoster' => $hasPoster,
+            'theme' => self::text($event->theme, $locale, $fallbackLocale),
+            'featured' => $event->isFeaturedSpotlightNow(),
+            'featuredFrom' => $event->featured_from?->toIso8601String(),
+            'featuredUntil' => $event->featured_until?->toIso8601String(),
+            'reactableKey' => 'event:'.$event->getKey(),
         ];
     }
 

@@ -3,13 +3,13 @@
 declare(strict_types=1);
 
 use App\Http\Controllers\Api\Site\PublicAppointmentController;
-use App\Http\Controllers\Api\Site\PublicMinisterController;
 use App\Http\Controllers\Api\Site\PublicContentReactionController;
 use App\Http\Controllers\Api\Site\PublicDailyVerseController;
 use App\Http\Controllers\Api\Site\PublicEventController;
 use App\Http\Controllers\Api\Site\PublicFeaturedPostController;
 use App\Http\Controllers\Api\Site\PublicGalleryController;
 use App\Http\Controllers\Api\Site\PublicHeroMetaController;
+use App\Http\Controllers\Api\Site\PublicMinisterController;
 use App\Http\Controllers\Api\Site\PublicOffrandePaymentController;
 use App\Http\Controllers\Api\Site\PublicPostController;
 use App\Http\Controllers\Api\Site\PublicScheduleProgramController;
@@ -29,6 +29,7 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('site')->group(function (): void {
     Route::get('events', [PublicEventController::class, 'index']);
+    Route::get('events/spotlight', [PublicEventController::class, 'spotlight']);
     Route::get('posts', [PublicPostController::class, 'index']);
     Route::get('posts/{post}', [PublicPostController::class, 'show']);
     Route::get('galleries', [PublicGalleryController::class, 'index']);

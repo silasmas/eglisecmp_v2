@@ -50,7 +50,13 @@ export interface Event {
   location: string;
   description: string;
   image: string;
+  /** True si une affiche a été uploadée (pas l'image par défaut). */
+  hasPoster?: boolean;
+  theme?: string;
   featured?: boolean;
+  featuredFrom?: string | null;
+  featuredUntil?: string | null;
+  reactableKey?: string;
 }
 
 export interface Leader {
@@ -105,6 +111,20 @@ export interface HeroStripCard {
   description: string;
   reactableKey: string;
   reference?: string;
+  /** Libellé principal affiché sur la tuile du hero. */
+  tilePrimary?: string;
+  /** Sous-titre affiché sur la tuile du hero. */
+  tileSecondary?: string;
+  /** État dynamique : live en cours, prochain créneau, etc. */
+  status?: 'live' | 'upcoming' | 'idle';
+  /** Lien Google Maps (tuile « Nous trouver »). */
+  mapUrl?: string;
+  /** Lien externe du live (YouTube, Facebook…). */
+  linkUrl?: string;
+  /** URL d'intégration iframe si disponible. */
+  embedUrl?: string;
+  /** Type de flux intégré. */
+  embedKind?: 'youtube' | 'facebook' | 'none';
 }
 
 /** Les quatre tuiles cliquables sous le hero. */
@@ -118,8 +138,9 @@ export interface HeroStripCards {
 /** Timing du prochain live pour le bandeau. */
 export interface HeroLiveTiming {
   targetIso: string;
-  displayMode: 'countdown' | 'days';
+  displayMode: 'countdown' | 'days' | 'live';
   daysUntil: number | null;
+  status?: 'live' | 'upcoming';
 }
 
 /** Données agrégées pour le bandeau du hero. */

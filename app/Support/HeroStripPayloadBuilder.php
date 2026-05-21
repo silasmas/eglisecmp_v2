@@ -37,6 +37,30 @@ final class HeroStripPayloadBuilder
     }
 
     /**
+     * Occurrence du créneau aujourd'hui (null si autre jour de la semaine).
+     */
+    public static function todayOccurrence(Carbon $now, int $weekday, int $hour, int $minute): ?Carbon
+    {
+        if ((int) $now->dayOfWeek !== $weekday) {
+            return null;
+        }
+
+        return $now->copy()->startOfDay()->setTime($hour, $minute, 0);
+    }
+
+    /**
+     * Extrait l'heure de fin depuis un libellé horaire (ex. « 17h30 - 19h30 »).
+     */
+    public static function parseEndTimeFromLabel(?string $timeLabel, Carbon $start, int $defaultMinutes = 120): Carbon
+    {
+        if ($timeLabel !== null && preg_match('/(\d{1,2})[:hH](\d{2})\s*[-–]\s*(\d{1,2})[:hH](\d{2})/u', $timeLabel, $matches)) {
+            return $start->copy()->setTime((int) $matches[3], (int) $matches[4], 0);
+        }
+
+        return $start->copy()->addMinutes($defaultMinutes);
+    }
+
+    /**
      * Retourne le programme live dont la prochaine occurrence est la plus proche, ou null.
      *
      * @return array{at: Carbon, program: ScheduleProgram}|null
@@ -70,6 +94,114 @@ final class HeroStripPayloadBuilder
     }
 
     /**
+     * Détecte un live en cours ou calcule le prochain live.
+     *
+     * @return array{status: string, program: ScheduleProgram|null, start: Carbon|null, end: Carbon|null, nextAt: Carbon|null}
+     */
+    public static function resolveLiveState(Carbon $now): array
+    {
+        $programs = ScheduleProgram::query()
+            ->where('is_active', true)
+            ->where('kind', ScheduleProgram::KIND_LIVE)
+            ->whereNotNull('weekday')
+            ->whereNotNull('live_hour')
+            ->orderBy('sort_order')
+            ->get();
+
+        foreach ($programs as $program) {
+            $start = self::todayOccurrence(
+                $now,
+                (int) $program->weekday,
+                (int) $program->live_hour,
+                (int) ($program->live_minute ?? 0)
+            );
+
+            if ($start === null) {
+                continue;
+            }
+
+            $end = self::parseEndTimeFromLabel((string) ($program->time_label ?? ''), $start, 90);
+
+            if ($now->gte($start) && $now->lt($end)) {
+                return [
+                    'status' => 'live',
+                    'program' => $program,
+                    'start' => $start,
+                    'end' => $end,
+                    'nextAt' => null,
+                ];
+            }
+        }
+
+        $nextLive = self::resolveNextLiveProgram($now);
+
+        return [
+            'status' => 'upcoming',
+            'program' => $nextLive['program'] ?? null,
+            'start' => null,
+            'end' => null,
+            'nextAt' => $nextLive['at'] ?? null,
+        ];
+    }
+
+    /**
+     * Détecte un programme hebdomadaire en cours ou le prochain.
+     *
+     * @return array{status: string, program: ScheduleProgram|null, start: Carbon|null, end: Carbon|null, nextAt: Carbon|null}
+     */
+    public static function resolveWeeklyProgramState(Carbon $now): array
+    {
+        $programs = ScheduleProgram::query()
+            ->where('is_active', true)
+            ->where('kind', ScheduleProgram::KIND_WEEKLY)
+            ->whereNotNull('weekday')
+            ->orderBy('sort_order')
+            ->get();
+
+        foreach ($programs as $program) {
+            $hour = $program->live_hour ?? 17;
+            $minute = $program->live_minute ?? 30;
+            $start = self::todayOccurrence($now, (int) $program->weekday, (int) $hour, (int) $minute);
+
+            if ($start === null) {
+                continue;
+            }
+
+            $end = self::parseEndTimeFromLabel((string) ($program->time_label ?? ''), $start, 120);
+
+            if ($now->gte($start) && $now->lt($end)) {
+                return [
+                    'status' => 'live',
+                    'program' => $program,
+                    'start' => $start,
+                    'end' => $end,
+                    'nextAt' => null,
+                ];
+            }
+        }
+
+        $best = null;
+
+        foreach ($programs as $program) {
+            $hour = $program->live_hour ?? 17;
+            $minute = $program->live_minute ?? 30;
+            $at = self::nextOccurrence($now, (int) $program->weekday, (int) $hour, (int) $minute);
+
+            if ($best === null || $at < $best['at']) {
+                $best = ['at' => $at, 'program' => $program];
+            }
+        }
+
+        return [
+            'status' => 'upcoming',
+            'program' => $best['program'] ?? null,
+            'start' => null,
+            'end' => null,
+            'nextAt' => $best['at'] ?? null,
+        ];
+    }
+
+    /**
      * Assemble `liveTiming`, `stripCards` et métadonnées pour la SPA.
      *
      * @param  string  $locale  Locale demandée.
@@ -79,17 +211,27 @@ final class HeroStripPayloadBuilder
     public static function build(string $locale, string $fallbackLocale): array
     {
         $now = Carbon::now(config('app.timezone'));
-        $nextLive = self::resolveNextLiveProgram($now);
+        $liveState = self::resolveLiveState($now);
+        $weeklyState = self::resolveWeeklyProgramState($now);
 
         $liveTiming = null;
+        $liveProgram = $liveState['program'];
 
-        if ($nextLive !== null) {
-            $secondsUntil = max(0, $nextLive['at']->getTimestamp() - $now->getTimestamp());
+        if ($liveState['status'] === 'live' && $liveState['end'] instanceof Carbon) {
+            $liveTiming = [
+                'targetIso' => $liveState['end']->toIso8601String(),
+                'displayMode' => 'live',
+                'daysUntil' => null,
+                'status' => 'live',
+            ];
+        } elseif ($liveState['nextAt'] instanceof Carbon) {
+            $secondsUntil = max(0, $liveState['nextAt']->getTimestamp() - $now->getTimestamp());
             $within24h = $secondsUntil < 86400;
             $liveTiming = [
-                'targetIso' => $nextLive['at']->toIso8601String(),
+                'targetIso' => $liveState['nextAt']->toIso8601String(),
                 'displayMode' => $within24h ? 'countdown' : 'days',
                 'daysUntil' => $within24h ? null : max(1, (int) ceil($secondsUntil / 86400)),
+                'status' => 'upcoming',
             ];
         }
 
@@ -109,48 +251,50 @@ final class HeroStripPayloadBuilder
             ->orderBy('date_debut')
             ->first();
 
-        $liveProgram = $nextLive !== null ? $nextLive['program'] : null;
         $liveSerialized = $liveProgram instanceof ScheduleProgram
-          ? SitePublicSerializer::scheduleProgramToPublicArray($liveProgram, $locale, $fallbackLocale)
-          : null;
+            ? SitePublicSerializer::scheduleProgramToPublicArray($liveProgram, $locale, $fallbackLocale)
+            : null;
 
         $liveBanner = '';
         if ($liveProgram instanceof ScheduleProgram) {
-            $liveBanner = SitePublicSerializer::imageUrl($liveProgram->banner_image ?? [], $locale, $fallbackLocale);
-
-            if ($liveBanner === '') {
-                $liveBanner = SitePublicSerializer::imageUrl($liveProgram->image_url ?? [], $locale, $fallbackLocale);
-            }
+            $liveBanner = self::scheduleProgramBannerImage($liveProgram, $locale, $fallbackLocale);
         }
 
-        $dayLabel = $liveProgram !== null ? (string) ($liveProgram->day_label ?? '') : '';
-        $liveTitle = is_array($liveSerialized)
-          ? (string) ($liveSerialized['name'] ?? 'Prochain live')
-          : 'Prochain live';
-        $liveSubtitle = is_array($liveSerialized)
-          ? (string) ($liveSerialized['description'] ?? '')
-          : '';
+        $liveTile = self::buildLiveTileLabels($liveState, $liveProgram, $liveSerialized, $now);
+        $streamEmbed = self::resolveStreamEmbed(
+            $liveProgram instanceof ScheduleProgram ? (string) ($liveProgram->link_url ?? '') : ''
+        );
+
+        $eventCard = $nextEvent instanceof Event
+            ? self::buildEventStripCard($nextEvent, $locale, $fallbackLocale)
+            : self::buildWeeklyProgramStripCard($weeklyState, $locale, $fallbackLocale);
+
+        $readingCard = $verse instanceof DailyVerse
+            ? self::buildReadingStripCard($verse, $locale, $fallbackLocale)
+            : [
+                'title' => 'Lecture du jour',
+                'subtitle' => 'Touchez pour ouvrir la parole du jour',
+                'bannerImage' => '',
+                'description' => 'Chaque jour, une parole biblique vous attend ici. Cliquez pour la découvrir, la méditer et la partager avec votre entourage.',
+                'reactableKey' => '',
+                'status' => 'idle',
+                'tilePrimary' => 'Lecture du jour',
+                'tileSecondary' => 'Cliquez ici pour découvrir la parole du jour ✨',
+            ];
 
         $stripCards = [
-            'live' => [
-                'title' => $dayLabel !== '' ? $dayLabel : $liveTitle,
-                'subtitle' => $liveSubtitle,
+            'live' => array_merge([
+                'title' => $liveTile['modalTitle'],
+                'subtitle' => $liveTile['modalSubtitle'],
                 'bannerImage' => $liveBanner,
                 'description' => is_array($liveSerialized) ? (string) ($liveSerialized['description'] ?? '') : '',
                 'reactableKey' => is_array($liveSerialized) ? (string) ($liveSerialized['reactableKey'] ?? '') : '',
-            ],
-            'event' => $nextEvent instanceof Event
-                ? self::buildEventStripCard($nextEvent, $locale, $fallbackLocale)
-                : self::buildWeeklyProgramStripCard($now, $locale, $fallbackLocale),
-            'reading' => $verse instanceof DailyVerse
-              ? self::buildReadingStripCard($verse, $locale, $fallbackLocale)
-              : [
-                  'title' => 'Lecture du jour',
-                  'subtitle' => '',
-                  'bannerImage' => '',
-                  'description' => 'Publiez une entrée « Lecture du jour » dans l’admin (fenêtre 24 h).',
-                  'reactableKey' => '',
-              ],
+                'status' => $liveState['status'],
+                'tilePrimary' => $liveTile['tilePrimary'],
+                'tileSecondary' => $liveTile['tileSecondary'],
+            ], $streamEmbed),
+            'event' => $eventCard,
+            'reading' => $readingCard,
             'location' => self::buildLocationStripCard(),
         ];
 
@@ -161,22 +305,72 @@ final class HeroStripPayloadBuilder
     }
 
     /**
-     * Carte modale « événement » à partir du prochain événement futur.
+     * Libellés dynamiques pour la tuile live du hero.
      *
-     * @return array<string, string>
+     * @param  array<string, mixed>  $liveState  État live calculé.
+     * @param  array<string, mixed>|null  $liveSerialized  Programme sérialisé.
+     * @return array{tilePrimary: string, tileSecondary: string, modalTitle: string, modalSubtitle: string}
      */
-    private static function buildEventStripCard(?Event $event, string $locale, string $fallbackLocale): array
-    {
-        if (! $event instanceof Event) {
+    private static function buildLiveTileLabels(
+        array $liveState,
+        ?ScheduleProgram $liveProgram,
+        ?array $liveSerialized,
+        Carbon $now,
+    ): array {
+        $name = is_array($liveSerialized) ? (string) ($liveSerialized['name'] ?? 'Live') : 'Live';
+        $timeLabel = $liveProgram instanceof ScheduleProgram ? (string) ($liveProgram->time_label ?? '') : '';
+        $dayLabel = $liveProgram instanceof ScheduleProgram ? (string) ($liveProgram->day_label ?? '') : '';
+
+        if ($liveState['status'] === 'live') {
+            $endLabel = $liveState['end'] instanceof Carbon
+                ? $liveState['end']->locale('fr')->format('H\\hi')
+                : '';
+
             return [
-                'title' => 'Prochain événement',
-                'subtitle' => '',
-                'bannerImage' => '',
-                'description' => 'Bientôt annoncé.',
-                'reactableKey' => '',
+                'tilePrimary' => 'Live en cours',
+                'tileSecondary' => $endLabel !== ''
+                    ? "{$name} · jusqu'à {$endLabel}"
+                    : $name,
+                'modalTitle' => 'Live en cours',
+                'modalSubtitle' => $name.($timeLabel !== '' ? " · {$timeLabel}" : ''),
             ];
         }
 
+        $nextAt = $liveState['nextAt'] ?? null;
+        $tilePrimary = 'Prochain live';
+        $tileSecondary = $name;
+
+        if ($nextAt instanceof Carbon) {
+            $secondsUntil = max(0, $nextAt->getTimestamp() - $now->getTimestamp());
+
+            if ($secondsUntil < 86400) {
+                $hours = (int) floor($secondsUntil / 3600);
+                $minutes = (int) floor(($secondsUntil % 3600) / 60);
+                $tilePrimary = 'Prochain live dans '.sprintf('%02d:%02d', $hours, $minutes);
+            } else {
+                $days = max(1, (int) ceil($secondsUntil / 86400));
+                $tilePrimary = "Prochain live dans {$days} jour".($days > 1 ? 's' : '');
+            }
+
+            $tileSecondary = ($dayLabel !== '' ? $dayLabel : $nextAt->locale('fr')->translatedFormat('l'))
+                .' · '.($timeLabel !== '' ? $timeLabel : $nextAt->format('H\\hi'));
+        }
+
+        return [
+            'tilePrimary' => $tilePrimary,
+            'tileSecondary' => $tileSecondary,
+            'modalTitle' => $dayLabel !== '' ? $dayLabel : $name,
+            'modalSubtitle' => is_array($liveSerialized) ? (string) ($liveSerialized['description'] ?? '') : '',
+        ];
+    }
+
+    /**
+     * Carte modale « événement » à partir du prochain événement futur.
+     *
+     * @return array<string, mixed>
+     */
+    private static function buildEventStripCard(Event $event, string $locale, string $fallbackLocale): array
+    {
         $row = SitePublicSerializer::eventToPublicArray($event, $locale, $fallbackLocale);
         $bannerRaw = SitePublicSerializer::imageUrl($event->image_url, $locale, $fallbackLocale);
 
@@ -186,101 +380,106 @@ final class HeroStripPayloadBuilder
             'bannerImage' => $bannerRaw,
             'description' => (string) ($row['description'] ?? ''),
             'reactableKey' => '',
+            'status' => 'upcoming',
+            'tilePrimary' => (string) ($row['title'] ?? 'Prochain événement'),
+            'tileSecondary' => (string) ($row['date'] ?? '').' · '.(string) ($row['time'] ?? ''),
         ];
     }
 
     /**
      * Carte modale « lecture du jour ».
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private static function buildReadingStripCard(DailyVerse $verse, string $locale, string $fallbackLocale): array
     {
         $row = SitePublicSerializer::dailyVerseToPublicArray($verse, $locale, $fallbackLocale);
-
         $bannerImage = SitePublicSerializer::imageUrl($verse->image_url ?? [], $locale, $fallbackLocale);
+        $excerpt = (string) ($row['excerpt'] ?? '');
 
         return [
             'title' => 'Lecture du jour',
-            'subtitle' => (string) ($row['excerpt'] ?? ''),
+            'subtitle' => $excerpt,
             'bannerImage' => $bannerImage,
             'description' => (string) ($row['text'] ?? ''),
             'reactableKey' => (string) ($row['reactableKey'] ?? ''),
             'reference' => (string) ($row['reference'] ?? ''),
+            'status' => 'upcoming',
+            'tilePrimary' => 'Lecture du jour',
+            'tileSecondary' => $excerpt !== '' ? $excerpt : (string) ($row['reference'] ?? ''),
         ];
     }
 
     /**
-     * Carte hero « événement » basée sur le prochain programme hebdomadaire (si aucun événement sous 3 semaines).
+     * Carte hero « programme hebdomadaire » avec état en cours / prochain.
      *
-     * @return array<string, string>
+     * @param  array<string, mixed>  $weeklyState  État calculé.
+     * @return array<string, mixed>
      */
-    private static function buildWeeklyProgramStripCard(Carbon $now, string $locale, string $fallbackLocale): array
+    private static function buildWeeklyProgramStripCard(array $weeklyState, string $locale, string $fallbackLocale): array
     {
-        $programs = ScheduleProgram::query()
-            ->where('is_active', true)
-            ->where('kind', ScheduleProgram::KIND_WEEKLY)
-            ->whereNotNull('weekday')
-            ->orderBy('sort_order')
-            ->get();
+        $program = $weeklyState['program'] ?? null;
 
-        $best = null;
-
-        foreach ($programs as $program) {
-            $hour = $program->live_hour ?? 17;
-            $minute = $program->live_minute ?? 30;
-            $at = self::nextOccurrence($now, (int) $program->weekday, (int) $hour, (int) $minute);
-
-            if ($best === null || $at < $best['at']) {
-                $best = ['at' => $at, 'program' => $program];
-            }
-        }
-
-        if ($best === null) {
-            $fallback = $programs->first();
-
-            if ($fallback instanceof ScheduleProgram) {
-                $serialized = SitePublicSerializer::scheduleProgramToPublicArray($fallback, $locale, $fallbackLocale);
-
-                return [
-                    'title' => 'Prochain rendez-vous',
-                    'subtitle' => (string) (($serialized['day'] ?? '').' · '.($serialized['time'] ?? '')),
-                    'bannerImage' => self::scheduleProgramBannerImage($fallback, $locale, $fallbackLocale),
-                    'description' => (string) ($serialized['description'] ?? ''),
-                    'reactableKey' => (string) ($serialized['reactableKey'] ?? ''),
-                ];
-            }
-
+        if (! $program instanceof ScheduleProgram) {
             return [
-                'title' => 'Prochain événement',
+                'title' => 'Prochain rendez-vous',
                 'subtitle' => '',
                 'bannerImage' => '',
                 'description' => 'Consultez nos programmes hebdomadaires.',
                 'reactableKey' => '',
+                'status' => 'idle',
+                'tilePrimary' => 'Programme de la semaine',
+                'tileSecondary' => 'Consultez nos rendez-vous',
             ];
         }
 
-        $serialized = SitePublicSerializer::scheduleProgramToPublicArray($best['program'], $locale, $fallbackLocale);
-        $dayLabel = (string) ($best['program']->day_label ?? '');
+        $serialized = SitePublicSerializer::scheduleProgramToPublicArray($program, $locale, $fallbackLocale);
+        $name = (string) ($serialized['name'] ?? 'Rendez-vous hebdomadaire');
+        $timeLabel = (string) ($program->time_label ?? $serialized['time'] ?? '');
+        $dayLabel = (string) ($program->day_label ?? '');
+
+        if ($weeklyState['status'] === 'live') {
+            $endLabel = $weeklyState['end'] instanceof Carbon
+                ? $weeklyState['end']->locale('fr')->format('H\\hi')
+                : '';
+
+            return [
+                'title' => $name,
+                'subtitle' => $timeLabel,
+                'bannerImage' => self::scheduleProgramBannerImage($program, $locale, $fallbackLocale),
+                'description' => (string) ($serialized['description'] ?? ''),
+                'reactableKey' => (string) ($serialized['reactableKey'] ?? ''),
+                'status' => 'live',
+                'tilePrimary' => 'Programme en cours',
+                'tileSecondary' => $endLabel !== ''
+                    ? "{$name} · jusqu'à {$endLabel}"
+                    : $name,
+            ];
+        }
+
+        $nextAt = $weeklyState['nextAt'] ?? null;
+        $tileSecondary = $dayLabel;
+
+        if ($nextAt instanceof Carbon) {
+            $tileSecondary = $dayLabel !== ''
+                ? $dayLabel.' · '.$nextAt->locale('fr')->translatedFormat('d M')
+                : $nextAt->locale('fr')->translatedFormat('l d M').($timeLabel !== '' ? " · {$timeLabel}" : '');
+        }
 
         return [
-            'title' => (string) ($serialized['name'] ?? 'Rendez-vous hebdomadaire'),
-            'subtitle' => $dayLabel !== ''
-                ? $dayLabel.' · '.$best['at']->locale('fr')->translatedFormat('d M')
-                : $best['at']->locale('fr')->translatedFormat('l d M').' · '.(string) ($serialized['time'] ?? ''),
-            'bannerImage' => self::scheduleProgramBannerImage($best['program'], $locale, $fallbackLocale),
+            'title' => $name,
+            'subtitle' => $tileSecondary,
+            'bannerImage' => self::scheduleProgramBannerImage($program, $locale, $fallbackLocale),
             'description' => (string) ($serialized['description'] ?? ''),
             'reactableKey' => (string) ($serialized['reactableKey'] ?? ''),
+            'status' => 'upcoming',
+            'tilePrimary' => $name,
+            'tileSecondary' => $tileSecondary,
         ];
     }
 
     /**
      * Image de bannière modale depuis un programme d'antenne, sans valeur de substitution.
-     *
-     * @param  ScheduleProgram  $program  Programme source.
-     * @param  string  $locale  Locale demandée.
-     * @param  string  $fallbackLocale  Locale de repli.
-     * @return string URL ou chaîne vide.
      */
     private static function scheduleProgramBannerImage(ScheduleProgram $program, string $locale, string $fallbackLocale): string
     {
@@ -296,7 +495,7 @@ final class HeroStripPayloadBuilder
     /**
      * Carte modale « nous trouver » (texte configurable).
      *
-     * @return array<string, string>
+     * @return array<string, mixed>
      */
     private static function buildLocationStripCard(): array
     {
@@ -306,6 +505,7 @@ final class HeroStripPayloadBuilder
         $summary = is_string($block['summary'] ?? null) ? $block['summary'] : '';
         $description = is_string($block['description'] ?? null) ? $block['description'] : '';
         $banner = is_string($block['banner_image'] ?? null) ? $block['banner_image'] : '';
+        $mapsUrl = is_string($block['maps_url'] ?? null) ? $block['maps_url'] : '';
 
         $banner = $banner !== ''
             ? SitePublicSerializer::normalizePublicImageUrl($banner)
@@ -321,6 +521,52 @@ final class HeroStripPayloadBuilder
             'bannerImage' => $banner,
             'description' => $description,
             'reactableKey' => '',
+            'mapUrl' => $mapsUrl,
+            'status' => 'idle',
+            'tilePrimary' => $title,
+            'tileSecondary' => 'Cliquez pour voir l\'église sur la carte',
+        ];
+    }
+
+    /**
+     * Résout les URLs d'intégration YouTube / Facebook pour un live.
+     *
+     * @return array{linkUrl: string, embedUrl: string, embedKind: string}
+     */
+    private static function resolveStreamEmbed(string $linkUrl): array
+    {
+        $linkUrl = trim($linkUrl);
+
+        if ($linkUrl === '') {
+            return [
+                'linkUrl' => '',
+                'embedUrl' => '',
+                'embedKind' => 'none',
+            ];
+        }
+
+        $youtubeEmbed = SitePublicSerializer::youtubeEmbedUrlFromLink($linkUrl);
+
+        if ($youtubeEmbed !== '') {
+            return [
+                'linkUrl' => $linkUrl,
+                'embedUrl' => $youtubeEmbed,
+                'embedKind' => 'youtube',
+            ];
+        }
+
+        if (str_contains(strtolower($linkUrl), 'facebook.com')) {
+            return [
+                'linkUrl' => $linkUrl,
+                'embedUrl' => 'https://www.facebook.com/plugins/video.php?href='.urlencode($linkUrl).'&show_text=false&width=560',
+                'embedKind' => 'facebook',
+            ];
+        }
+
+        return [
+            'linkUrl' => $linkUrl,
+            'embedUrl' => '',
+            'embedKind' => 'none',
         ];
     }
 }
