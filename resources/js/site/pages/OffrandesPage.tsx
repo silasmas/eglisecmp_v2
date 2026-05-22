@@ -117,6 +117,10 @@ export default function OffrandesPage() {
   const verificationPhaseRef = useRef(0);
   const phaseStartedAtRef = useRef(0);
   const errorBannerRef = useRef<HTMLParagraphElement | null>(null);
+  const stepsContainerRef = useRef<HTMLDivElement | null>(null);
+  const step1Ref = useRef<HTMLElement | null>(null);
+  const step2Ref = useRef<HTMLElement | null>(null);
+  const step3Ref = useRef<HTMLElement | null>(null);
 
   /** Affiche un message d’échec visible (bandeau + étape 3 si Mobile money). */
   const reportPaymentError = useCallback((rawMessage: string | undefined | null, step3Fallback?: string) => {
@@ -299,12 +303,14 @@ export default function OffrandesPage() {
       return 1;
     }
     if (channel === 'mobile_money') {
-      if (
+      const onProcessingStep =
+        mobileTreatment === 'sending' ||
+        mobileTreatment === 'await_device' ||
+        mobileTreatment === 'checking' ||
         mobileTreatment === 'done' ||
-        mobileTreatment === 'verification_exhausted' ||
-        mobileTreatment === 'error' ||
-        (busy && mobileTreatment !== 'idle')
-      ) {
+        mobileTreatment === 'verification_exhausted';
+
+      if (onProcessingStep) {
         return 3;
       }
     }
@@ -313,6 +319,25 @@ export default function OffrandesPage() {
     }
     return 2;
   }, [busy, channel, mobileTreatment, step1Done]);
+
+  /** Sur mobile : une seule étape visible + défilement vers l’étape active. */
+  useEffect(() => {
+    if (typeof window === 'undefined') {
+      return;
+    }
+
+    const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+    if (!isMobile) {
+      return;
+    }
+
+    const stepRef = focusStep === 1 ? step1Ref : focusStep === 2 ? step2Ref : step3Ref;
+
+    window.requestAnimationFrame(() => {
+      stepsContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      stepRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+  }, [focusStep]);
 
   const handleRetryVerification = useCallback(() => {
     if (reference === null || reference === '') {
@@ -497,11 +522,38 @@ export default function OffrandesPage() {
         ) : null}
 
         {offrandes.length > 0 ? (
-          <div className="-mx-4 flex flex-row gap-4 overflow-x-auto scroll-smooth px-4 pb-2 lg:mx-0 lg:gap-4 lg:overflow-visible lg:pb-0">
-            {/* Étape 1 — horizontalement à gauche */}
+          <>
+            <div
+              className="mb-4 flex items-center gap-2 lg:hidden"
+              aria-label="Progression du paiement"
+            >
+              {[1, 2, 3].map((stepNumber) => (
+                <div
+                  key={stepNumber}
+                  className={cn(
+                    'flex h-9 flex-1 items-center justify-center rounded-full text-xs font-bold transition-colors',
+                    focusStep === stepNumber
+                      ? 'bg-burgundy-900 text-white shadow-md'
+                      : focusStep > stepNumber
+                        ? 'bg-burgundy-700/85 text-white'
+                        : 'bg-surface-200 text-surface-500 dark:bg-surface-800 dark:text-surface-400',
+                  )}
+                >
+                  {stepNumber}
+                </div>
+              ))}
+            </div>
+
+            <div
+              ref={stepsContainerRef}
+              className="flex scroll-mt-24 flex-col gap-4 lg:mx-0 lg:flex-row lg:gap-4 lg:overflow-visible lg:pb-0"
+            >
+            {/* Étape 1 — horizontalement à gauche (desktop) / plein écran (mobile) */}
             <article
+              ref={step1Ref}
               className={cn(
-                'flex min-h-[320px] w-[min(100%,340px)] shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color,opacity] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                'flex min-h-[320px] w-full shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color,opacity] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                focusStep !== 1 && 'max-lg:hidden',
                 focusStep === 1
                   ? 'border-burgundy-400/60 shadow-lg shadow-burgundy-900/10 ring-2 ring-burgundy-500/25 dark:border-burgundy-600/50'
                   : 'border-surface-200 opacity-80 dark:border-surface-700',
@@ -625,8 +677,10 @@ export default function OffrandesPage() {
 
             {/* Étape 2 — centre */}
             <article
+              ref={step2Ref}
               className={cn(
-                'flex min-h-[320px] w-[min(100%,340px)] shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color,opacity] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                'flex min-h-[320px] w-full shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color,opacity] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                focusStep !== 2 && 'max-lg:hidden',
                 !step1Done && 'pointer-events-none opacity-55',
                 focusStep === 2 && step1Done
                   ? 'border-emerald-500/55 shadow-lg shadow-emerald-900/10 ring-2 ring-emerald-400/25 dark:border-emerald-500/40'
@@ -741,10 +795,12 @@ export default function OffrandesPage() {
               )}
             </article>
 
-            {/* Étape 3 — droite : suivi (toujours visible, s’anime selon progression) */}
+            {/* Étape 3 — droite : suivi (toujours visible desktop, seule sur mobile quand active) */}
             <article
+              ref={step3Ref}
               className={cn(
-                'flex min-h-[320px] w-[min(100%,340px)] shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                'flex min-h-[320px] w-full shrink-0 flex-col rounded-3xl border p-6 transition-[box-shadow,border-color] duration-300 dark:bg-surface-950 lg:min-h-[340px] lg:w-0 lg:min-w-0 lg:flex-1',
+                focusStep !== 3 && 'max-lg:hidden',
                 focusStep === 3
                   ? 'border-gold-500/50 shadow-md ring-2 ring-gold-400/20 dark:border-gold-600/45'
                   : 'border-surface-200 opacity-95 dark:border-surface-700',
@@ -839,6 +895,7 @@ export default function OffrandesPage() {
               ) : null}
             </article>
           </div>
+          </>
         ) : null}
       </section>
     </>
