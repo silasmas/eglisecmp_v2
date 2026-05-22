@@ -142,6 +142,33 @@ final class AppointmentAvailabilityService
     }
 
     /**
+     * Retourne le bureau associé au créneau pasteur (jour + heure exacte).
+     */
+    public function resolveBureauForSlot(int $ministerId, Carbon $startsAt): ?int
+    {
+        $dayOfWeek = $startsAt->dayOfWeekIso;
+        $schedules = MinisterReceptionSchedule::query()
+            ->where('minister_id', $ministerId)
+            ->where('day_of_week', $dayOfWeek)
+            ->where('is_active', true)
+            ->get();
+
+        foreach ($schedules as $schedule) {
+            $start = Carbon::parse($startsAt->format('Y-m-d').' '.$schedule->starts_at);
+            $end = Carbon::parse($startsAt->format('Y-m-d').' '.$schedule->ends_at);
+            $duration = max(15, (int) $schedule->slot_minutes);
+
+            for ($cursor = $start->copy(); $cursor->copy()->addMinutes($duration) <= $end; $cursor->addMinutes($duration)) {
+                if ($cursor->equalTo($startsAt)) {
+                    return $schedule->bureau_id !== null ? (int) $schedule->bureau_id : null;
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /**
      * @return array<string, mixed>
      */
     private function serializeMinister(Minister $minister, string $locale, string $fallbackLocale): array

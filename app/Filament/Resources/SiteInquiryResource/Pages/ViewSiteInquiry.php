@@ -18,6 +18,7 @@ class ViewSiteInquiry extends ViewRecord
     protected function getHeaderActions(): array
     {
         return [
+            SiteInquiryResource::makeConfirmAppointmentAction(),
             DeleteAction::make(),
         ];
     }

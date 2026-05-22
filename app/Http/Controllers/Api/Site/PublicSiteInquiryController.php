@@ -64,9 +64,20 @@ final class PublicSiteInquiryController extends Controller
             }
         }
 
+        $bureauId = null;
+
+        if (
+            $validated['kind'] === SiteInquiry::KIND_APPOINTMENT
+            && $preferredAt !== null
+            && isset($validated['minister_id'])
+        ) {
+            $bureauId = $this->availability->resolveBureauForSlot((int) $validated['minister_id'], $preferredAt);
+        }
+
         $inquiry = SiteInquiry::query()->create([
             'kind' => $validated['kind'],
             'minister_id' => $validated['minister_id'] ?? null,
+            'bureau_id' => $bureauId,
             'name' => $validated['name'],
             'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
