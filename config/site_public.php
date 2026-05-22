@@ -98,4 +98,20 @@ return [
         'sunrise' => 'Matin / prière matinale',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Rôles notifiés lors d’une requête de prière (Spatie Shield)
+    |--------------------------------------------------------------------------
+    |
+    | Noms des rôles recevant un courriel et une notification Filament.
+    | « Priere » correspond au rôle historique en base ; « intercession » est
+    | accepté comme alias métier.
+    |
+    */
+    'prayer_notification_roles' => [
+        'intercession',
+        'Intercession',
+        'Priere',
+    ],
+
 ];

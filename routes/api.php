@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Site\PublicPostController;
 use App\Http\Controllers\Api\Site\PublicScheduleProgramController;
 use App\Http\Controllers\Api\Site\PublicSiteInquiryController;
 use App\Http\Controllers\Api\Site\PublicSiteStatisticController;
+use App\Http\Middleware\SetSiteApiLocale;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -27,7 +28,7 @@ use Illuminate\Support\Facades\Route;
 |
 */
 
-Route::prefix('site')->group(function (): void {
+Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): void {
     Route::get('events', [PublicEventController::class, 'index']);
     Route::get('events/spotlight', [PublicEventController::class, 'spotlight']);
     Route::get('posts', [PublicPostController::class, 'index']);

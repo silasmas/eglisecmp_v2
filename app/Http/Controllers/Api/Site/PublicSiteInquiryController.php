@@ -9,9 +9,11 @@ use App\Models\SiteInquiry;
 use App\Models\User;
 use App\Notifications\SiteAppointmentSubmittedNotification;
 use App\Services\AppointmentAvailabilityService;
+use App\Services\PrayerRequestNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Enregistre les demandes issues des pages publiques (prière, rendez-vous).
@@ -20,6 +22,7 @@ final class PublicSiteInquiryController extends Controller
 {
     public function __construct(
         private readonly AppointmentAvailabilityService $availability,
+        private readonly PrayerRequestNotificationService $prayerNotifications,
     ) {}
 
     /**
@@ -32,16 +35,36 @@ final class PublicSiteInquiryController extends Controller
     {
         $validated = $request->validate([
             'kind' => 'required|string|in:'.SiteInquiry::KIND_PRAYER.','.SiteInquiry::KIND_APPOINTMENT,
-            'name' => 'required|string|max:190',
+            'name' => 'nullable|string|max:190',
             'email' => 'nullable|string|email|max:190',
             'phone' => 'nullable|string|max:190',
+            'country' => 'nullable|string|max:190',
+            'is_anonymous' => 'nullable|boolean',
             'message' => 'required|string|max:12000',
             'preferred_at' => 'nullable|date',
             'minister_id' => 'nullable|integer|min:1',
         ]);
 
+        if ($validated['kind'] === SiteInquiry::KIND_PRAYER) {
+            $isAnonymous = (bool) ($validated['is_anonymous'] ?? false);
+
+            if ($isAnonymous) {
+                $validated['name'] = 'Anonyme';
+                $validated['email'] = null;
+                $validated['phone'] = null;
+                $validated['country'] = null;
+            } else {
+                $request->validate([
+                    'name' => 'required|string|max:190',
+                    'phone' => 'required|string|max:190',
+                    'country' => 'required|string|max:190',
+                ]);
+            }
+        }
+
         if ($validated['kind'] === SiteInquiry::KIND_APPOINTMENT) {
             $request->validate([
+                'name' => 'required|string|max:190',
                 'minister_id' => 'required|integer|min:1',
                 'preferred_at' => 'required|date',
                 'phone' => 'required|string|max:190',
@@ -87,6 +110,8 @@ final class PublicSiteInquiryController extends Controller
             'name' => $validated['name'],
             'email' => $validated['email'] ?? null,
             'phone' => $validated['phone'] ?? null,
+            'country' => $validated['country'] ?? null,
+            'is_anonymous' => (bool) ($validated['is_anonymous'] ?? false),
             'message' => $validated['message'],
             'preferred_at' => $preferredAt,
             'appointment_status' => $validated['kind'] === SiteInquiry::KIND_APPOINTMENT
@@ -96,6 +121,17 @@ final class PublicSiteInquiryController extends Controller
 
         if ($inquiry->kind === SiteInquiry::KIND_APPOINTMENT) {
             $this->notifyAdmins($inquiry);
+        }
+
+        if ($inquiry->kind === SiteInquiry::KIND_PRAYER) {
+            try {
+                $this->prayerNotifications->notify($inquiry);
+            } catch (\Throwable $exception) {
+                Log::error('Notification requête de prière impossible.', [
+                    'inquiry_id' => $inquiry->id,
+                    'error' => $exception->getMessage(),
+                ]);
+            }
         }
 
         return response()->json(['data' => ['ok' => true]]);

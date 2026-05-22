@@ -16,6 +16,8 @@ use Illuminate\Support\Carbon;
  * @property string $name
  * @property string|null $email
  * @property string|null $phone
+ * @property string|null $country
+ * @property bool $is_anonymous
  * @property string $message
  * @property int|null $minister_id
  * @property int|null $bureau_id
@@ -52,6 +54,8 @@ class SiteInquiry extends Model
         'name',
         'email',
         'phone',
+        'country',
+        'is_anonymous',
         'message',
         'preferred_at',
         'appointment_status',
@@ -68,6 +72,7 @@ class SiteInquiry extends Model
         return [
             'preferred_at' => 'datetime',
             'confirmation_sms_sent_at' => 'datetime',
+            'is_anonymous' => 'boolean',
         ];
     }
 

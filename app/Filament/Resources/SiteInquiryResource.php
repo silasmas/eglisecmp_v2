@@ -97,6 +97,15 @@ class SiteInquiryResource extends Resource
                                 && filled($record->confirmation_sms_response))
                             ->columnSpanFull(),
                         TextEntry::make('name')->label('Nom')->columnSpan(8),
+                        TextEntry::make('is_anonymous')
+                            ->label('Anonymat')
+                            ->formatStateUsing(fn (bool $state): string => $state ? 'Oui' : 'Non')
+                            ->visible(fn (SiteInquiry $record): bool => $record->kind === SiteInquiry::KIND_PRAYER)
+                            ->columnSpan(4),
+                        TextEntry::make('country')
+                            ->label('Pays')
+                            ->visible(fn (SiteInquiry $record): bool => $record->kind === SiteInquiry::KIND_PRAYER)
+                            ->columnSpan(4),
                         TextEntry::make('email')->columnSpan(6),
                         TextEntry::make('phone')->columnSpan(6),
                         TextEntry::make('preferred_at')->dateTime()->label('Date souhaitée')->columnSpan(6),
@@ -128,6 +137,11 @@ class SiteInquiryResource extends Resource
                     }
                 ),
                 TextColumn::make('name')->searchable()->sortable(),
+                TextColumn::make('country')->label('Pays')->toggleable(isToggledHiddenByDefault: true),
+                TextColumn::make('is_anonymous')
+                    ->label('Anonyme')
+                    ->formatStateUsing(fn (bool $state): string => $state ? 'Oui' : '—')
+                    ->toggleable(isToggledHiddenByDefault: true),
                 TextColumn::make('phone')->label('Téléphone')->toggleable(),
                 TextColumn::make('appointment_status')
                     ->label('Statut')

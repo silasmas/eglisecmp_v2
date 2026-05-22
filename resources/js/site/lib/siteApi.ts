@@ -368,6 +368,8 @@ export async function submitSiteInquiry(payload: {
   message: string;
   email?: string;
   phone?: string;
+  country?: string;
+  is_anonymous?: boolean;
   preferred_at?: string;
   minister_id?: number;
 }): Promise<{ ok: boolean }> {
@@ -381,6 +383,12 @@ export async function submitSiteInquiry(payload: {
   }
   if (payload.phone !== undefined && payload.phone.trim() !== '') {
     body.phone = payload.phone.trim();
+  }
+  if (payload.country !== undefined && payload.country.trim() !== '') {
+    body.country = payload.country.trim();
+  }
+  if (payload.is_anonymous !== undefined) {
+    body.is_anonymous = payload.is_anonymous;
   }
   if (payload.preferred_at !== undefined && payload.preferred_at.trim() !== '') {
     body.preferred_at = payload.preferred_at.trim();
