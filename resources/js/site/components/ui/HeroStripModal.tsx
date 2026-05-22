@@ -8,7 +8,7 @@ import ReactionBar from './ReactionBar';
 import ImageWithSkeleton from './ImageWithSkeleton';
 
 /**
- * Modale plein écran légère : bannière, texte et réactions optionnelles pour une tuile du hero.
+ * Modale hero : image, vidéo et textes dans un seul conteneur scrollable.
  */
 export default function HeroStripModal({
   open,
@@ -82,52 +82,53 @@ export default function HeroStripModal({
             transition={{ duration: 0.3, ease: [0.22, 1, 0.36, 1] }}
             onClick={(event) => event.stopPropagation()}
           >
-            {hasEmbed ? (
-              <div className="relative shrink-0 w-full bg-black">
-                <div className="relative aspect-video w-full">
-                  <iframe
-                    src={embedUrl}
-                    title={card.title}
-                    className="absolute inset-0 h-full w-full"
-                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    allowFullScreen
-                  />
-                </div>
-                {liveCountdownInfo?.isLiveNow ? (
-                  <span className="badge-blink absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-red-300/40 bg-red-700/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
-                    Live en cours
-                  </span>
-                ) : null}
-              </div>
-            ) : bannerVisualSrc !== '' ? (
-              <div
-                className={`relative shrink-0 w-full bg-surface-100 ${
-                  isUpcomingLivePreview ? 'aspect-[4/5] sm:aspect-[16/10]' : 'aspect-[21/9]'
-                }`}
-              >
-                <ImageWithSkeleton src={bannerVisualSrc} alt="" className="h-full w-full object-cover" />
-                {isUpcomingLivePreview && liveCountdownInfo ? (
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-4 pt-20 sm:px-6 sm:pb-6">
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
-                      Prochain live
-                    </p>
-                    <p className="mt-1 text-xl font-bold tabular-nums text-white sm:text-2xl">
-                      {liveCountdownInfo.modalHeadline}
-                    </p>
-                    {liveCountdownInfo.modalScheduledAt !== '' ? (
-                      <p className="mt-2 text-sm text-white/80">{liveCountdownInfo.modalScheduledAt}</p>
-                    ) : null}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+              {hasEmbed ? (
+                <div className="relative w-full shrink-0 bg-black">
+                  <div className="relative aspect-video w-full">
+                    <iframe
+                      src={embedUrl}
+                      title={card.title}
+                      className="absolute inset-0 h-full w-full"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                      allowFullScreen
+                    />
                   </div>
-                ) : null}
-              </div>
-            ) : isUpcomingLivePreview && liveCountdownInfo ? (
-              <div className="relative shrink-0 border-b border-surface-100 bg-burgundy-900/95 px-6 py-5 text-white">
-                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Prochain live</p>
-                <p className="mt-1 text-xl font-bold tabular-nums">{liveCountdownInfo.modalHeadline}</p>
-              </div>
-            ) : null}
+                  {liveCountdownInfo?.isLiveNow ? (
+                    <span className="badge-blink absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-red-300/40 bg-red-700/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
+                      Live en cours
+                    </span>
+                  ) : null}
+                </div>
+              ) : bannerVisualSrc !== '' ? (
+                <div
+                  className={`relative w-full shrink-0 bg-surface-100 ${
+                    isUpcomingLivePreview ? 'aspect-[4/5] sm:aspect-[16/10]' : 'aspect-[21/9]'
+                  }`}
+                >
+                  <ImageWithSkeleton src={bannerVisualSrc} alt="" className="h-full w-full object-cover" />
+                  {isUpcomingLivePreview && liveCountdownInfo ? (
+                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-4 pt-20 sm:px-6 sm:pb-6">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                        Prochain live
+                      </p>
+                      <p className="mt-1 text-xl font-bold tabular-nums text-white sm:text-2xl">
+                        {liveCountdownInfo.modalHeadline}
+                      </p>
+                      {liveCountdownInfo.modalScheduledAt !== '' ? (
+                        <p className="mt-2 text-sm text-white/80">{liveCountdownInfo.modalScheduledAt}</p>
+                      ) : null}
+                    </div>
+                  ) : null}
+                </div>
+              ) : isUpcomingLivePreview && liveCountdownInfo ? (
+                <div className="relative shrink-0 border-b border-surface-100 bg-burgundy-900/95 px-6 py-5 text-white">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Prochain live</p>
+                  <p className="mt-1 text-xl font-bold tabular-nums">{liveCountdownInfo.modalHeadline}</p>
+                </div>
+              ) : null}
 
-            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain p-6 sm:p-8">
+              <div className="p-6 sm:p-8">
               <h2 id="hero-strip-modal-title" className="font-heading text-xl font-bold text-surface-900 sm:text-2xl">
                 {card.title}
               </h2>
@@ -245,6 +246,7 @@ export default function HeroStripModal({
               >
                 Fermer
               </button>
+              </div>
             </div>
           </motion.div>
         </motion.div>
