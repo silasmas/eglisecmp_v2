@@ -360,7 +360,7 @@ final class HeroStripPayloadBuilder
             'tilePrimary' => $tilePrimary,
             'tileSecondary' => $tileSecondary,
             'modalTitle' => $dayLabel !== '' ? $dayLabel : $name,
-            'modalSubtitle' => is_array($liveSerialized) ? (string) ($liveSerialized['description'] ?? '') : '',
+            'modalSubtitle' => $tileSecondary,
         ];
     }
 

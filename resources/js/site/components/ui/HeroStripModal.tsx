@@ -16,6 +16,7 @@ export default function HeroStripModal({
   showReadingShare = false,
   onOpenMap,
   showLivePlayer = false,
+  liveUpcomingCountdown,
 }: {
   open: boolean;
   onClose: () => void;
@@ -25,6 +26,8 @@ export default function HeroStripModal({
   onOpenMap?: () => void;
   /** Affiche le lecteur YouTube / Facebook pour un live en cours. */
   showLivePlayer?: boolean;
+  /** Compte à rebours affiché sur l'affiche avant le début du live. */
+  liveUpcomingCountdown?: string;
 }) {
   useEffect(() => {
     if (!open) {
@@ -44,6 +47,7 @@ export default function HeroStripModal({
   const embedUrl = card?.embedUrl?.trim() ?? '';
   const linkUrl = card?.linkUrl?.trim() ?? '';
   const hasEmbed = showLivePlayer && embedUrl !== '';
+  const isUpcomingLivePreview = !showLivePlayer && liveUpcomingCountdown !== undefined;
 
   return (
     <AnimatePresence>
@@ -94,13 +98,30 @@ export default function HeroStripModal({
                 ) : null}
               </div>
             ) : bannerVisualSrc !== '' ? (
-              <div className="relative shrink-0 aspect-[21/9] w-full bg-surface-100">
+              <div
+                className={`relative shrink-0 w-full bg-surface-100 ${
+                  isUpcomingLivePreview ? 'aspect-[4/5] sm:aspect-[16/10]' : 'aspect-[21/9]'
+                }`}
+              >
                 <ImageWithSkeleton src={bannerVisualSrc} alt="" className="h-full w-full object-cover" />
                 {card.status === 'live' ? (
                   <span className="badge-blink absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-red-300/40 bg-red-700/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
                     En cours
                   </span>
                 ) : null}
+                {isUpcomingLivePreview && liveUpcomingCountdown ? (
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-6">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
+                      Prochain live
+                    </p>
+                    <p className="mt-1 text-lg font-bold text-white sm:text-xl">{liveUpcomingCountdown}</p>
+                  </div>
+                ) : null}
+              </div>
+            ) : isUpcomingLivePreview && liveUpcomingCountdown ? (
+              <div className="relative shrink-0 border-b border-surface-100 bg-burgundy-900/95 px-6 py-5 text-white">
+                <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Prochain live</p>
+                <p className="mt-1 text-lg font-bold">{liveUpcomingCountdown}</p>
               </div>
             ) : null}
 
@@ -115,8 +136,18 @@ export default function HeroStripModal({
                 <p className="mt-1 text-sm text-surface-500">{card.subtitle}</p>
               ) : null}
 
+              {isUpcomingLivePreview && liveUpcomingCountdown && bannerVisualSrc === '' ? (
+                <p className="mt-3 rounded-2xl bg-burgundy-50 px-4 py-3 text-sm font-semibold text-burgundy-900">
+                  {liveUpcomingCountdown}
+                </p>
+              ) : null}
+
               {card.description.trim() !== '' ? (
                 <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-surface-700">{card.description}</p>
+              ) : isUpcomingLivePreview ? (
+                <p className="mt-4 text-sm leading-relaxed text-surface-500">
+                  Le live n&apos;a pas encore commencé. Revenez à l&apos;heure indiquée pour nous rejoindre en direct.
+                </p>
               ) : null}
 
               {showLivePlayer && linkUrl !== '' && !hasEmbed ? (

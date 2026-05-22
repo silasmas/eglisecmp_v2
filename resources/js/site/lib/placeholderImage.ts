@@ -55,27 +55,30 @@ export function daysUntilTarget(targetIso: string, now: Date): number | null {
 }
 
 /**
- * Libellé du prochain live : décompte HH:MM:SS ou nombre de jours.
+ * Libellé principal de la tuile live : délai restant en jours ou compte à rebours.
  *
- * @param targetIso Date du prochain live.
+ * @param targetIso Date cible ISO (début du prochain live ou fin du live en cours).
  * @param now Horloge courante.
  * @param countdown Chaîne HH:MM:SS déjà calculée.
- * @param apiDays Jours fournis par l'API (`liveTiming.daysUntil`), optionnel.
+ * @param isLiveNow Indique si un live est en cours.
+ * @returns Texte affiché sur la tuile « Prochain live ».
  */
-export function formatLivePrimaryLabel(
+export function formatLiveTilePrimaryLabel(
   targetIso: string | null | undefined,
   now: Date,
   countdown: string,
-  apiDays?: number | null,
-  liveStatus?: 'live' | 'upcoming' | null,
+  isLiveNow: boolean,
 ): string {
-  if (liveStatus === 'live') {
+  if (isLiveNow) {
+    if (countdown !== '00:00:00') {
+      return `Live en cours · fin dans ${countdown}`;
+    }
+
     return 'Live en cours';
   }
 
   if (targetIso) {
-    const days =
-      apiDays != null && apiDays > 0 ? apiDays : daysUntilTarget(targetIso, now);
+    const days = daysUntilTarget(targetIso, now);
 
     if (days != null && days > 0) {
       return `Prochain live dans ${days} jour${days > 1 ? 's' : ''}`;
@@ -87,6 +90,30 @@ export function formatLivePrimaryLabel(
   }
 
   return 'Prochain live';
+}
+
+/**
+ * Libellé du prochain live : décompte HH:MM:SS ou nombre de jours.
+ *
+ * @param targetIso Date du prochain live.
+ * @param now Horloge courante.
+ * @param countdown Chaîne HH:MM:SS déjà calculée.
+ * @param apiDays Jours fournis par l'API (`liveTiming.daysUntil`), optionnel.
+ * @deprecated Préférer {@link formatLiveTilePrimaryLabel} pour la tuile hero.
+ */
+export function formatLivePrimaryLabel(
+  targetIso: string | null | undefined,
+  now: Date,
+  countdown: string,
+  apiDays?: number | null,
+  liveStatus?: 'live' | 'upcoming' | null,
+): string {
+  return formatLiveTilePrimaryLabel(
+    targetIso,
+    now,
+    countdown,
+    liveStatus === 'live',
+  );
 }
 
 /**

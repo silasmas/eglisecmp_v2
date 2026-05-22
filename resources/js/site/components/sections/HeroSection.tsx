@@ -6,7 +6,7 @@ import HeroStripModal from '../ui/HeroStripModal';
 import { churchInfo } from '../../data/content';
 import { useHeroMeta } from '../../hooks/useHeroMeta';
 import type { HeroStripCard, HeroStripCards } from '../../data/types';
-import { formatLivePrimaryLabel } from '../../lib/placeholderImage';
+import { formatLiveTilePrimaryLabel } from '../../lib/placeholderImage';
 
 type StripModalKey = keyof HeroStripCards;
 
@@ -93,20 +93,12 @@ export default function HeroSection() {
     return getCountdown(countdownTarget, now);
   }, [countdownTarget, now]);
 
-  const livePrimary = isLiveNow && countdown !== '00:00:00'
-    ? `Live en cours · fin dans ${countdown}`
-    : isLiveNow
-      ? 'Live en cours'
-      : tilePrimary(
-          liveCard,
-          formatLivePrimaryLabel(
-            heroMeta.liveTiming?.targetIso,
-            now,
-            countdown,
-            heroMeta.liveTiming?.displayMode === 'days' ? heroMeta.liveTiming.daysUntil : null,
-            heroMeta.liveTiming?.status ?? liveCard?.status ?? null,
-          ),
-        );
+  const livePrimary = formatLiveTilePrimaryLabel(
+    heroMeta.liveTiming?.targetIso,
+    now,
+    countdown,
+    isLiveNow,
+  );
 
   const liveSecondary = isLiveNow
     ? tileSecondary(liveCard, 'Rejoignez-nous en direct')
@@ -292,7 +284,8 @@ export default function HeroSection() {
         card={modalCard}
         showReadingShare={stripModal === 'reading'}
         onOpenMap={stripModal === 'location' ? openLocationMap : undefined}
-        showLivePlayer={stripModal === 'live'}
+        showLivePlayer={stripModal === 'live' && isLiveNow}
+        liveUpcomingCountdown={stripModal === 'live' && !isLiveNow ? livePrimary : undefined}
       />
     </section>
   );
