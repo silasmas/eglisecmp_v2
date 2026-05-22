@@ -114,4 +114,15 @@ return [
         'Priere',
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Courriels transactionnels — logo public
+    |--------------------------------------------------------------------------
+    |
+    | URL absolue du logo (fallback si l’intégration CID échoue). Par défaut :
+    | {APP_URL}/images/logo-cmp.png
+    |
+    */
+    'mail_logo_url' => env('MAIL_LOGO_URL'),
+
 ];

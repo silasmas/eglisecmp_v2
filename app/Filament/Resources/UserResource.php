@@ -80,7 +80,7 @@ class UserResource extends Resource
                             ->label('Rôle')
                             ->relationship(
                                 'roleModel',
-                                'display_name',
+                                'name',
                                 fn (Builder $query): Builder => $query->orderBy('display_name')->orderBy('name'),
                             )
                             ->getOptionLabelFromRecordUsing(
@@ -129,12 +129,10 @@ class UserResource extends Resource
             ->columns([
                 TextColumn::make('name')->label('Nom')->searchable()->sortable(),
                 TextColumn::make('email')->label('Email')->searchable()->sortable(),
-                TextColumn::make('roleModel.display_name')
+                TextColumn::make('role')
                     ->label('Rôle')
                     ->badge()
-                    ->formatStateUsing(fn (?string $state, User $record): string => $record->roleModel
-                        ? static::roleOptionLabel($record->roleModel)
-                        : '—'),
+                    ->getStateUsing(fn (User $record): string => $record->roleDisplayLabel()),
                 IconColumn::make('notifiable')->label('Notifiable')->boolean(),
                 TextColumn::make('created_at')->label('Créé le')->dateTime('d/m/Y H:i')->sortable()->toggleable(),
             ])

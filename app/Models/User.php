@@ -60,4 +60,29 @@ class User extends Authenticatable
     {
         return $this->belongsTo(Role::class, 'role_id');
     }
+
+    /**
+     * Libellé affichable du rôle (legacy `role_id` ou Spatie Permission).
+     */
+    public function roleDisplayLabel(): string
+    {
+        if ($this->relationLoaded('roleModel') || $this->role_id !== null) {
+            $legacyRole = $this->roleModel;
+            if ($legacyRole !== null) {
+                if (filled($legacyRole->display_name)) {
+                    return (string) $legacyRole->display_name;
+                }
+                if (filled($legacyRole->name)) {
+                    return (string) $legacyRole->name;
+                }
+            }
+        }
+
+        $spatieRole = $this->roles()->first();
+        if ($spatieRole !== null && filled($spatieRole->name)) {
+            return (string) $spatieRole->name;
+        }
+
+        return '—';
+    }
 }

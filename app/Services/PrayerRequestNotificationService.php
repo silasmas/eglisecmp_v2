@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Models\Role as LegacyRole;
 use App\Models\SiteInquiry;
 use App\Models\User;
 use App\Notifications\SitePrayerRequestSubmittedNotification;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Log;
-use Spatie\Permission\Models\Role;
 
 /**
  * Envoie les notifications d’intercession pour une requête de prière enregistrée.
@@ -40,29 +40,42 @@ class PrayerRequestNotificationService
     }
 
     /**
-     * Résout les destinataires sans lever d’exception si un rôle configuré est absent.
+     * Résout les destinataires via `role_id` (Filament) et/ou Spatie Permission.
      *
      * @return Collection<int, User>
      */
     private function resolveRecipients(): Collection
     {
         $configuredRoles = config('site_public.prayer_notification_roles', ['intercession']);
-        $guard = (string) config('auth.defaults.guard', 'web');
 
-        $existingRoleNames = Role::query()
-            ->where('guard_name', $guard)
+        $legacyRoleIds = LegacyRole::query()
             ->whereIn('name', $configuredRoles)
+            ->pluck('id')
+            ->all();
+
+        $spatieRoleNames = LegacyRole::query()
+            ->whereIn('name', $configuredRoles)
+            ->whereNotNull('name')
             ->pluck('name')
             ->all();
 
-        if ($existingRoleNames === []) {
+        if ($legacyRoleIds === [] && $spatieRoleNames === []) {
             return collect();
         }
 
         return User::query()
-            ->whereHas('roles', function ($query) use ($existingRoleNames): void {
-                $query->whereIn('name', $existingRoleNames);
+            ->where(function ($query) use ($legacyRoleIds, $spatieRoleNames): void {
+                if ($legacyRoleIds !== []) {
+                    $query->whereIn('role_id', $legacyRoleIds);
+                }
+                if ($spatieRoleNames !== []) {
+                    $query->orWhereHas('roles', function ($roleQuery) use ($spatieRoleNames): void {
+                        $roleQuery->whereIn('name', $spatieRoleNames);
+                    });
+                }
             })
-            ->get();
+            ->get()
+            ->unique('id')
+            ->values();
     }
 }

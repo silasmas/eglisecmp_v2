@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
+use App\Mail\PrayerRequestSubmittedMail;
 use App\Models\SiteInquiry;
 use Illuminate\Bus\Queueable;
-use Illuminate\Notifications\Messages\MailMessage;
 use Illuminate\Notifications\Notification;
 
 /**
@@ -35,35 +35,11 @@ class SitePrayerRequestSubmittedNotification extends Notification
     }
 
     /**
-     * @return MailMessage Message transmis à l’équipe d’intercession.
+     * @return PrayerRequestSubmittedMail Courriel HTML brandé avec logo intégré.
      */
-    public function toMail(object $notifiable): MailMessage
+    public function toMail(object $notifiable): PrayerRequestSubmittedMail
     {
-        $displayName = $this->inquiry->is_anonymous
-            ? 'Anonyme (demande confidentielle)'
-            : $this->inquiry->name;
-
-        $mail = (new MailMessage)
-            ->subject('Nouvelle requête de prière — CMP')
-            ->greeting('Bonjour,')
-            ->line('Une nouvelle requête de prière vient d’être déposée sur le site.')
-            ->line("Nom : {$displayName}")
-            ->line('Pays : '.($this->inquiry->country ?? '—'))
-            ->line('Téléphone : '.($this->inquiry->phone ?? '—'));
-
-        if (filled($this->inquiry->email)) {
-            $mail->line("Courriel : {$this->inquiry->email}");
-        }
-
-        if ($this->inquiry->is_anonymous) {
-            $mail->line('Cette demande a été envoyée dans l’anonymat.');
-        }
-
-        return $mail
-            ->line('Requête :')
-            ->line($this->inquiry->message)
-            ->action('Voir dans l’administration', url('/admin/site-inquiries'))
-            ->salutation('Centre Missionnaire Philadelphie');
+        return new PrayerRequestSubmittedMail($this->inquiry);
     }
 
     /**
