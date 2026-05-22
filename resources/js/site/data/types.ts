@@ -125,6 +125,12 @@ export interface HeroStripCard {
   embedUrl?: string;
   /** Type de flux intégré. */
   embedKind?: 'youtube' | 'facebook' | 'none';
+  /** Badge clignotant en tête de modale. */
+  modalBadge?: string;
+  /** Style du badge modale. */
+  modalBadgeTone?: 'live' | 'upcoming-live' | 'reading' | 'program' | 'program-live' | 'featured';
+  /** Programme récurrent (horaire fixe chaque semaine). */
+  isRecurring?: boolean;
 }
 
 /** Les quatre tuiles cliquables sous le hero. */

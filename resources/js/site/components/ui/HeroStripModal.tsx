@@ -4,6 +4,7 @@ import { CalendarClock, Clock3, ExternalLink, MapPin } from 'lucide-react';
 import type { HeroStripCard } from '../../data/types';
 import type { LiveCountdownInfo } from '../../lib/liveCountdown';
 import DailyReadingShare from './DailyReadingShare';
+import HeroStripBlinkBadge from './HeroStripBlinkBadge';
 import ReactionBar from './ReactionBar';
 import ImageWithSkeleton from './ImageWithSkeleton';
 
@@ -50,6 +51,9 @@ export default function HeroStripModal({
   const hasEmbed = showLivePlayer && embedUrl !== '';
   const isLiveModal = liveCountdownInfo !== undefined;
   const isUpcomingLivePreview = isLiveModal && !showLivePlayer;
+  const modalBadgeLabel = card?.modalBadge?.trim() ?? '';
+  const modalBadgeTone = card?.modalBadgeTone;
+  const showModalBadge = modalBadgeLabel !== '' && modalBadgeTone !== undefined;
 
   return (
     <AnimatePresence>
@@ -94,10 +98,8 @@ export default function HeroStripModal({
                       allowFullScreen
                     />
                   </div>
-                  {liveCountdownInfo?.isLiveNow ? (
-                    <span className="badge-blink absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-red-300/40 bg-red-700/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
-                      Live en cours
-                    </span>
+                  {showModalBadge ? (
+                    <HeroStripBlinkBadge label={modalBadgeLabel} tone={modalBadgeTone} />
                   ) : null}
                 </div>
               ) : bannerVisualSrc !== '' ? (
@@ -107,6 +109,9 @@ export default function HeroStripModal({
                   }`}
                 >
                   <ImageWithSkeleton src={bannerVisualSrc} alt="" className="h-full w-full object-cover" />
+                  {showModalBadge ? (
+                    <HeroStripBlinkBadge label={modalBadgeLabel} tone={modalBadgeTone} />
+                  ) : null}
                   {isUpcomingLivePreview && liveCountdownInfo ? (
                     <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-4 pt-20 sm:px-6 sm:pb-6">
                       <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
@@ -123,12 +128,26 @@ export default function HeroStripModal({
                 </div>
               ) : isUpcomingLivePreview && liveCountdownInfo ? (
                 <div className="relative shrink-0 border-b border-surface-100 bg-burgundy-900/95 px-6 py-5 text-white">
+                  {showModalBadge ? (
+                    <HeroStripBlinkBadge
+                      label={modalBadgeLabel}
+                      tone={modalBadgeTone}
+                      className="relative mb-3 inline-flex"
+                    />
+                  ) : null}
                   <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Prochain live</p>
                   <p className="mt-1 text-xl font-bold tabular-nums">{liveCountdownInfo.modalHeadline}</p>
                 </div>
               ) : null}
 
               <div className="p-6 sm:p-8">
+              {showModalBadge && bannerVisualSrc === '' && !hasEmbed && !isUpcomingLivePreview ? (
+                <HeroStripBlinkBadge
+                  label={modalBadgeLabel}
+                  tone={modalBadgeTone}
+                  className="relative mb-4 inline-flex"
+                />
+              ) : null}
               <h2 id="hero-strip-modal-title" className="font-heading text-xl font-bold text-surface-900 sm:text-2xl">
                 {card.title}
               </h2>

@@ -8,6 +8,7 @@ use App\Models\DailyVerse;
 use App\Models\Event;
 use App\Models\ScheduleProgram;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Collection;
 
 /**
  * Construit les données des quatre tuiles cliquables du hero et le timing du prochain live.
@@ -67,14 +68,7 @@ final class HeroStripPayloadBuilder
      */
     public static function resolveNextLiveProgram(Carbon $now): ?array
     {
-        $programs = ScheduleProgram::query()
-            ->where('is_active', true)
-            ->where('kind', ScheduleProgram::KIND_LIVE)
-            ->whereNotNull('weekday')
-            ->whereNotNull('live_hour')
-            ->orderBy('sort_order')
-            ->get();
-
+        $programs = self::liveCapablePrograms();
         $best = null;
 
         foreach ($programs as $program) {
@@ -94,21 +88,37 @@ final class HeroStripPayloadBuilder
     }
 
     /**
+     * Programmes actifs pouvant déclencher un live (type live ou hebdo diffusé).
+     *
+     * @return Collection<int, ScheduleProgram>
+     */
+    private static function liveCapablePrograms(): Collection
+    {
+        return ScheduleProgram::query()
+            ->where('is_active', true)
+            ->whereNotNull('weekday')
+            ->whereNotNull('live_hour')
+            ->where(function ($query): void {
+                $query
+                    ->where('kind', ScheduleProgram::KIND_LIVE)
+                    ->orWhere(function ($weekly): void {
+                        $weekly
+                            ->where('kind', ScheduleProgram::KIND_WEEKLY)
+                            ->where('streams_live', true);
+                    });
+            })
+            ->orderBy('sort_order')
+            ->get();
+    }
+
+    /**
      * Détecte un live en cours ou calcule le prochain live.
      *
      * @return array{status: string, program: ScheduleProgram|null, start: Carbon|null, end: Carbon|null, nextAt: Carbon|null}
      */
     public static function resolveLiveState(Carbon $now): array
     {
-        $programs = ScheduleProgram::query()
-            ->where('is_active', true)
-            ->where('kind', ScheduleProgram::KIND_LIVE)
-            ->whereNotNull('weekday')
-            ->whereNotNull('live_hour')
-            ->orderBy('sort_order')
-            ->get();
-
-        foreach ($programs as $program) {
+        foreach (self::liveCapablePrograms() as $program) {
             $start = self::todayOccurrence(
                 $now,
                 (int) $program->weekday,
@@ -153,13 +163,20 @@ final class HeroStripPayloadBuilder
     {
         $programs = ScheduleProgram::query()
             ->where('is_active', true)
-            ->where('kind', ScheduleProgram::KIND_WEEKLY)
+            ->where('show_in_hero_strip', true)
+            ->whereIn('kind', [ScheduleProgram::KIND_WEEKLY, ScheduleProgram::KIND_DAILY])
             ->whereNotNull('weekday')
             ->orderBy('sort_order')
             ->get();
 
+        $eventThisWeek = self::hasActiveEventThisWeek($now);
+
         foreach ($programs as $program) {
-            $hour = $program->live_hour ?? 17;
+            if ($eventThisWeek && (bool) $program->suppress_if_event_this_week) {
+                continue;
+            }
+
+            $hour = $program->live_hour ?? self::defaultHourFromTimeLabel((string) ($program->time_label ?? '')) ?? 17;
             $minute = $program->live_minute ?? 30;
             $start = self::todayOccurrence($now, (int) $program->weekday, (int) $hour, (int) $minute);
 
@@ -183,7 +200,11 @@ final class HeroStripPayloadBuilder
         $best = null;
 
         foreach ($programs as $program) {
-            $hour = $program->live_hour ?? 17;
+            if ($eventThisWeek && (bool) $program->suppress_if_event_this_week) {
+                continue;
+            }
+
+            $hour = $program->live_hour ?? self::defaultHourFromTimeLabel((string) ($program->time_label ?? '')) ?? 17;
             $minute = $program->live_minute ?? 30;
             $at = self::nextOccurrence($now, (int) $program->weekday, (int) $hour, (int) $minute);
 
@@ -192,12 +213,24 @@ final class HeroStripPayloadBuilder
             }
         }
 
+        if ($best !== null) {
+            return [
+                'status' => 'upcoming',
+                'program' => $best['program'],
+                'start' => null,
+                'end' => null,
+                'nextAt' => $best['at'],
+            ];
+        }
+
+        $fallback = $programs->first(fn (ScheduleProgram $program): bool => ! $eventThisWeek || ! (bool) $program->suppress_if_event_this_week);
+
         return [
-            'status' => 'upcoming',
-            'program' => $best['program'] ?? null,
+            'status' => $fallback instanceof ScheduleProgram ? 'upcoming' : 'idle',
+            'program' => $fallback,
             'start' => null,
             'end' => null,
-            'nextAt' => $best['at'] ?? null,
+            'nextAt' => null,
         ];
     }
 
@@ -311,6 +344,8 @@ final class HeroStripPayloadBuilder
                 'status' => 'idle',
                 'tilePrimary' => 'Lecture du jour',
                 'tileSecondary' => 'Cliquez ici pour découvrir la parole du jour ✨',
+                'modalBadge' => 'Lecture du jour',
+                'modalBadgeTone' => 'reading',
             ];
 
         $stripCards = [
@@ -323,6 +358,8 @@ final class HeroStripPayloadBuilder
                 'status' => $liveState['status'],
                 'tilePrimary' => $liveTile['tilePrimary'],
                 'tileSecondary' => $liveTile['tileSecondary'],
+                'modalBadge' => $liveState['status'] === 'live' ? 'Live en cours' : 'Prochain live',
+                'modalBadgeTone' => $liveState['status'] === 'live' ? 'live' : 'upcoming-live',
             ], $streamEmbed),
             'event' => $eventCard,
             'reading' => $readingCard,
@@ -414,6 +451,8 @@ final class HeroStripPayloadBuilder
             'status' => 'upcoming',
             'tilePrimary' => (string) ($row['title'] ?? 'Prochain événement'),
             'tileSecondary' => (string) ($row['date'] ?? '').' · '.(string) ($row['time'] ?? ''),
+            'modalBadge' => 'Événement à venir',
+            'modalBadgeTone' => 'featured',
         ];
     }
 
@@ -438,6 +477,8 @@ final class HeroStripPayloadBuilder
             'status' => 'upcoming',
             'tilePrimary' => 'Lecture du jour',
             'tileSecondary' => $excerpt !== '' ? $excerpt : (string) ($row['reference'] ?? ''),
+            'modalBadge' => 'Lecture du jour',
+            'modalBadgeTone' => 'reading',
         ];
     }
 
@@ -461,6 +502,8 @@ final class HeroStripPayloadBuilder
                 'status' => 'idle',
                 'tilePrimary' => 'Programme de la semaine',
                 'tileSecondary' => 'Consultez nos rendez-vous',
+                'modalBadge' => 'Programme de la semaine',
+                'modalBadgeTone' => 'program',
             ];
         }
 
@@ -485,17 +528,13 @@ final class HeroStripPayloadBuilder
                 'tileSecondary' => $endLabel !== ''
                     ? "{$name} · jusqu'à {$endLabel}"
                     : $name,
+                'modalBadge' => 'Programme en cours',
+                'modalBadgeTone' => 'program-live',
             ];
         }
 
-        $nextAt = $weeklyState['nextAt'] ?? null;
-        $tileSecondary = $dayLabel;
-
-        if ($nextAt instanceof Carbon) {
-            $tileSecondary = $dayLabel !== ''
-                ? $dayLabel.' · '.$nextAt->locale('fr')->translatedFormat('d M')
-                : $nextAt->locale('fr')->translatedFormat('l d M').($timeLabel !== '' ? " · {$timeLabel}" : '');
-        }
+        $scheduleLabel = self::formatProgramScheduleLabel($program, $weeklyState['nextAt'] ?? null);
+        $tileSecondary = $scheduleLabel;
 
         return [
             'title' => $name,
@@ -506,7 +545,75 @@ final class HeroStripPayloadBuilder
             'status' => 'upcoming',
             'tilePrimary' => $name,
             'tileSecondary' => $tileSecondary,
+            'modalBadge' => 'Programme de la semaine',
+            'modalBadgeTone' => 'program',
+            'isRecurring' => (bool) $program->is_recurring,
         ];
+    }
+
+    /**
+     * Libellé horaire fixe (récurrent) ou prochaine date.
+     */
+    private static function formatProgramScheduleLabel(ScheduleProgram $program, ?Carbon $nextAt): string
+    {
+        $timeLabel = (string) ($program->time_label ?? '');
+        $dayLabel = (string) ($program->day_label ?? '');
+
+        if ((bool) $program->is_recurring) {
+            $dayPart = $dayLabel !== ''
+                ? $dayLabel
+                : ($program->weekday !== null
+                    ? Carbon::now()->startOfWeek()->addDays((int) $program->weekday)->locale('fr')->translatedFormat('l')
+                    : '');
+
+            if ($dayPart !== '' && $timeLabel !== '') {
+                return "Chaque {$dayPart} · {$timeLabel}";
+            }
+
+            if ($dayPart !== '') {
+                return "Chaque {$dayPart}";
+            }
+
+            if ($timeLabel !== '') {
+                return $timeLabel;
+            }
+        }
+
+        if ($nextAt instanceof Carbon) {
+            return $dayLabel !== ''
+                ? $dayLabel.' · '.$nextAt->locale('fr')->translatedFormat('d M')
+                : $nextAt->locale('fr')->translatedFormat('l d M').($timeLabel !== '' ? " · {$timeLabel}" : '');
+        }
+
+        return $dayLabel !== '' ? $dayLabel : 'Consultez nos rendez-vous';
+    }
+
+    /**
+     * Un événement actif a lieu durant la semaine calendaire courante.
+     */
+    private static function hasActiveEventThisWeek(Carbon $now): bool
+    {
+        $weekStart = $now->copy()->startOfWeek();
+        $weekEnd = $now->copy()->endOfWeek();
+
+        return Event::query()
+            ->where('is_active', true)
+            ->whereBetween('date_debut', [$weekStart, $weekEnd])
+            ->exists();
+    }
+
+    /**
+     * Extrait l'heure de début depuis un libellé horaire (ex. « 17h30 - 19h00 »).
+     *
+     * @return int|null Heure 0–23 ou null.
+     */
+    private static function defaultHourFromTimeLabel(string $timeLabel): ?int
+    {
+        if ($timeLabel !== '' && preg_match('/(\d{1,2})[:hH](\d{2})/u', $timeLabel, $matches)) {
+            return (int) $matches[1];
+        }
+
+        return null;
     }
 
     /**

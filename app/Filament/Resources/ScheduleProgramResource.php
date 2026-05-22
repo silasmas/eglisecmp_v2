@@ -18,6 +18,7 @@ use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -173,6 +174,27 @@ class ScheduleProgramResource extends Resource
                             ->label('Actif')
                             ->default(true)
                             ->helperText('Désactiver masque le programme sur le site public sans le supprimer.')
+                            ->columnSpan(4),
+                        Toggle::make('is_recurring')
+                            ->label('Récurrent chaque semaine')
+                            ->default(true)
+                            ->helperText('Horaire fixe (ex. « Chaque mercredi ») sans resaisir la date chaque semaine.')
+                            ->columnSpan(4),
+                        Toggle::make('streams_live')
+                            ->label('Diffusé en live')
+                            ->default(false)
+                            ->helperText('Pour un programme hebdomadaire : active le bandeau live et le décompte au même créneau.')
+                            ->visible(fn (Get $get): bool => in_array($get('kind'), [ScheduleProgram::KIND_WEEKLY, ScheduleProgram::KIND_DAILY], true))
+                            ->columnSpan(4),
+                        Toggle::make('show_in_hero_strip')
+                            ->label('Afficher sur le bandeau hero')
+                            ->default(true)
+                            ->helperText('Tuile « Programme de la semaine » sur l’accueil (si aucun événement prioritaire).')
+                            ->columnSpan(4),
+                        Toggle::make('suppress_if_event_this_week')
+                            ->label('Masquer si événement cette semaine')
+                            ->default(true)
+                            ->helperText('Le programme récurrent cède la place à un événement programmé la même semaine.')
                             ->columnSpan(4),
                     ]),
             ]);

@@ -27,6 +27,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  * @property bool $grid_wide
  * @property int $sort_order
  * @property bool $is_active
+ * @property bool $is_recurring
+ * @property bool $streams_live
+ * @property bool $show_in_hero_strip
+ * @property bool $suppress_if_event_this_week
  */
 class ScheduleProgram extends Model
 {
@@ -57,6 +61,10 @@ class ScheduleProgram extends Model
         'grid_wide',
         'sort_order',
         'is_active',
+        'is_recurring',
+        'streams_live',
+        'show_in_hero_strip',
+        'suppress_if_event_this_week',
     ];
 
     /**
@@ -75,6 +83,10 @@ class ScheduleProgram extends Model
             'grid_wide' => 'boolean',
             'sort_order' => 'integer',
             'is_active' => 'boolean',
+            'is_recurring' => 'boolean',
+            'streams_live' => 'boolean',
+            'show_in_hero_strip' => 'boolean',
+            'suppress_if_event_this_week' => 'boolean',
         ];
     }
 
@@ -86,5 +98,21 @@ class ScheduleProgram extends Model
     public function event(): BelongsTo
     {
         return $this->belongsTo(Event::class);
+    }
+
+    /**
+     * Indique si ce programme peut alimenter le bandeau live (type live ou hebdo diffusé).
+     */
+    public function isLiveCapable(): bool
+    {
+        if ($this->weekday === null || $this->live_hour === null) {
+            return false;
+        }
+
+        if ($this->kind === self::KIND_LIVE) {
+            return true;
+        }
+
+        return $this->kind === self::KIND_WEEKLY && (bool) $this->streams_live;
     }
 }

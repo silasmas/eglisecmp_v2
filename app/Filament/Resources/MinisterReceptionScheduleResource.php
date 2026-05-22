@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\MinisterReceptionScheduleResource\Pages;
 use App\Models\Minister;
 use App\Models\MinisterReceptionSchedule;
+use App\Support\MinisterReceptionScheduleGuard;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -19,6 +20,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Validation\ValidationException;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
 use UnitEnum;
 
@@ -49,7 +51,15 @@ class MinisterReceptionScheduleResource extends Resource
                 ->relationship('minister', 'fullname')
                 ->getOptionLabelFromRecordUsing(fn (Minister $record): string => MinisterResource::normalizeLegacyValue($record->fullname) ?? (string) $record->id)
                 ->searchable()
+                ->preload()
                 ->required(),
+            Select::make('bureau_id')
+                ->label('Bureau')
+                ->relationship('bureau', 'name')
+                ->searchable()
+                ->preload()
+                ->required()
+                ->helperText('Deux pasteurs peuvent recevoir le même créneau dans des bureaux différents.'),
             Select::make('day_of_week')
                 ->label('Jour')
                 ->options([
@@ -91,6 +101,10 @@ class MinisterReceptionScheduleResource extends Resource
                     ->label('Pasteur')
                     ->formatStateUsing(fn ($state): string => MinisterResource::normalizeLegacyValue($state) ?? '—')
                     ->searchable(),
+                TextColumn::make('bureau.name')
+                    ->label('Bureau')
+                    ->placeholder('—')
+                    ->searchable(),
                 TextColumn::make('day_of_week')
                     ->label('Jour')
                     ->formatStateUsing(fn (int $state): string => match ($state) {
@@ -113,6 +127,38 @@ class MinisterReceptionScheduleResource extends Resource
                 EditAction::make(),
                 DeleteAction::make(),
             ]);
+    }
+
+    /**
+     * Vérifie qu’aucune autre plage n’occupe le même bureau sur le même créneau.
+     *
+     * @param  array<string, mixed>  $data  Données du formulaire.
+     * @param  int|null  $exceptId  Identifiant de la plage en édition.
+     */
+    public static function assertBureauSlotAvailable(array $data, ?int $exceptId = null): void
+    {
+        $bureauId = (int) ($data['bureau_id'] ?? 0);
+        $dayOfWeek = (int) ($data['day_of_week'] ?? 0);
+        $startsAt = (string) ($data['starts_at'] ?? '');
+        $endsAt = (string) ($data['ends_at'] ?? '');
+
+        if ($bureauId <= 0 || $dayOfWeek <= 0 || $startsAt === '' || $endsAt === '') {
+            return;
+        }
+
+        $conflict = MinisterReceptionScheduleGuard::findConflictingSchedule(
+            $bureauId,
+            $dayOfWeek,
+            $startsAt,
+            $endsAt,
+            $exceptId,
+        );
+
+        if ($conflict !== null) {
+            throw ValidationException::withMessages([
+                'starts_at' => MinisterReceptionScheduleGuard::conflictMessage($conflict),
+            ]);
+        }
     }
 
     public static function getPages(): array

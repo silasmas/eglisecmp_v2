@@ -12,6 +12,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
  *
  * @property int $id
  * @property int $minister_id
+ * @property int|null $bureau_id
  * @property int $day_of_week 1 (lundi) à 7 (dimanche), format ISO-8601
  * @property string $starts_at
  * @property string $ends_at
@@ -22,6 +23,7 @@ class MinisterReceptionSchedule extends Model
 {
     protected $fillable = [
         'minister_id',
+        'bureau_id',
         'day_of_week',
         'starts_at',
         'ends_at',
@@ -35,6 +37,7 @@ class MinisterReceptionSchedule extends Model
     protected function casts(): array
     {
         return [
+            'bureau_id' => 'integer',
             'day_of_week' => 'integer',
             'slot_minutes' => 'integer',
             'is_active' => 'boolean',
@@ -49,5 +52,15 @@ class MinisterReceptionSchedule extends Model
     public function minister(): BelongsTo
     {
         return $this->belongsTo(Minister::class);
+    }
+
+    /**
+     * Bureau de réception associé.
+     *
+     * @return BelongsTo<Bureau, $this>
+     */
+    public function bureau(): BelongsTo
+    {
+        return $this->belongsTo(Bureau::class);
     }
 }

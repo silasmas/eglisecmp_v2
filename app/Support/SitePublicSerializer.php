@@ -343,6 +343,9 @@ final class SitePublicSerializer
             'thumbnail' => $thumb,
             'bannerImage' => $banner,
             'reactableKey' => 'schedule_program:'.$program->getKey(),
+            'isRecurring' => (bool) $program->is_recurring,
+            'streamsLive' => (bool) $program->streams_live,
+            'showInHeroStrip' => (bool) $program->show_in_hero_strip,
         ];
     }
 
