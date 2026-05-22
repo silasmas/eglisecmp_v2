@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\DailyVerseResource\Pages;
 use App\Models\DailyVerse;
+use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -20,12 +21,12 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Support\Carbon;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
+use TinusG\FilamentHoverImageColumn\HoverImageColumn as ImageColumn;
 use UnitEnum;
 
 /**
@@ -119,9 +120,8 @@ class DailyVerseResource extends Resource
                     ->label('Vignette')
                     ->square()
                     ->size(44)
-                    ->getStateUsing(fn (?DailyVerse $record): ?string => is_array($record?->image_url)
-                        ? ($record->image_url['fr'] ?? $record->image_url[app()->getLocale()] ?? null)
-                        : null),
+                    ->getStateUsing(fn (?DailyVerse $record): ?string => FilamentImageUrl::resolve($record?->image_url))
+                    ->placeholder('—'),
                 TextColumn::make('reference')
                     ->label('Reference')
                     ->formatStateUsing(fn ($state, ?DailyVerse $record): string => self::firstLocaleString($record?->reference)),

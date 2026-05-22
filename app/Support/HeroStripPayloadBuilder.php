@@ -216,22 +216,53 @@ final class HeroStripPayloadBuilder
 
         $liveTiming = null;
         $liveProgram = $liveState['program'];
+        $liveName = 'Live';
+        $liveTimeLabel = '';
+        $liveDayLabel = '';
+        $liveScheduledLabel = '';
+
+        if ($liveProgram instanceof ScheduleProgram) {
+            $liveSerializedForTiming = SitePublicSerializer::scheduleProgramToPublicArray($liveProgram, $locale, $fallbackLocale);
+            $liveName = (string) ($liveSerializedForTiming['name'] ?? 'Live');
+            $liveTimeLabel = (string) ($liveProgram->time_label ?? '');
+            $liveDayLabel = (string) ($liveProgram->day_label ?? '');
+        }
 
         if ($liveState['status'] === 'live' && $liveState['end'] instanceof Carbon) {
+            $liveScheduledLabel = $liveTimeLabel !== ''
+                ? $liveTimeLabel
+                : ($liveState['start'] instanceof Carbon ? $liveState['start']->locale('fr')->format('H\\hi') : '');
+
             $liveTiming = [
                 'targetIso' => $liveState['end']->toIso8601String(),
+                'startIso' => $liveState['start'] instanceof Carbon ? $liveState['start']->toIso8601String() : null,
+                'endIso' => $liveState['end']->toIso8601String(),
                 'displayMode' => 'live',
                 'daysUntil' => null,
                 'status' => 'live',
+                'programName' => $liveName,
+                'scheduledLabel' => $liveScheduledLabel !== '' ? "{$liveName} · {$liveScheduledLabel}" : $liveName,
+                'timeLabel' => $liveTimeLabel,
+                'dayLabel' => $liveDayLabel,
             ];
         } elseif ($liveState['nextAt'] instanceof Carbon) {
-            $secondsUntil = max(0, $liveState['nextAt']->getTimestamp() - $now->getTimestamp());
+            $nextAt = $liveState['nextAt'];
+            $secondsUntil = max(0, $nextAt->getTimestamp() - $now->getTimestamp());
             $within24h = $secondsUntil < 86400;
+            $liveScheduledLabel = ($liveDayLabel !== '' ? $liveDayLabel : $nextAt->locale('fr')->translatedFormat('l'))
+                .' · '.($liveTimeLabel !== '' ? $liveTimeLabel : $nextAt->format('H\\hi'));
+
             $liveTiming = [
-                'targetIso' => $liveState['nextAt']->toIso8601String(),
+                'targetIso' => $nextAt->toIso8601String(),
+                'startIso' => $nextAt->toIso8601String(),
+                'endIso' => null,
                 'displayMode' => $within24h ? 'countdown' : 'days',
                 'daysUntil' => $within24h ? null : max(1, (int) ceil($secondsUntil / 86400)),
                 'status' => 'upcoming',
+                'programName' => $liveName,
+                'scheduledLabel' => $liveScheduledLabel,
+                'timeLabel' => $liveTimeLabel,
+                'dayLabel' => $liveDayLabel,
             ];
         }
 

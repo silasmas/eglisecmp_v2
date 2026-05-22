@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\EventResource\Pages;
 use App\Models\Event;
 use App\Support\EventFeaturedGuard;
+use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -17,11 +18,11 @@ use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Columns\ToggleColumn;
 use Filament\Tables\Table;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
+use TinusG\FilamentHoverImageColumn\HoverImageColumn as ImageColumn;
 use UnitEnum;
 
 /**
@@ -61,7 +62,12 @@ class EventResource extends Resource
                         FileUpload::make('image_url.fr')
                             ->label('Affiche')
                             ->image()
+                            ->disk('public')
                             ->directory('events')
+                            ->visibility('public')
+                            ->maxSize(5120)
+                            ->downloadable()
+                            ->openable()
                             ->columnSpan(6),
                         Textarea::make('description.fr')
                             ->label('Description')
@@ -96,7 +102,7 @@ class EventResource extends Resource
                     ->label('Affiche')
                     ->square()
                     ->size(56)
-                    ->getStateUsing(fn (?Event $record): ?string => static::resolveEventPosterUrl($record))
+                    ->getStateUsing(fn (?Event $record): ?string => FilamentImageUrl::resolve($record?->image_url))
                     ->placeholder('—'),
                 TextColumn::make('designation')->label('Designation')->formatStateUsing(fn ($state): string => static::translateState($state))->searchable(),
                 TextColumn::make('theme')->label('Theme')->formatStateUsing(fn ($state): string => static::translateState($state))->limit(40),
@@ -166,35 +172,5 @@ class EventResource extends Resource
         $fallback = config('app.fallback_locale', 'en');
 
         return (string) ($decoded[$locale] ?? $decoded[$fallback] ?? collect($decoded)->first() ?? '');
-    }
-
-    /**
-     * URL de l'affiche événement pour la colonne tableau Filament.
-     */
-    protected static function resolveEventPosterUrl(?Event $record): ?string
-    {
-        if ($record === null) {
-            return null;
-        }
-
-        $imageUrl = $record->image_url;
-
-        if (! is_array($imageUrl)) {
-            return null;
-        }
-
-        $locale = app()->getLocale();
-        $fallback = config('app.fallback_locale', 'en');
-        $path = (string) ($imageUrl[$locale] ?? $imageUrl[$fallback] ?? collect($imageUrl)->first(fn ($item): bool => filled($item)) ?? '');
-
-        if ($path === '') {
-            return null;
-        }
-
-        if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
-            return $path;
-        }
-
-        return asset('storage/'.ltrim($path, '/'));
     }
 }

@@ -4,6 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\MinisterResource\Pages;
 use App\Models\Minister;
+use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -45,8 +46,9 @@ class MinisterResource extends Resource
                 ImageColumn::make('image_url')
                     ->label('Photo')
                     ->circular()
-                    ->disk('public')
-                    ->getStateUsing(fn (Minister $record): ?string => static::normalizeLegacyValue($record->image_url)),
+                    ->size(48)
+                    ->getStateUsing(fn (Minister $record): ?string => FilamentImageUrl::resolve($record->image_url))
+                    ->placeholder('—'),
                 TextColumn::make('fullname')
                     ->label('Nom')
                     ->formatStateUsing(fn ($state): string => static::normalizeLegacyValue($state) ?? '')

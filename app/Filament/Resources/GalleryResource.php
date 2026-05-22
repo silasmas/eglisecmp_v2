@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use AhmedAbdelrhman\FilamentMediaGallery\Infolists\Components\MediaGalleryEntry;
 use App\Filament\Resources\GalleryResource\Pages;
 use App\Models\Gallery;
+use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -19,11 +20,10 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\SpatieMediaLibraryImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
+use TinusG\FilamentHoverImageColumn\HoverImageColumn as ImageColumn;
 use UnitEnum;
 
 class GalleryResource extends Resource
@@ -109,22 +109,14 @@ class GalleryResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->with('media'))
             ->columns([
-                SpatieMediaLibraryImageColumn::make('media')
+                ImageColumn::make('preview')
                     ->label('Aperçu')
-                    ->collection(Gallery::MEDIA_COLLECTION)
-                    ->conversion('thumbnail')
-                    ->limit(1)
                     ->square()
-                    ->defaultImageUrl(function (Model $record): ?string {
-                        if (! $record instanceof Gallery) {
-                            return null;
-                        }
-
-                        $legacy = static::translateState($record->image_url);
-
-                        return filled($legacy) ? $legacy : null;
-                    }),
+                    ->size(56)
+                    ->getStateUsing(fn (?Gallery $record): ?string => FilamentImageUrl::resolveGalleryPreview($record))
+                    ->placeholder('—'),
                 TextColumn::make('description')
                     ->label('Description')
                     ->formatStateUsing(fn ($state): string => static::translateState($state))

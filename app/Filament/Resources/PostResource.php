@@ -6,6 +6,7 @@ use App\Filament\Resources\PostResource\Pages;
 use App\Models\Event;
 use App\Models\Minister;
 use App\Models\Post;
+use App\Support\FilamentImageUrl;
 use App\Support\YoutubeDurationParser;
 use BackedEnum;
 use Filament\Actions\ActionGroup;
@@ -196,11 +197,13 @@ class PostResource extends Resource
                     ->circular(false)
                     ->square()
                     ->size(48)
-                    ->getStateUsing(fn (?Post $record): ?string => $record?->getLocalizedValue('image_url')),
+                    ->getStateUsing(fn (?Post $record): ?string => FilamentImageUrl::resolve($record?->image_url))
+                    ->placeholder('—'),
                 ImageColumn::make('speaker_avatar')
                     ->label('Photo orateur')
                     ->circular()
-                    ->getStateUsing(fn (?Post $record): ?string => $record?->getSpeakerImageUrl())
+                    ->size(40)
+                    ->getStateUsing(fn (?Post $record): ?string => FilamentImageUrl::resolve($record?->minister?->image_url))
                     ->placeholder('—')
                     ->visible(fn (?Post $record): bool => filled($record?->minister_id)),
                 TextColumn::make('speaker_name')

@@ -137,10 +137,19 @@ export interface HeroStripCards {
 
 /** Timing du prochain live pour le bandeau. */
 export interface HeroLiveTiming {
+  /** Fin du live en cours ou début du prochain live (cible du décompte). */
   targetIso: string;
+  /** Début du prochain live (affichage modale). */
+  startIso?: string | null;
+  /** Fin du live en cours. */
+  endIso?: string | null;
   displayMode: 'countdown' | 'days' | 'live';
   daysUntil: number | null;
   status?: 'live' | 'upcoming';
+  programName?: string;
+  scheduledLabel?: string;
+  timeLabel?: string;
+  dayLabel?: string;
 }
 
 /** Données agrégées pour le bandeau du hero. */

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Support\FilamentImageUrl;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
@@ -120,25 +121,7 @@ class Post extends Model
 
     public function getSpeakerImageUrl(): ?string
     {
-        $image = $this->minister?->image_url;
-
-        if (! is_string($image) || blank($image)) {
-            return null;
-        }
-
-        $decoded = json_decode($image, true);
-
-        if (is_array($decoded)) {
-            $locale = app()->getLocale();
-            $fallback = config('app.fallback_locale', 'en');
-
-            return $decoded[$locale]
-                ?? $decoded[$fallback]
-                ?? collect($decoded)->first(fn ($item): bool => filled($item))
-                ?? null;
-        }
-
-        return $image;
+        return FilamentImageUrl::resolve($this->minister?->image_url);
     }
 
     /**

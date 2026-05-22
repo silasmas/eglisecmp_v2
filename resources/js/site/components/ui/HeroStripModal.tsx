@@ -1,7 +1,8 @@
 import { useEffect } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ExternalLink, MapPin } from 'lucide-react';
+import { CalendarClock, Clock3, ExternalLink, MapPin } from 'lucide-react';
 import type { HeroStripCard } from '../../data/types';
+import type { LiveCountdownInfo } from '../../lib/liveCountdown';
 import DailyReadingShare from './DailyReadingShare';
 import ReactionBar from './ReactionBar';
 import ImageWithSkeleton from './ImageWithSkeleton';
@@ -16,7 +17,7 @@ export default function HeroStripModal({
   showReadingShare = false,
   onOpenMap,
   showLivePlayer = false,
-  liveUpcomingCountdown,
+  liveCountdownInfo,
 }: {
   open: boolean;
   onClose: () => void;
@@ -26,8 +27,8 @@ export default function HeroStripModal({
   onOpenMap?: () => void;
   /** Affiche le lecteur YouTube / Facebook pour un live en cours. */
   showLivePlayer?: boolean;
-  /** Compte à rebours affiché sur l'affiche avant le début du live. */
-  liveUpcomingCountdown?: string;
+  /** Décompte et infos du prochain live (tuile live). */
+  liveCountdownInfo?: LiveCountdownInfo;
 }) {
   useEffect(() => {
     if (!open) {
@@ -47,7 +48,8 @@ export default function HeroStripModal({
   const embedUrl = card?.embedUrl?.trim() ?? '';
   const linkUrl = card?.linkUrl?.trim() ?? '';
   const hasEmbed = showLivePlayer && embedUrl !== '';
-  const isUpcomingLivePreview = !showLivePlayer && liveUpcomingCountdown !== undefined;
+  const isLiveModal = liveCountdownInfo !== undefined;
+  const isUpcomingLivePreview = isLiveModal && !showLivePlayer;
 
   return (
     <AnimatePresence>
@@ -91,7 +93,7 @@ export default function HeroStripModal({
                     allowFullScreen
                   />
                 </div>
-                {card.status === 'live' ? (
+                {liveCountdownInfo?.isLiveNow ? (
                   <span className="badge-blink absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-red-300/40 bg-red-700/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
                     Live en cours
                   </span>
@@ -104,24 +106,24 @@ export default function HeroStripModal({
                 }`}
               >
                 <ImageWithSkeleton src={bannerVisualSrc} alt="" className="h-full w-full object-cover" />
-                {card.status === 'live' ? (
-                  <span className="badge-blink absolute left-4 top-4 z-10 inline-flex items-center gap-2 rounded-full border border-red-300/40 bg-red-700/90 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-white">
-                    En cours
-                  </span>
-                ) : null}
-                {isUpcomingLivePreview && liveUpcomingCountdown ? (
-                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 via-black/45 to-transparent px-4 pb-4 pt-16 sm:px-6 sm:pb-6">
+                {isUpcomingLivePreview && liveCountdownInfo ? (
+                  <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/85 via-black/50 to-transparent px-4 pb-4 pt-20 sm:px-6 sm:pb-6">
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">
                       Prochain live
                     </p>
-                    <p className="mt-1 text-lg font-bold text-white sm:text-xl">{liveUpcomingCountdown}</p>
+                    <p className="mt-1 text-xl font-bold tabular-nums text-white sm:text-2xl">
+                      {liveCountdownInfo.modalHeadline}
+                    </p>
+                    {liveCountdownInfo.modalScheduledAt !== '' ? (
+                      <p className="mt-2 text-sm text-white/80">{liveCountdownInfo.modalScheduledAt}</p>
+                    ) : null}
                   </div>
                 ) : null}
               </div>
-            ) : isUpcomingLivePreview && liveUpcomingCountdown ? (
+            ) : isUpcomingLivePreview && liveCountdownInfo ? (
               <div className="relative shrink-0 border-b border-surface-100 bg-burgundy-900/95 px-6 py-5 text-white">
                 <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/70">Prochain live</p>
-                <p className="mt-1 text-lg font-bold">{liveUpcomingCountdown}</p>
+                <p className="mt-1 text-xl font-bold tabular-nums">{liveCountdownInfo.modalHeadline}</p>
               </div>
             ) : null}
 
@@ -136,10 +138,54 @@ export default function HeroStripModal({
                 <p className="mt-1 text-sm text-surface-500">{card.subtitle}</p>
               ) : null}
 
-              {isUpcomingLivePreview && liveUpcomingCountdown && bannerVisualSrc === '' ? (
-                <p className="mt-3 rounded-2xl bg-burgundy-50 px-4 py-3 text-sm font-semibold text-burgundy-900">
-                  {liveUpcomingCountdown}
-                </p>
+              {isLiveModal && liveCountdownInfo ? (
+                <div className="mt-4 space-y-3">
+                  <div className="rounded-2xl border border-burgundy-100 bg-burgundy-50/80 p-4">
+                    <div className="flex items-start gap-3">
+                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-burgundy-800 text-white">
+                        <Clock3 className="h-5 w-5" aria-hidden />
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy-700">
+                          {liveCountdownInfo.isLiveNow ? 'Temps restant avant la fin' : 'Temps restant avant le live'}
+                        </p>
+                        <p className="mt-1 text-lg font-bold tabular-nums text-burgundy-950">
+                          {liveCountdownInfo.modalHeadline}
+                        </p>
+                        <p className="mt-1 text-sm leading-relaxed text-burgundy-900/80">
+                          {liveCountdownInfo.modalDetail}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {!liveCountdownInfo.isLiveNow && liveCountdownInfo.modalScheduledAt !== '' ? (
+                    <div className="rounded-2xl border border-surface-200 bg-surface-50 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-white text-burgundy-800 ring-1 ring-surface-200">
+                          <CalendarClock className="h-5 w-5" aria-hidden />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-surface-500">
+                            Début prévu
+                          </p>
+                          <p className="mt-1 text-sm font-semibold capitalize text-surface-900">
+                            {liveCountdownInfo.modalScheduledAt}
+                          </p>
+                          {liveCountdownInfo.tileContext !== '' ? (
+                            <p className="mt-1 text-sm text-surface-600">{liveCountdownInfo.tileContext}</p>
+                          ) : null}
+                        </div>
+                      </div>
+                    </div>
+                  ) : null}
+
+                  {liveCountdownInfo.isLiveNow && showLivePlayer ? (
+                    <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+                      {liveCountdownInfo.modalDetail}
+                    </p>
+                  ) : null}
+                </div>
               ) : null}
 
               {card.description.trim() !== '' ? (

@@ -7,6 +7,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ScheduleProgramResource\Pages;
 use App\Models\Event;
 use App\Models\ScheduleProgram;
+use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
@@ -19,12 +20,12 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
-use Filament\Tables\Columns\ImageColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
+use TinusG\FilamentHoverImageColumn\HoverImageColumn as ImageColumn;
 use UnitEnum;
 
 /**
@@ -185,9 +186,8 @@ class ScheduleProgramResource extends Resource
                     ->label('Vignette')
                     ->square()
                     ->size(48)
-                    ->getStateUsing(fn (?ScheduleProgram $record): ?string => is_array($record?->image_url)
-                        ? ($record->image_url['fr'] ?? $record->image_url[app()->getLocale()] ?? null)
-                        : null),
+                    ->getStateUsing(fn (?ScheduleProgram $record): ?string => FilamentImageUrl::resolve($record?->image_url))
+                    ->placeholder('—'),
                 TextColumn::make('kind')->label('Type')->badge(),
                 TextColumn::make('title')
                     ->label('Titre')

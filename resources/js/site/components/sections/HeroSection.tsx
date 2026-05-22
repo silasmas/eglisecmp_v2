@@ -6,25 +6,12 @@ import HeroStripModal from '../ui/HeroStripModal';
 import { churchInfo } from '../../data/content';
 import { useHeroMeta } from '../../hooks/useHeroMeta';
 import type { HeroStripCard, HeroStripCards } from '../../data/types';
-import { formatLiveTilePrimaryLabel } from '../../lib/placeholderImage';
+import { buildLiveCountdownInfo } from '../../lib/liveCountdown';
 
 type StripModalKey = keyof HeroStripCards;
 
 const stripTileClass =
   'flex w-full min-w-0 cursor-pointer text-left items-center gap-3 px-4 py-3.5 rounded-2xl backdrop-blur-md border transition-colors hover:bg-white/[0.12] focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-300/80';
-
-/**
- * Compte à rebours texte HH:MM:SS jusqu'à la date cible.
- */
-function getCountdown(target: Date, now: Date): string {
-  const diff = Math.max(0, target.getTime() - now.getTime());
-  const totalSeconds = Math.floor(diff / 1000);
-  const hours = Math.floor(totalSeconds / 3600);
-  const minutes = Math.floor((totalSeconds % 3600) / 60);
-  const seconds = totalSeconds % 60;
-
-  return [hours, minutes, seconds].map((value) => String(value).padStart(2, '0')).join(':');
-}
 
 /**
  * Lit le libellé principal d'une tuile (API prioritaire, repli local).
@@ -71,38 +58,20 @@ export default function HeroSection() {
   const locationCard = strip?.location;
   const isLiveNow = liveCard?.status === 'live' || heroMeta.liveTiming?.status === 'live';
 
-  const countdownTarget = useMemo(() => {
-    const iso = heroMeta.liveTiming?.targetIso;
-
-    if (iso) {
-      const parsed = new Date(iso);
-
-      if (!Number.isNaN(parsed.getTime())) {
-        return parsed;
-      }
-    }
-
-    return null;
-  }, [heroMeta.liveTiming?.targetIso]);
-
-  const countdown = useMemo(() => {
-    if (!countdownTarget) {
-      return '00:00:00';
-    }
-
-    return getCountdown(countdownTarget, now);
-  }, [countdownTarget, now]);
-
-  const livePrimary = formatLiveTilePrimaryLabel(
-    heroMeta.liveTiming?.targetIso,
-    now,
-    countdown,
-    isLiveNow,
+  const liveCountdown = useMemo(
+    () =>
+      buildLiveCountdownInfo(heroMeta.liveTiming?.targetIso, now, isLiveNow, {
+        programName: heroMeta.liveTiming?.programName ?? liveCard?.title,
+        scheduledLabel: heroMeta.liveTiming?.scheduledLabel ?? liveCard?.subtitle,
+        timeLabel: heroMeta.liveTiming?.timeLabel,
+        dayLabel: heroMeta.liveTiming?.dayLabel,
+        startIso: heroMeta.liveTiming?.startIso,
+      }),
+    [heroMeta.liveTiming, liveCard?.subtitle, liveCard?.title, isLiveNow, now],
   );
 
-  const liveSecondary = isLiveNow
-    ? tileSecondary(liveCard, 'Rejoignez-nous en direct')
-    : tileSecondary(liveCard, 'Culte dominical');
+  const livePrimary = liveCountdown.tileHeadline;
+  const liveSecondary = liveCountdown.tileContext;
   const eventTitle = tilePrimary(eventCard, 'Programme de la semaine');
   const eventSubtitle = tileSecondary(eventCard, 'Consultez nos rendez-vous');
   const readingTitle = tilePrimary(readingCard, 'Lecture du jour');
@@ -214,7 +183,7 @@ export default function HeroSection() {
                 </span>
               </div>
               <div className="min-w-0">
-                <p className="text-white text-sm font-semibold">{livePrimary}</p>
+                <p className="text-white text-sm font-semibold tabular-nums">{livePrimary}</p>
                 <p className="text-white/55 text-[12px] mt-0.5 line-clamp-2">{liveSecondary}</p>
               </div>
             </button>
@@ -285,7 +254,7 @@ export default function HeroSection() {
         showReadingShare={stripModal === 'reading'}
         onOpenMap={stripModal === 'location' ? openLocationMap : undefined}
         showLivePlayer={stripModal === 'live' && isLiveNow}
-        liveUpcomingCountdown={stripModal === 'live' && !isLiveNow ? livePrimary : undefined}
+        liveCountdownInfo={stripModal === 'live' ? liveCountdown : undefined}
       />
     </section>
   );
