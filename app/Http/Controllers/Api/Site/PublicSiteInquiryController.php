@@ -112,6 +112,9 @@ final class PublicSiteInquiryController extends Controller
             'phone' => $validated['phone'] ?? null,
             'country' => $validated['country'] ?? null,
             'is_anonymous' => (bool) ($validated['is_anonymous'] ?? false),
+            'prayer_team_notification_status' => $validated['kind'] === SiteInquiry::KIND_PRAYER
+                ? SiteInquiry::PRAYER_NOTIFY_PENDING
+                : null,
             'message' => $validated['message'],
             'preferred_at' => $preferredAt,
             'appointment_status' => $validated['kind'] === SiteInquiry::KIND_APPOINTMENT
@@ -125,7 +128,7 @@ final class PublicSiteInquiryController extends Controller
 
         if ($inquiry->kind === SiteInquiry::KIND_PRAYER) {
             try {
-                $this->prayerNotifications->notify($inquiry);
+                $this->prayerNotifications->notifyAndRecord($inquiry);
             } catch (\Throwable $exception) {
                 Log::error('Notification requête de prière impossible.', [
                     'inquiry_id' => $inquiry->id,

@@ -4,7 +4,6 @@ declare(strict_types=1);
 
 namespace App\Notifications;
 
-use App\Mail\PrayerRequestSubmittedMail;
 use App\Models\SiteInquiry;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Notification;
@@ -25,24 +24,12 @@ class SitePrayerRequestSubmittedNotification extends Notification
      */
     public function via(object $notifiable): array
     {
-        $channels = ['database'];
-
-        if (filled($notifiable->email ?? null)) {
-            $channels[] = 'mail';
-        }
-
-        return $channels;
+        return ['database'];
     }
 
     /**
-     * @return PrayerRequestSubmittedMail Courriel HTML brandé avec logo intégré.
-     */
-    public function toMail(object $notifiable): PrayerRequestSubmittedMail
-    {
-        return new PrayerRequestSubmittedMail($this->inquiry);
-    }
-
-    /**
+     * Notification Filament uniquement (le courriel est envoyé par {@see PrayerRequestNotificationService}).
+     *
      * @return array<string, mixed>
      */
     public function toDatabase(object $notifiable): array

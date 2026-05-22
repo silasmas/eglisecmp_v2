@@ -13,8 +13,8 @@
           {{-- En-tête bordeaux --}}
           <tr>
             <td style="background:linear-gradient(135deg,#6b0f1a 0%,#8b1a2b 100%);padding:28px 32px;text-align:center;">
-              @if(! empty($logoCid))
-                <img src="{{ $logoCid }}" alt="Centre Missionnaire Philadelphie" width="120" style="display:block;margin:0 auto 16px;border:0;max-width:120px;height:auto;background:#ffffff;border-radius:12px;padding:8px;">
+              @if(! empty($logoPath) && is_file($logoPath))
+                <img src="{{ $message->embed($logoPath) }}" alt="Centre Missionnaire Philadelphie" width="120" style="display:block;margin:0 auto 16px;border:0;max-width:120px;height:auto;background:#ffffff;border-radius:12px;padding:8px;">
               @elseif(! empty($logoUrl))
                 <img src="{{ $logoUrl }}" alt="Centre Missionnaire Philadelphie" width="120" style="display:block;margin:0 auto 16px;border:0;max-width:120px;height:auto;background:#ffffff;border-radius:12px;padding:8px;">
               @endif

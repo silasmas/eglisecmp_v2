@@ -104,15 +104,29 @@ return [
     |--------------------------------------------------------------------------
     |
     | Noms des rôles recevant un courriel et une notification Filament.
-    | « Priere » correspond au rôle historique en base ; « intercession » est
-    | accepté comme alias métier.
+    | « intercession » et « priere » (ou « Priere ») couvrent les deux équipes notifiables.
     |
     */
     'prayer_notification_roles' => [
         'intercession',
         'Intercession',
+        'priere',
         'Priere',
     ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Courriels fixes de l’équipe de prière (fallback)
+    |--------------------------------------------------------------------------
+    |
+    | Liste d’adresses séparées par des virgules dans PRAYER_TEAM_EMAILS (.env).
+    | Utilisée si aucun compte utilisateur intercession n’a d’e-mail.
+    |
+    */
+    'prayer_team_emails' => array_values(array_filter(array_map(
+        static fn (string $email): string => trim($email),
+        explode(',', (string) env('PRAYER_TEAM_EMAILS', '')),
+    ))),
 
     /*
     |--------------------------------------------------------------------------

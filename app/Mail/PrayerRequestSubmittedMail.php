@@ -34,12 +34,11 @@ class PrayerRequestSubmittedMail extends Mailable
     }
 
     /**
-     * @return Content Vue HTML avec logo intégré (CID).
+     * @return Content Vue HTML du courriel (logo intégré via $message->embed() dans la vue).
      */
     public function content(): Content
     {
         $inquiry = $this->inquiry;
-        $logoPath = public_path('images/logo-cmp.png');
 
         return new Content(
             view: 'mail.prayer-request-submitted',
@@ -47,7 +46,7 @@ class PrayerRequestSubmittedMail extends Mailable
                 'inquiry' => $inquiry,
                 'displayName' => $inquiry->is_anonymous ? 'Anonyme' : $inquiry->name,
                 'adminUrl' => url('/admin/site-inquiries/'.$inquiry->id),
-                'logoCid' => is_file($logoPath) ? $this->embed($logoPath) : null,
+                'logoPath' => public_path('images/logo-cmp.png'),
                 'logoUrl' => config('site_public.mail_logo_url') ?: asset('images/logo-cmp.png'),
             ],
         );

@@ -98,6 +98,58 @@ final class AppointmentConfirmationService
     }
 
     /**
+     * Confirme plusieurs rendez-vous et envoie le SMS à chaque fidèle sélectionné.
+     *
+     * @param  iterable<int, SiteInquiry>  $inquiries  Demandes RDV à traiter.
+     * @return array{confirmed: int, failed: int, errors: list<string>}
+     */
+    public function confirmMany(iterable $inquiries): array
+    {
+        $summary = [
+            'confirmed' => 0,
+            'failed' => 0,
+            'errors' => [],
+        ];
+
+        foreach ($inquiries as $inquiry) {
+            if (! $inquiry instanceof SiteInquiry || $inquiry->kind !== SiteInquiry::KIND_APPOINTMENT) {
+                continue;
+            }
+
+            if (! $this->canConfirm($inquiry)) {
+                $summary['failed']++;
+                $summary['errors'][] = sprintf(
+                    '%s : %s',
+                    $inquiry->name,
+                    $this->blockReason($inquiry) ?? 'Confirmation impossible.',
+                );
+
+                continue;
+            }
+
+            try {
+                $result = $this->confirm($inquiry);
+
+                if ($result['confirmed']) {
+                    $summary['confirmed']++;
+                } else {
+                    $summary['failed']++;
+                    $summary['errors'][] = sprintf(
+                        '%s : %s',
+                        $inquiry->name,
+                        $result['sms']->adminMessage(),
+                    );
+                }
+            } catch (\Throwable $exception) {
+                $summary['failed']++;
+                $summary['errors'][] = sprintf('%s : %s', $inquiry->name, $exception->getMessage());
+            }
+        }
+
+        return $summary;
+    }
+
+    /**
      * Compose et envoie le SMS de confirmation.
      */
     private function sendConfirmationSms(SiteInquiry $inquiry): SmsSendResult

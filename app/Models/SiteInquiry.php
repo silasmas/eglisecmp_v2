@@ -18,6 +18,9 @@ use Illuminate\Support\Carbon;
  * @property string|null $phone
  * @property string|null $country
  * @property bool $is_anonymous
+ * @property string|null $prayer_team_notification_status
+ * @property Carbon|null $prayer_team_notified_at
+ * @property string|null $prayer_team_notification_response
  * @property string $message
  * @property int|null $minister_id
  * @property int|null $bureau_id
@@ -47,6 +50,16 @@ class SiteInquiry extends Model
 
     public const SMS_STATUS_SIMULATED = 'simulated';
 
+    public const PRAYER_NOTIFY_SENT = 'sent';
+
+    public const PRAYER_NOTIFY_PARTIAL = 'partial';
+
+    public const PRAYER_NOTIFY_FAILED = 'failed';
+
+    public const PRAYER_NOTIFY_NO_RECIPIENT = 'no_recipient';
+
+    public const PRAYER_NOTIFY_PENDING = 'pending';
+
     protected $fillable = [
         'kind',
         'minister_id',
@@ -56,6 +69,9 @@ class SiteInquiry extends Model
         'phone',
         'country',
         'is_anonymous',
+        'prayer_team_notification_status',
+        'prayer_team_notified_at',
+        'prayer_team_notification_response',
         'message',
         'preferred_at',
         'appointment_status',
@@ -72,6 +88,7 @@ class SiteInquiry extends Model
         return [
             'preferred_at' => 'datetime',
             'confirmation_sms_sent_at' => 'datetime',
+            'prayer_team_notified_at' => 'datetime',
             'is_anonymous' => 'boolean',
         ];
     }
@@ -157,6 +174,35 @@ class SiteInquiry extends Model
             self::SMS_STATUS_NO_PHONE => 'Sans téléphone',
             self::SMS_STATUS_FAILED => 'Échec SMS',
             default => null,
+        };
+    }
+
+    /**
+     * Libellé admin du statut e-mail équipe de prière.
+     */
+    public function prayerTeamNotificationLabel(): ?string
+    {
+        return match ($this->prayer_team_notification_status) {
+            self::PRAYER_NOTIFY_SENT => 'Équipe informée',
+            self::PRAYER_NOTIFY_PARTIAL => 'Partiel',
+            self::PRAYER_NOTIFY_FAILED => 'Échec e-mail',
+            self::PRAYER_NOTIFY_NO_RECIPIENT => 'Sans destinataire',
+            self::PRAYER_NOTIFY_PENDING => 'En attente',
+            default => null,
+        };
+    }
+
+    /**
+     * Couleur Filament du badge notification équipe de prière.
+     */
+    public function prayerTeamNotificationBadgeColor(): string
+    {
+        return match ($this->prayer_team_notification_status) {
+            self::PRAYER_NOTIFY_SENT => 'success',
+            self::PRAYER_NOTIFY_PARTIAL => 'warning',
+            self::PRAYER_NOTIFY_FAILED, self::PRAYER_NOTIFY_NO_RECIPIENT => 'danger',
+            self::PRAYER_NOTIFY_PENDING => 'gray',
+            default => 'gray',
         };
     }
 }
