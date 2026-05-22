@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Services;
 
+use App\Support\SmsSendResult;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
@@ -15,25 +16,36 @@ final class SmsSender
     /**
      * Envoie un SMS au numero fourni.
      *
-     * @param  string  $phone  Numero du destinataire.
+     * @param  string  $phone  Numero brut du destinataire.
      * @param  string  $message  Corps du message (UTF-8).
-     * @return bool True si l'envoi a reussi ou a ete journalise.
      */
-    public function send(string $phone, string $message): bool
+    public function send(string $phone, string $message): SmsSendResult
     {
-        $phone = $this->normalizePhone($phone);
+        $normalizedPhone = $this->normalizePhone($phone);
         $message = trim($message);
 
-        if ($phone === '' || $message === '') {
-            return false;
+        if ($normalizedPhone === '') {
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_NO_PHONE,
+                success: false,
+                error: 'Numero de telephone absent ou invalide.',
+            );
+        }
+
+        if ($message === '') {
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                error: 'Message SMS vide.',
+            );
         }
 
         $driver = (string) config('sms.driver', 'log');
 
         return match ($driver) {
-            'keccel' => $this->sendViaKeccel($phone, $message),
-            'http' => $this->sendViaHttp($phone, $message),
-            default => $this->sendViaLog($phone, $message),
+            'keccel' => $this->sendViaKeccel($normalizedPhone, $message),
+            'http' => $this->sendViaHttp($normalizedPhone, $message),
+            default => $this->sendViaLog($normalizedPhone, $message),
         };
     }
 
@@ -55,21 +67,25 @@ final class SmsSender
     /**
      * Journalise le SMS (environnement local).
      */
-    private function sendViaLog(string $phone, string $message): bool
+    private function sendViaLog(string $phone, string $message): SmsSendResult
     {
         Log::info('SMS simule', [
             'to' => $phone,
             'from' => config('sms.from'),
-            'message' => $message,
+            'message' => $this->fitSingleSms($message),
         ]);
 
-        return true;
+        return new SmsSendResult(
+            status: SmsSendResult::STATUS_SIMULATED,
+            success: true,
+            response: 'SMS journalise (mode log).',
+        );
     }
 
     /**
-     * Envoie via l'API Keccel (GET message.asp).
+     * Envoie via l'API Keccel (GET v1/message.asp).
      */
-    private function sendViaKeccel(string $phone, string $message): bool
+    private function sendViaKeccel(string $phone, string $message): SmsSendResult
     {
         $url = (string) config('sms.keccel.url');
         $token = (string) config('sms.keccel.token');
@@ -78,7 +94,19 @@ final class SmsSender
         if ($url === '' || $token === '') {
             Log::warning('Configuration Keccel incomplete : SMS non envoye.', ['to' => $phone]);
 
-            return false;
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                error: 'Configuration Keccel incomplete (SMS_URL ou SMS_TOKEN).',
+            );
+        }
+
+        if ($from === '') {
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                error: 'SMS_FROM absent dans la configuration.',
+            );
         }
 
         $payload = [
@@ -88,33 +116,56 @@ final class SmsSender
             'message' => $this->fitSingleSms($message),
         ];
 
-        $response = Http::timeout(20)
-            ->acceptJson()
-            ->get($url, $payload);
+        try {
+            $response = Http::timeout(20)->get($url, $payload);
+        } catch (\Throwable $exception) {
+            Log::error('Exception envoi SMS Keccel', [
+                'to' => $phone,
+                'error' => $exception->getMessage(),
+            ]);
 
-        if (! $this->isKeccelSuccess($response->body(), $response->status())) {
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                error: $exception->getMessage(),
+            );
+        }
+
+        $responseBody = trim($response->body());
+        $parsed = $this->parseKeccelResponse($responseBody, $response->status());
+
+        if (! $parsed['success']) {
             Log::error('Echec envoi SMS Keccel', [
                 'to' => $phone,
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body' => $responseBody,
             ]);
 
-            return false;
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                response: $responseBody !== '' ? $responseBody : null,
+                error: $parsed['error'],
+            );
         }
 
         Log::info('SMS Keccel envoye', [
             'to' => $phone,
             'from' => $from,
-            'body' => trim($response->body()),
+            'body' => $responseBody,
         ]);
 
-        return true;
+        return new SmsSendResult(
+            status: SmsSendResult::STATUS_SENT,
+            success: true,
+            response: $parsed['message'],
+        );
     }
 
     /**
      * POST JSON vers une passerelle SMS generique.
      */
-    private function sendViaHttp(string $phone, string $message): bool
+    private function sendViaHttp(string $phone, string $message): SmsSendResult
     {
         $url = (string) config('sms.http.url');
         $token = (string) config('sms.http.token');
@@ -122,7 +173,11 @@ final class SmsSender
         if ($url === '') {
             Log::warning('SMS_HTTP_URL absent : SMS non envoye.', ['to' => $phone]);
 
-            return false;
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                error: 'SMS_HTTP_URL absent.',
+            );
         }
 
         $request = Http::timeout(20)->acceptJson();
@@ -131,23 +186,42 @@ final class SmsSender
             $request = $request->withToken($token);
         }
 
-        $response = $request->post($url, [
-            'to' => $phone,
-            'from' => config('sms.from'),
-            'message' => $this->fitSingleSms($message),
-        ]);
+        try {
+            $response = $request->post($url, [
+                'to' => $phone,
+                'from' => config('sms.from'),
+                'message' => $this->fitSingleSms($message),
+            ]);
+        } catch (\Throwable $exception) {
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                error: $exception->getMessage(),
+            );
+        }
+
+        $responseBody = trim($response->body());
 
         if (! $response->successful()) {
             Log::error('Echec envoi SMS HTTP', [
                 'to' => $phone,
                 'status' => $response->status(),
-                'body' => $response->body(),
+                'body' => $responseBody,
             ]);
 
-            return false;
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_FAILED,
+                success: false,
+                response: $responseBody !== '' ? $responseBody : null,
+                error: 'Passerelle HTTP : HTTP '.$response->status(),
+            );
         }
 
-        return true;
+        return new SmsSendResult(
+            status: SmsSendResult::STATUS_SENT,
+            success: true,
+            response: $responseBody !== '' ? $responseBody : 'OK',
+        );
     }
 
     /**
@@ -177,57 +251,115 @@ final class SmsSender
     }
 
     /**
-     * Interprete la reponse texte ou JSON de Keccel.
+     * Analyse la reponse Keccel (CSV v1 ou JSON legacy).
+     *
+     * @return array{success: bool, message: string, error: string}
      */
-    private function isKeccelSuccess(string $body, int $status): bool
+    private function parseKeccelResponse(string $body, int $httpStatus): array
     {
-        if ($status < 200 || $status >= 300) {
-            return false;
+        if ($httpStatus < 200 || $httpStatus >= 300) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Keccel : HTTP '.$httpStatus,
+            ];
         }
 
         $body = trim($body);
 
         if ($body === '' || str_contains(strtolower($body), 'webhook.site')) {
-            return false;
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'URL SMS incorrecte. Utilisez https://api.keccel.com/sms/v1/message.asp',
+            ];
+        }
+
+        if (! str_starts_with($body, '{')) {
+            return $this->parseKeccelCsvResponse($body);
         }
 
         $decoded = json_decode($body, true);
 
-        if (is_array($decoded)) {
-            $code = $decoded['code'] ?? $decoded['status'] ?? $decoded['result'] ?? null;
+        if (! is_array($decoded)) {
+            return [
+                'success' => false,
+                'message' => '',
+                'error' => 'Keccel : reponse invalide.',
+            ];
+        }
 
-            if (is_string($code) || is_int($code)) {
-                $normalizedCode = strtolower(trim((string) $code));
+        $status = strtoupper(trim((string) ($decoded['status'] ?? '')));
+        $description = trim((string) ($decoded['description'] ?? $decoded['message'] ?? $status));
 
-                if (in_array($normalizedCode, ['0', '100', 'ok', 'success', 'sent'], true)) {
-                    return true;
-                }
+        if (in_array($status, ['REJECTED', 'FAILED', 'ERROR'], true)) {
+            $error = $description !== '' ? $description : $status;
 
-                if (in_array($normalizedCode, ['error', 'failed', 'fail'], true)) {
-                    return false;
-                }
+            if (str_contains(strtolower($error), 'missing from parameter')) {
+                $error = 'Parametre from non recu par Keccel. Utilisez SMS_URL=https://api.keccel.com/sms/v1/message.asp et verifiez SMS_FROM.';
             }
 
-            if (isset($decoded['success'])) {
-                return (bool) $decoded['success'];
+            return [
+                'success' => false,
+                'message' => $description,
+                'error' => 'Keccel : '.$error,
+            ];
+        }
+
+        if (in_array($status, ['ACCEPTED', 'SENT', 'SUCCESS', 'OK', '100', '0'], true)) {
+            return [
+                'success' => true,
+                'message' => $description !== '' ? $description : $status,
+                'error' => '',
+            ];
+        }
+
+        return [
+            'success' => false,
+            'message' => $description,
+            'error' => 'Keccel : '.($description !== '' ? $description : 'statut inconnu'),
+        ];
+    }
+
+    /**
+     * Analyse une reponse CSV Keccel v1 : SENT, id, description.
+     *
+     * @return array{success: bool, message: string, error: string}
+     */
+    private function parseKeccelCsvResponse(string $body): array
+    {
+        $parts = array_map('trim', explode(',', $body, 3));
+        $status = strtoupper($parts[0] ?? '');
+        $reference = $parts[1] ?? '';
+        $description = $parts[2] ?? $body;
+
+        if ($status === 'SENT') {
+            $message = $description !== '' ? $description : 'SMS envoye';
+
+            if ($reference !== '') {
+                $message .= ' (ref. '.$reference.')';
             }
+
+            return [
+                'success' => true,
+                'message' => $message,
+                'error' => '',
+            ];
         }
 
-        $lower = strtolower($body);
-
-        if (in_array($lower, ['0', '100', 'ok', 'success', 'sent'], true)) {
-            return true;
+        if ($status === 'REJECTED') {
+            return [
+                'success' => false,
+                'message' => $description,
+                'error' => 'Keccel : '.($description !== '' ? $description : 'REJECTED'),
+            ];
         }
 
-        if (str_contains($lower, 'error') || str_contains($lower, 'fail') || str_contains($lower, 'invalid')) {
-            return false;
-        }
-
-        if (str_contains($lower, 'success') || str_contains($lower, 'sent')) {
-            return true;
-        }
-
-        return preg_match('/^\d+$/', $body) === 1 && in_array((int) $body, [0, 100], true);
+        return [
+            'success' => false,
+            'message' => $body,
+            'error' => 'Keccel : reponse inattendue.',
+        ];
     }
 
     /**

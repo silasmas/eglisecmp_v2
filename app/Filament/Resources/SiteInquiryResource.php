@@ -74,6 +74,28 @@ class SiteInquiryResource extends Resource
                                 default => $state,
                             })
                             ->columnSpan(4),
+                        TextEntry::make('confirmation_sms_status')
+                            ->label('SMS fidèle')
+                            ->visible(fn (?SiteInquiry $record): bool => $record !== null
+                                && $record->kind === SiteInquiry::KIND_APPOINTMENT
+                                && $record->appointment_status === SiteInquiry::STATUS_CONFIRMED)
+                            ->formatStateUsing(fn (?string $state, ?SiteInquiry $record): string => self::formatConfirmationSmsLabel($record))
+                            ->badge()
+                            ->color(fn (?string $state, ?SiteInquiry $record): string => self::confirmationSmsBadgeColor($record))
+                            ->columnSpan(4),
+                        TextEntry::make('confirmation_sms_sent_at')
+                            ->label('SMS envoyé le')
+                            ->dateTime('d/m/Y H:i')
+                            ->visible(fn (?SiteInquiry $record): bool => $record !== null
+                                && $record->kind === SiteInquiry::KIND_APPOINTMENT
+                                && $record->confirmation_sms_sent_at !== null)
+                            ->columnSpan(4),
+                        TextEntry::make('confirmation_sms_response')
+                            ->label('Retour passerelle SMS')
+                            ->visible(fn (?SiteInquiry $record): bool => $record !== null
+                                && $record->kind === SiteInquiry::KIND_APPOINTMENT
+                                && filled($record->confirmation_sms_response))
+                            ->columnSpanFull(),
                         TextEntry::make('name')->label('Nom')->columnSpan(8),
                         TextEntry::make('email')->columnSpan(6),
                         TextEntry::make('phone')->columnSpan(6),
@@ -121,6 +143,14 @@ class SiteInquiryResource extends Resource
                         default => 'warning',
                     })
                     ->toggleable(),
+                TextColumn::make('confirmation_sms_status')
+                    ->label('SMS fidèle')
+                    ->badge()
+                    ->formatStateUsing(fn (?string $state, ?SiteInquiry $record): string => self::formatConfirmationSmsLabel($record))
+                    ->color(fn (?string $state, ?SiteInquiry $record): string => self::confirmationSmsBadgeColor($record))
+                    ->tooltip(fn (?SiteInquiry $record): ?string => self::confirmationSmsTooltip($record))
+                    ->visible(fn (?SiteInquiry $record): bool => $record === null || $record->kind === SiteInquiry::KIND_APPOINTMENT)
+                    ->toggleable(),
                 TextColumn::make('preferred_at')->dateTime()->label('RDV')->sortable(),
                 TextColumn::make('message')->label('Message')->limit(60)->tooltip(fn (SiteInquiry $r): string => $r->message),
                 TextColumn::make('created_at')->label('Réception')->since()->sortable(),
@@ -144,20 +174,25 @@ class SiteInquiryResource extends Resource
     public static function makeConfirmAppointmentAction(): Action
     {
         return Action::make('confirmAppointment')
-            ->label('Confirmer')
+            ->label(fn (SiteInquiry $record): string => $record->canRetryConfirmationSms()
+                ? 'Renvoyer SMS'
+                : 'Confirmer')
             ->icon('heroicon-o-check-circle')
             ->color('success')
             ->visible(fn (SiteInquiry $record): bool => $record->canBeConfirmed())
             ->requiresConfirmation()
-            ->modalHeading('Confirmer le rendez-vous')
-            ->modalDescription('Le fidèle recevra un SMS avec la date, l’heure et le bureau de réception.')
+            ->modalHeading(fn (SiteInquiry $record): string => $record->canRetryConfirmationSms()
+                ? 'Renvoyer le SMS de confirmation'
+                : 'Confirmer le rendez-vous')
+            ->modalDescription('Le rendez-vous ne sera confirmé que si le SMS part avec succès. En cas d’échec, le bouton reste disponible pour réessayer.')
             ->action(function (SiteInquiry $record, AppointmentConfirmationService $confirmationService): void {
                 $result = $confirmationService->confirm($record);
+                $sms = $result['sms'];
 
-                if ($result['smsSent']) {
+                if ($result['confirmed'] && $sms->isNotified()) {
                     Notification::make()
                         ->title('Rendez-vous confirmé')
-                        ->body('Le SMS de confirmation a été envoyé au fidèle.')
+                        ->body($sms->adminMessage())
                         ->success()
                         ->send();
 
@@ -165,11 +200,74 @@ class SiteInquiryResource extends Resource
                 }
 
                 Notification::make()
-                    ->title('Rendez-vous confirmé')
-                    ->body('Confirmation enregistrée, mais le SMS n’a pas pu être envoyé (numéro absent ou passerelle SMS).')
-                    ->warning()
+                    ->title('SMS non envoyé')
+                    ->body($sms->adminMessage().' Le rendez-vous reste en attente.')
+                    ->danger()
                     ->send();
             });
+    }
+
+    /**
+     * Libellé badge SMS dans la liste admin.
+     */
+    public static function formatConfirmationSmsLabel(?SiteInquiry $record): string
+    {
+        if ($record === null) {
+            return '—';
+        }
+
+        if ($record->confirmationSmsLabel() !== null) {
+            return $record->confirmationSmsLabel();
+        }
+
+        if ($record->appointment_status === SiteInquiry::STATUS_CONFIRMED) {
+            return 'Non envoyé';
+        }
+
+        return '—';
+    }
+
+    /**
+     * Couleur Filament du badge SMS.
+     */
+    public static function confirmationSmsBadgeColor(?SiteInquiry $record): string
+    {
+        if ($record === null) {
+            return 'gray';
+        }
+
+        return match ($record->confirmation_sms_status) {
+            SiteInquiry::SMS_STATUS_SENT => 'success',
+            SiteInquiry::SMS_STATUS_SIMULATED => 'info',
+            SiteInquiry::SMS_STATUS_NO_PHONE => 'gray',
+            SiteInquiry::SMS_STATUS_FAILED => 'danger',
+            default => 'gray',
+        };
+    }
+
+    /**
+     * Infobulle détaillée sur le statut SMS.
+     */
+    public static function confirmationSmsTooltip(?SiteInquiry $record): ?string
+    {
+        if ($record === null || $record->confirmation_sms_status === null) {
+            return null;
+        }
+
+        if ($record->confirmation_sms_sent_at !== null) {
+            $sentAt = $record->confirmation_sms_sent_at->timezone((string) config('app.timezone'))->format('d/m/Y H:i');
+            $response = trim((string) ($record->confirmation_sms_response ?? ''));
+
+            if ($response !== '') {
+                return 'Envoyé le '.$sentAt.' — '.$response;
+            }
+
+            return 'Envoyé le '.$sentAt;
+        }
+
+        return filled($record->confirmation_sms_response)
+            ? (string) $record->confirmation_sms_response
+            : null;
     }
 
     public static function getPages(): array

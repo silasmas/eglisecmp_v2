@@ -21,6 +21,9 @@ use Illuminate\Support\Carbon;
  * @property int|null $bureau_id
  * @property Carbon|null $preferred_at
  * @property string $appointment_status
+ * @property string|null $confirmation_sms_status
+ * @property Carbon|null $confirmation_sms_sent_at
+ * @property string|null $confirmation_sms_response
  */
 class SiteInquiry extends Model
 {
@@ -34,6 +37,14 @@ class SiteInquiry extends Model
 
     public const STATUS_DECLINED = 'declined';
 
+    public const SMS_STATUS_SENT = 'sent';
+
+    public const SMS_STATUS_FAILED = 'failed';
+
+    public const SMS_STATUS_NO_PHONE = 'no_phone';
+
+    public const SMS_STATUS_SIMULATED = 'simulated';
+
     protected $fillable = [
         'kind',
         'minister_id',
@@ -44,6 +55,9 @@ class SiteInquiry extends Model
         'message',
         'preferred_at',
         'appointment_status',
+        'confirmation_sms_status',
+        'confirmation_sms_sent_at',
+        'confirmation_sms_response',
     ];
 
     /**
@@ -53,6 +67,7 @@ class SiteInquiry extends Model
     {
         return [
             'preferred_at' => 'datetime',
+            'confirmation_sms_sent_at' => 'datetime',
         ];
     }
 
@@ -78,6 +93,8 @@ class SiteInquiry extends Model
 
     /**
      * Indique si le rendez-vous peut encore être confirmé par l’admin.
+     *
+     * Le bouton reste visible tant que le fidèle n’a pas été informé par SMS.
      */
     public function canBeConfirmed(): bool
     {
@@ -85,7 +102,7 @@ class SiteInquiry extends Model
             return false;
         }
 
-        if ($this->appointment_status !== self::STATUS_PENDING) {
+        if ($this->appointment_status === self::STATUS_DECLINED) {
             return false;
         }
 
@@ -93,6 +110,48 @@ class SiteInquiry extends Model
             return false;
         }
 
-        return $this->preferred_at->isFuture();
+        if ($this->preferred_at->isPast()) {
+            return false;
+        }
+
+        return ! $this->isFaithfulNotifiedBySms();
+    }
+
+    /**
+     * Indique si un nouvel envoi SMS de confirmation est possible.
+     */
+    public function canRetryConfirmationSms(): bool
+    {
+        return $this->canBeConfirmed()
+            && filled($this->phone)
+            && in_array($this->confirmation_sms_status, [
+                self::SMS_STATUS_FAILED,
+                self::SMS_STATUS_NO_PHONE,
+            ], true);
+    }
+
+    /**
+     * Indique si le fidèle a été informé par SMS après confirmation.
+     */
+    public function isFaithfulNotifiedBySms(): bool
+    {
+        return in_array($this->confirmation_sms_status, [
+            self::SMS_STATUS_SENT,
+            self::SMS_STATUS_SIMULATED,
+        ], true);
+    }
+
+    /**
+     * Libellé admin du statut SMS de confirmation.
+     */
+    public function confirmationSmsLabel(): ?string
+    {
+        return match ($this->confirmation_sms_status) {
+            self::SMS_STATUS_SENT => 'Informé',
+            self::SMS_STATUS_SIMULATED => 'Simulé',
+            self::SMS_STATUS_NO_PHONE => 'Sans téléphone',
+            self::SMS_STATUS_FAILED => 'Échec SMS',
+            default => null,
+        };
     }
 }

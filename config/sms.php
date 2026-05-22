@@ -22,7 +22,7 @@ return [
     'max_length' => (int) env('SMS_MAX_LENGTH', 160),
 
     'keccel' => [
-        'url' => trim((string) env('SMS_URL', 'https://api.keccel.com/sms/v2/message.asp')),
+        'url' => trim((string) env('SMS_URL', 'https://api.keccel.com/sms/v1/message.asp')),
         'token' => trim((string) env('SMS_TOKEN', '')),
         'balance_url' => trim((string) env('BALANCE_URL', 'https://api.keccel.com/sms/balance.asp')),
     ],

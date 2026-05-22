@@ -6,6 +6,7 @@ namespace App\Services;
 
 use App\Filament\Resources\MinisterResource;
 use App\Models\SiteInquiry;
+use App\Support\SmsSendResult;
 use Illuminate\Support\Carbon;
 use Illuminate\Validation\ValidationException;
 
@@ -20,23 +21,11 @@ final class AppointmentConfirmationService
     ) {}
 
     /**
-     * Indique si la demande peut encore être confirmée (en attente et date future).
+     * Indique si la demande peut encore être confirmée (date future et SMS non envoyé).
      */
     public function canConfirm(SiteInquiry $inquiry): bool
     {
-        if ($inquiry->kind !== SiteInquiry::KIND_APPOINTMENT) {
-            return false;
-        }
-
-        if ($inquiry->appointment_status !== SiteInquiry::STATUS_PENDING) {
-            return false;
-        }
-
-        if (! $inquiry->preferred_at instanceof Carbon) {
-            return false;
-        }
-
-        return $inquiry->preferred_at->isFuture();
+        return $inquiry->canBeConfirmed();
     }
 
     /**
@@ -46,10 +35,6 @@ final class AppointmentConfirmationService
     {
         if ($inquiry->kind !== SiteInquiry::KIND_APPOINTMENT) {
             return null;
-        }
-
-        if ($inquiry->appointment_status === SiteInquiry::STATUS_CONFIRMED) {
-            return 'Ce rendez-vous est déjà confirmé.';
         }
 
         if ($inquiry->appointment_status === SiteInquiry::STATUS_DECLINED) {
@@ -64,13 +49,17 @@ final class AppointmentConfirmationService
             return 'La date du rendez-vous est passée : confirmation impossible.';
         }
 
+        if ($inquiry->isFaithfulNotifiedBySms()) {
+            return 'Le fidèle a déjà été informé par SMS.';
+        }
+
         return null;
     }
 
     /**
      * Confirme le rendez-vous et envoie le SMS au fidèle.
      *
-     * @return array{confirmed: bool, smsSent: bool}
+     * @return array{confirmed: bool, sms: SmsSendResult}
      */
     public function confirm(SiteInquiry $inquiry): array
     {
@@ -91,26 +80,36 @@ final class AppointmentConfirmationService
             }
         }
 
-        $inquiry->appointment_status = SiteInquiry::STATUS_CONFIRMED;
+        $smsResult = $this->sendConfirmationSms($inquiry);
+        $this->persistSmsResult($inquiry, $smsResult);
+
+        if ($smsResult->isNotified()) {
+            $inquiry->appointment_status = SiteInquiry::STATUS_CONFIRMED;
+        } else {
+            $inquiry->appointment_status = SiteInquiry::STATUS_PENDING;
+        }
+
         $inquiry->save();
 
-        $smsSent = $this->sendConfirmationSms($inquiry);
-
         return [
-            'confirmed' => true,
-            'smsSent' => $smsSent,
+            'confirmed' => $smsResult->isNotified(),
+            'sms' => $smsResult,
         ];
     }
 
     /**
      * Compose et envoie le SMS de confirmation.
      */
-    private function sendConfirmationSms(SiteInquiry $inquiry): bool
+    private function sendConfirmationSms(SiteInquiry $inquiry): SmsSendResult
     {
         $phone = trim((string) ($inquiry->phone ?? ''));
 
         if ($phone === '') {
-            return false;
+            return new SmsSendResult(
+                status: SmsSendResult::STATUS_NO_PHONE,
+                success: false,
+                error: 'Numero de telephone absent.',
+            );
         }
 
         $inquiry->loadMissing(['minister', 'bureau']);
@@ -121,12 +120,36 @@ final class AppointmentConfirmationService
     }
 
     /**
+     * Enregistre le retour SMS sur la demande.
+     */
+    private function persistSmsResult(SiteInquiry $inquiry, SmsSendResult $result): void
+    {
+        $inquiry->confirmation_sms_status = match ($result->status) {
+            SmsSendResult::STATUS_SENT => SiteInquiry::SMS_STATUS_SENT,
+            SmsSendResult::STATUS_SIMULATED => SiteInquiry::SMS_STATUS_SIMULATED,
+            SmsSendResult::STATUS_NO_PHONE => SiteInquiry::SMS_STATUS_NO_PHONE,
+            default => SiteInquiry::SMS_STATUS_FAILED,
+        };
+
+        $inquiry->confirmation_sms_sent_at = $result->isNotified() ? now() : null;
+
+        $responseParts = array_filter([
+            $result->response,
+            $result->error,
+        ]);
+
+        $inquiry->confirmation_sms_response = $responseParts !== []
+            ? implode(' | ', $responseParts)
+            : null;
+    }
+
+    /**
      * Texte SMS court (1 segment, max 160 caracteres sans accents).
      */
     private function buildConfirmationMessage(SiteInquiry $inquiry): string
     {
         $preferredAt = $inquiry->preferred_at instanceof Carbon
-            ? $inquiry->preferred_at->copy()->timezone(config('app.timezone'))
+            ? $inquiry->preferred_at->copy()->timezone((string) config('app.timezone'))
             : null;
 
         $dateLabel = $preferredAt instanceof Carbon
@@ -154,7 +177,7 @@ final class AppointmentConfirmationService
         $message = "{$firstName}, RDV confirme le {$dateLabel}{$timePart}, bureau {$bureauName}. Eglise CMP";
 
         if ($ministerName !== '') {
-            $withMinister = "{$message} Ptr {$ministerName}.";
+            $withMinister = "{$message} Pst {$ministerName}.";
 
             if (strlen($withMinister) <= (int) config('sms.max_length', 160)) {
                 $message = $withMinister;
