@@ -72,6 +72,12 @@ final class PublicSiteInquiryController extends Controller
             && isset($validated['minister_id'])
         ) {
             $bureauId = $this->availability->resolveBureauForSlot((int) $validated['minister_id'], $preferredAt);
+
+            if ($bureauId === null) {
+                return response()->json([
+                    'message' => 'Ce créneau n’est pas réservable en ligne. Choisissez un autre horaire.',
+                ], 422);
+            }
         }
 
         $inquiry = SiteInquiry::query()->create([

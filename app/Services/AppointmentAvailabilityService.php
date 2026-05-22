@@ -19,7 +19,7 @@ final class AppointmentAvailabilityService
     private const HORIZON_DAYS = 60;
 
     /**
-     * Liste les pasteurs actifs ayant au moins un horaire de réception actif.
+     * Liste les pasteurs actifs ayant au moins un horaire de réception actif lié à un bureau.
      *
      * @param  string  $locale  Locale pour les libellés multilingues.
      * @param  string  $fallbackLocale  Locale de repli.
@@ -28,7 +28,7 @@ final class AppointmentAvailabilityService
     public function ministersForBooking(string $locale, string $fallbackLocale): array
     {
         $ministerIds = MinisterReceptionSchedule::query()
-            ->where('is_active', true)
+            ->publiclyBookable()
             ->distinct()
             ->pluck('minister_id');
 
@@ -77,7 +77,7 @@ final class AppointmentAvailabilityService
         $schedules = MinisterReceptionSchedule::query()
             ->where('minister_id', $ministerId)
             ->where('day_of_week', $dayOfWeek)
-            ->where('is_active', true)
+            ->publiclyBookable()
             ->get();
 
         if ($schedules->isEmpty()) {
@@ -150,7 +150,7 @@ final class AppointmentAvailabilityService
         $schedules = MinisterReceptionSchedule::query()
             ->where('minister_id', $ministerId)
             ->where('day_of_week', $dayOfWeek)
-            ->where('is_active', true)
+            ->publiclyBookable()
             ->get();
 
         foreach ($schedules as $schedule) {

@@ -19,6 +19,7 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Validation\ValidationException;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
@@ -105,6 +106,18 @@ class MinisterReceptionScheduleResource extends Resource
                     ->label('Bureau')
                     ->placeholder('—')
                     ->searchable(),
+                TextColumn::make('bureau_id')
+                    ->label('RDV en ligne')
+                    ->badge()
+                    ->formatStateUsing(fn (?int $state, MinisterReceptionSchedule $record): string => $record->isPubliclyBookable()
+                        ? 'Proposé aux fidèles'
+                        : 'Masqué')
+                    ->color(fn (?int $state, MinisterReceptionSchedule $record): string => $record->isPubliclyBookable()
+                        ? 'success'
+                        : 'warning')
+                    ->tooltip(fn (MinisterReceptionSchedule $record): ?string => $record->isPubliclyBookable()
+                        ? null
+                        : 'Affectez un bureau à ce créneau pour que le pasteur apparaisse sur la prise de RDV en ligne.'),
                 TextColumn::make('day_of_week')
                     ->label('Jour')
                     ->formatStateUsing(fn (int $state): string => match ($state) {
@@ -123,6 +136,17 @@ class MinisterReceptionScheduleResource extends Resource
                 IconColumn::make('is_active')->label('Actif')->boolean(),
             ])
             ->defaultSort('minister_id')
+            ->filters([
+                TernaryFilter::make('has_bureau')
+                    ->label('Bureau renseigné')
+                    ->placeholder('Tous')
+                    ->trueLabel('Avec bureau')
+                    ->falseLabel('Sans bureau')
+                    ->queries(
+                        true: fn ($query) => $query->whereNotNull('bureau_id'),
+                        false: fn ($query) => $query->whereNull('bureau_id'),
+                    ),
+            ])
             ->actions([
                 EditAction::make(),
                 DeleteAction::make(),
