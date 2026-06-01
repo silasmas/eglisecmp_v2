@@ -47,4 +47,8 @@ return [
         'gateway_check' => env('FLEXPAY_GATEWAY_CHECK'),
     ],
 
+    'google_analytics' => [
+        'measurement_id' => env('GOOGLE_ANALYTICS_ID'),
+    ],
+
 ];
