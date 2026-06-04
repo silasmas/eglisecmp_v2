@@ -11,3 +11,5 @@ Artisan::command('inspire', function () {
 })->purpose('Display an inspiring quote');
 
 Schedule::command('youtube:sync')->everyThirtyMinutes();
+Schedule::command('youtube:check-live')->everyThreeMinutes();
+Schedule::command('events:check-alerts')->everyFiveMinutes();

@@ -13,7 +13,7 @@ use Illuminate\Console\Command;
  */
 class SyncYoutubeChannelCommand extends Command
 {
-    protected $signature = 'youtube:sync {--dry-run : Simule sans écrire en base}';
+    protected $signature = 'youtube:sync {--dry-run : Simule sans écrire en base} {--full : Ignore l’état incrémental et rescanne tout}';
 
     protected $description = 'Importe vidéos, shorts et playlists YouTube vers les publications (enseignements)';
 
@@ -30,7 +30,8 @@ class SyncYoutubeChannelCommand extends Command
             $this->line('○ Aucun live YouTube détecté pour le moment.');
         }
 
-        $result = $sync->sync($dryRun);
+        $full = (bool) $this->option('full');
+        $result = $sync->sync($dryRun, $full);
 
         if (! $result['ok']) {
             $this->error($result['message']);
@@ -40,12 +41,13 @@ class SyncYoutubeChannelCommand extends Command
 
         $this->info($result['message']);
         $this->table(
-            ['Playlists', 'Vidéos lues', 'Créées', 'Mises à jour', 'Ignorées'],
+            ['Playlists', 'Vidéos lues', 'Créées', 'Mises à jour', 'Déjà à jour', 'Ignorées'],
             [[
                 $result['playlists'],
                 $result['videos'],
                 $result['created'],
                 $result['updated'],
+                $result['unchanged'] ?? 0,
                 $result['skipped'],
             ]],
         );

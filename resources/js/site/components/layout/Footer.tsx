@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { churchInfo } from '../../data/content';
+import AlertSubscribeForm from '../alerts/AlertSubscribeForm';
 import cmpLogo from '../../assets/Logo-CMP-2023-new.png';
 
 function FacebookIcon() {
@@ -145,6 +146,10 @@ export default function Footer() {
               </ul>
             </div>
           ))}
+        </div>
+
+        <div className="mt-12 max-w-md">
+          <AlertSubscribeForm source="footer" title="Alertes live & événements" />
         </div>
       </div>
 

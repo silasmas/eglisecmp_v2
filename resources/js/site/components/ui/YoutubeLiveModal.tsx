@@ -1,5 +1,6 @@
 import { X } from 'lucide-react';
 import type { YoutubeLivePayload } from '../../data/types';
+import AlertSubscribeForm from '../alerts/AlertSubscribeForm';
 
 type YoutubeLiveModalProps = {
   open: boolean;
@@ -18,7 +19,7 @@ export default function YoutubeLiveModal({ open, live, onClose }: YoutubeLiveMod
   return (
     <div className="fixed inset-0 z-[190] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" className="absolute inset-0 bg-black/70" aria-label="Fermer" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-3xl overflow-hidden rounded-2xl bg-black shadow-2xl">
+      <div className="relative z-10 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-black shadow-2xl">
         <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">
@@ -50,6 +51,9 @@ export default function YoutubeLiveModal({ open, live, onClose }: YoutubeLiveMod
           >
             Ouvrir sur YouTube
           </a>
+        </div>
+        <div className="bg-white p-4 dark:bg-surface-900">
+          <AlertSubscribeForm source="live" title="Recevoir un SMS ou e-mail au prochain live" />
         </div>
       </div>
     </div>

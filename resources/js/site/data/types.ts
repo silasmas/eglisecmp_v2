@@ -351,6 +351,8 @@ export type TestimonySubmitPayload = {
   is_anonymous?: boolean;
   verification_type?: 'email' | 'phone' | 'both';
   images?: File[];
+  notify_live?: boolean;
+  notify_events?: boolean;
 };
 
 export interface NavItem {

@@ -7,6 +7,7 @@ import { cn } from '../../lib/utils';
 import ImageWithSkeleton from './ImageWithSkeleton';
 import ReactionBar from './ReactionBar';
 import SocialShareToolbar from './SocialShareToolbar';
+import AlertSubscribeForm from '../alerts/AlertSubscribeForm';
 
 /**
  * Formate la date d'un événement pour l'affichage français.
@@ -226,13 +227,21 @@ export default function EventDetailModal({
                   </Link>
                 ) : null}
 
+                <div className="mt-6">
+                  <AlertSubscribeForm
+                    source="events"
+                    title="Alertes pour cet événement"
+                    className="border-surface-200 shadow-none"
+                  />
+                </div>
+
                 <button
                   type="button"
                   className={cn(
                     'w-full rounded-2xl py-3 text-sm font-semibold transition',
                     contentHref !== null
                       ? 'mt-3 border border-surface-200 bg-surface-50 text-surface-800 hover:bg-surface-100'
-                      : 'mt-6 bg-burgundy-800 text-white hover:bg-burgundy-700',
+                      : 'mt-4 bg-burgundy-800 text-white hover:bg-burgundy-700',
                   )}
                   onClick={onClose}
                 >

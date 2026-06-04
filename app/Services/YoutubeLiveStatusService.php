@@ -24,26 +24,47 @@ final class YoutubeLiveStatusService
      */
     public function current(): ?array
     {
+        $snapshot = $this->snapshot(false);
+
+        return $snapshot['isLive'] === true ? $snapshot['live'] : null;
+    }
+
+    /**
+     * Interroge l’API YouTube et met à jour le cache (pour la planification / notifications).
+     *
+     * @return array{isLive: bool, live: array{isLive: bool, videoId: string, title: string, embedUrl: string, thumbnailUrl: string, watchUrl: string}|null}
+     */
+    public function snapshot(bool $bypassCache = true): array
+    {
         $channelId = (string) config('site_public.youtube_channel_id', '');
         $apiKey = (string) config('services.youtube.api_key', '');
 
         if ($channelId === '' || $apiKey === '') {
-            return null;
+            return ['isLive' => false, 'live' => null];
         }
 
-        /** @var array<string, mixed>|null $cached */
-        $cached = Cache::get(self::CACHE_KEY);
-
-        if (is_array($cached)) {
-            return $cached['isLive'] === true ? $this->normalizePayload($cached) : null;
+        if (! $bypassCache) {
+            /** @var array<string, mixed>|null $cached */
+            $cached = Cache::get(self::CACHE_KEY);
+            if (is_array($cached)) {
+                return [
+                    'isLive' => ($cached['isLive'] ?? false) === true,
+                    'live' => ($cached['isLive'] ?? false) === true
+                        ? $this->normalizePayload($cached)
+                        : null,
+                ];
+            }
         }
 
         $payload = $this->fetchFromApi($channelId, $apiKey);
         Cache::put(self::CACHE_KEY, $payload ?? ['isLive' => false], self::CACHE_SECONDS);
 
-        return $payload !== null && ($payload['isLive'] ?? false) === true
-            ? $this->normalizePayload($payload)
-            : null;
+        $isLive = is_array($payload) && ($payload['isLive'] ?? false) === true;
+
+        return [
+            'isLive' => $isLive,
+            'live' => $isLive ? $this->normalizePayload($payload) : null,
+        ];
     }
 
     /**

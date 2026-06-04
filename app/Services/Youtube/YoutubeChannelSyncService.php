@@ -8,6 +8,7 @@ use App\Models\Event;
 use App\Models\Post;
 use App\Support\YoutubeEventDateResolver;
 use App\Support\YoutubePlaylistMatcher;
+use App\Support\YoutubeSyncState;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
@@ -15,6 +16,7 @@ use Illuminate\Support\Str;
 
 /**
  * Synchronise vidéos, shorts et playlists YouTube vers posts / événements (enseignements).
+ * Mode incrémental par défaut : reprend depuis la dernière synchro (compteurs playlists + uploads récents).
  */
 final class YoutubeChannelSyncService
 {
@@ -26,36 +28,30 @@ final class YoutubeChannelSyncService
     ) {}
 
     /**
-     * Lance la synchronisation complète.
+     * Lance la synchronisation (incrémentale sauf si $full).
      *
      * @param  bool  $dryRun  Si true, ne persiste pas en base.
-     * @return array{ok: bool, message: string, playlists: int, videos: int, created: int, updated: int, skipped: int}
+     * @param  bool  $full  Si true, ignore l’état mémorisé et parcourt tout comme avant.
+     * @return array{ok: bool, message: string, playlists: int, videos: int, created: int, updated: int, unchanged: int, skipped: int}
      */
-    public function sync(bool $dryRun = false): array
+    public function sync(bool $dryRun = false, bool $full = false): array
     {
         $channelId = (string) config('site_public.youtube_channel_id', '');
         $apiKey = (string) config('services.youtube.api_key', '');
 
         if ($channelId === '' || $apiKey === '') {
-            return [
-                'ok' => false,
-                'message' => 'YOUTUBE_CHANNEL_ID ou YOUTUBE_API_KEY manquant dans .env',
-                'playlists' => 0,
-                'videos' => 0,
-                'created' => 0,
-                'updated' => 0,
-                'skipped' => 0,
-            ];
+            return $this->failureResult('YOUTUBE_CHANNEL_ID ou YOUTUBE_API_KEY manquant dans .env');
         }
 
         $locale = (string) config('site_public.youtube_sync.default_locale', 'fr');
         $maxVideos = (int) config('site_public.youtube_sync.max_videos_per_run', 200);
         $importShorts = (bool) config('site_public.youtube_sync.import_shorts', true);
+        $stopAfterExisting = (int) config('site_public.youtube_sync.incremental_stop_after_existing', 8);
 
         $created = 0;
         $updated = 0;
+        $unchanged = 0;
         $skipped = 0;
-        $playlistCount = 0;
         $this->processedVideoIds = [];
 
         $playlists = $this->api->channelPlaylists($channelId, 200);
@@ -70,19 +66,30 @@ final class YoutubeChannelSyncService
         $uploadsPlaylistId = $this->api->uploadsPlaylistId($channelId);
 
         if ($uploadsPlaylistId === null) {
-            return [
-                'ok' => false,
-                'message' => 'Impossible de lire la playlist « uploads » de la chaîne (vérifiez l’ID et la clé API).',
-                'playlists' => $playlistCount,
-                'videos' => 0,
-                'created' => 0,
-                'updated' => 0,
-                'skipped' => 0,
-            ];
+            return $this->failureResult(
+                'Impossible de lire la playlist « uploads » de la chaîne (vérifiez l’ID et la clé API).',
+                $playlistCount,
+            );
         }
 
-        $refs = $this->api->allPlaylistItems($uploadsPlaylistId, $maxVideos);
-        $videoIds = array_values(array_unique(array_map(static fn (array $row): string => $row['videoId'], $refs)));
+        $alreadyImported = fn (string $videoId): bool => Post::query()
+            ->where('youtube_video_id', $videoId)
+            ->exists();
+
+        if ($full) {
+            $refs = $this->api->allPlaylistItems($uploadsPlaylistId, $maxVideos);
+            $videoIds = array_values(array_unique(array_map(
+                static fn (array $row): string => $row['videoId'],
+                $refs
+            )));
+        } else {
+            $videoIds = $this->api->collectNewPlaylistVideoIds(
+                $uploadsPlaylistId,
+                $alreadyImported,
+                $maxVideos,
+                $stopAfterExisting,
+            );
+        }
 
         $videos = $this->api->videosByIds($videoIds);
         $videoCount = count($videos);
@@ -105,26 +112,101 @@ final class YoutubeChannelSyncService
                 $created++;
             } elseif ($result === 'updated') {
                 $updated++;
+            } elseif ($result === 'unchanged') {
+                $unchanged++;
             } else {
                 $skipped++;
             }
         }
 
         if (! $dryRun) {
-            $this->importPlaylistVideos($playlists, $locale, $importShorts);
-            $this->linkPlaylistMemberships($channelId, $playlists);
+            $this->importPlaylistVideos($playlists, $locale, $importShorts, $full, $stopAfterExisting);
+            $this->linkPlaylistMemberships($channelId, $playlists, $full);
+            $this->persistSyncState($playlists);
         }
+
+        $message = $this->buildResultMessage(
+            $dryRun,
+            $full,
+            $playlistCount,
+            $videoCount,
+            $created,
+            $updated,
+            $unchanged,
+        );
 
         return [
             'ok' => true,
-            'message' => $dryRun
-                ? "Simulation OK : {$playlistCount} playlist(s), {$videoCount} vidéo(s) analysée(s)."
-                : "Synchronisation terminée : {$created} créé(s), {$updated} mis à jour.",
+            'message' => $message,
             'playlists' => $playlistCount,
             'videos' => $videoCount,
             'created' => $created,
             'updated' => $updated,
+            'unchanged' => $unchanged,
             'skipped' => $skipped,
+        ];
+    }
+
+    /**
+     * @param  list<array{id: string, title: string, description: string, thumbnailUrl: string, itemCount?: int, publishedAt?: string|null}>  $playlists
+     */
+    private function persistSyncState(array $playlists): void
+    {
+        $counts = [];
+        foreach ($playlists as $playlist) {
+            $counts[$playlist['id']] = [
+                'itemCount' => (int) ($playlist['itemCount'] ?? 0),
+            ];
+        }
+
+        YoutubeSyncState::save($counts);
+    }
+
+    private function buildResultMessage(
+        bool $dryRun,
+        bool $full,
+        int $playlistCount,
+        int $videoCount,
+        int $created,
+        int $updated,
+        int $unchanged,
+    ): string {
+        if ($dryRun) {
+            return "Simulation OK : {$playlistCount} playlist(s), {$videoCount} vidéo(s) analysée(s).";
+        }
+
+        if ($created === 0 && $updated === 0) {
+            $last = YoutubeSyncState::lastCompletedAt();
+            $hint = $last !== null
+                ? ' (dernière synchro : '.$last->locale('fr')->isoFormat('D MMM YYYY à HH:mm').')'
+                : '';
+
+            if ($unchanged > 0 && ! $full) {
+                return 'Aucun nouveau contenu YouTube'.$hint.'. '.$unchanged.' vidéo(s) déjà à jour.';
+            }
+
+            return 'Aucun nouveau contenu YouTube'.$hint.'.';
+        }
+
+        $mode = $full ? 'complète' : 'incrémentale';
+
+        return "Synchronisation {$mode} terminée : {$created} créé(s), {$updated} mis à jour.";
+    }
+
+    /**
+     * @return array{ok: bool, message: string, playlists: int, videos: int, created: int, updated: int, unchanged: int, skipped: int}
+     */
+    private function failureResult(string $message, int $playlists = 0): array
+    {
+        return [
+            'ok' => false,
+            'message' => $message,
+            'playlists' => $playlists,
+            'videos' => 0,
+            'created' => 0,
+            'updated' => 0,
+            'unchanged' => 0,
+            'skipped' => 0,
         ];
     }
 
@@ -174,24 +256,51 @@ final class YoutubeChannelSyncService
     }
 
     /**
-     * Importe les vidéos de chaque playlist YouTube (au-delà de la limite « uploads »).
+     * Importe les vidéos des playlists dont le nombre d’éléments a changé (ou tout si $full).
      *
      * @param  list<array{id: string, title: string, description: string, thumbnailUrl: string, itemCount?: int, publishedAt?: string|null}>  $playlists
      */
-    private function importPlaylistVideos(array $playlists, string $locale, bool $importShorts): void
-    {
+    private function importPlaylistVideos(
+        array $playlists,
+        string $locale,
+        bool $importShorts,
+        bool $full,
+        int $stopAfterExisting,
+    ): void {
         $perPlaylistLimit = (int) config('site_public.youtube_sync.max_playlist_videos_per_run', 120);
+        $alreadyImported = fn (string $videoId): bool => Post::query()
+            ->where('youtube_video_id', $videoId)
+            ->exists();
 
         foreach ($playlists as $playlist) {
-            $members = $this->api->allPlaylistItems($playlist['id'], $perPlaylistLimit);
-            if ($members === []) {
-                continue;
+            $playlistId = $playlist['id'];
+            $newCount = (int) ($playlist['itemCount'] ?? 0);
+
+            if (! $full) {
+                $prevCount = YoutubeSyncState::previousPlaylistItemCount($playlistId);
+                if ($prevCount !== null && $prevCount === $newCount) {
+                    continue;
+                }
             }
 
-            $videoIds = array_values(array_unique(array_map(
-                static fn (array $row): string => $row['videoId'],
-                $members
-            )));
+            if ($full) {
+                $members = $this->api->allPlaylistItems($playlistId, $perPlaylistLimit);
+                $videoIds = array_values(array_unique(array_map(
+                    static fn (array $row): string => $row['videoId'],
+                    $members
+                )));
+            } else {
+                $videoIds = $this->api->collectNewPlaylistVideoIds(
+                    $playlistId,
+                    $alreadyImported,
+                    $perPlaylistLimit,
+                    $stopAfterExisting,
+                );
+            }
+
+            if ($videoIds === []) {
+                continue;
+            }
 
             $videos = $this->api->videosByIds($videoIds);
             foreach ($videos as $video) {
@@ -209,9 +318,17 @@ final class YoutubeChannelSyncService
      *
      * @param  list<array{id: string, title: string, description: string, thumbnailUrl: string, itemCount: int}>  $playlists
      */
-    private function linkPlaylistMemberships(string $channelId, array $playlists): void
+    private function linkPlaylistMemberships(string $channelId, array $playlists, bool $full): void
     {
         foreach ($playlists as $playlist) {
+            if (! $full) {
+                $prevCount = YoutubeSyncState::previousPlaylistItemCount($playlist['id']);
+                $newCount = (int) ($playlist['itemCount'] ?? 0);
+                if ($prevCount !== null && $prevCount === $newCount) {
+                    continue;
+                }
+            }
+
             $event = Event::query()->where('youtube_playlist_id', $playlist['id'])->first();
             if ($event === null) {
                 continue;
@@ -219,6 +336,7 @@ final class YoutubeChannelSyncService
 
             $limit = (int) config('site_public.youtube_sync.max_playlist_videos_per_run', 120);
             $members = $this->api->allPlaylistItems($playlist['id'], $limit);
+
             $meditationGroup = YoutubePlaylistMatcher::meditationGroupForTitle($playlist['title']);
             $weeklyDay = $meditationGroup !== null
                 ? YoutubePlaylistMatcher::weeklyServiceDayForGroup($meditationGroup)
@@ -250,7 +368,7 @@ final class YoutubeChannelSyncService
         }
 
         if (isset($this->processedVideoIds[$videoId])) {
-            return 'updated';
+            return 'unchanged';
         }
 
         $post = $this->findPostForYoutubeVideo($videoId);
@@ -261,6 +379,12 @@ final class YoutubeChannelSyncService
         $publishedAt = $video['publishedAt'] !== null
             ? Carbon::parse($video['publishedAt'])
             : now();
+
+        if ($post !== null && $this->postMatchesYoutubeSnapshot($post, $video, $locale, $publishedAt, $kind)) {
+            $this->processedVideoIds[$videoId] = true;
+
+            return 'unchanged';
+        }
 
         $defaultAuthor = (string) config('site_public.default_speaker_name', 'Centre Missionnaire Philadelphie');
 
@@ -312,6 +436,31 @@ final class YoutubeChannelSyncService
         $this->processedVideoIds[$videoId] = true;
 
         return 'updated';
+    }
+
+    /**
+     * Vérifie si le post local reflète déjà la fiche YouTube (évite des UPDATE inutiles).
+     */
+    private function postMatchesYoutubeSnapshot(
+        Post $post,
+        array $video,
+        string $locale,
+        Carbon $publishedAt,
+        string $kind,
+    ): bool {
+        $localTitle = is_array($post->title) ? (string) ($post->title[$locale] ?? reset($post->title) ?: '') : '';
+        $localThumb = is_array($post->image_url)
+            ? (string) ($post->image_url[$locale] ?? reset($post->image_url) ?: '')
+            : '';
+
+        $sameDate = $post->date_publication !== null
+            && $post->date_publication->equalTo($publishedAt);
+
+        return $localTitle === $video['title']
+            && $sameDate
+            && $localThumb === $video['thumbnailUrl']
+            && (string) $post->youtube_kind === $kind
+            && (int) ($post->youtube_duration_seconds ?? 0) === (int) ($video['durationSeconds'] ?? 0);
     }
 
     /**

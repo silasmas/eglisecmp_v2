@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { X } from 'lucide-react';
 import type { TestimonyWallSettings, WallConfig } from '../../data/types';
 import { submitTestimony } from '../../lib/siteApi';
 import { cn } from '../../lib/utils';
 import FileDropZone from '../ui/FileDropZone';
+import AlertSubscribeCheckboxes from '../alerts/AlertSubscribeCheckboxes';
 
 const INPUT_CLASS =
   'w-full rounded-lg border border-surface-200 bg-white px-3 py-2.5 text-sm text-surface-900 focus:border-[#950000] focus:outline-none focus:ring-1 focus:ring-[#950000] dark:border-surface-700 dark:bg-surface-900 dark:text-white';
@@ -58,6 +59,8 @@ export default function TestimonySubmitModal({
   const [error, setError] = useState<string | null>(null);
   const [doneMessage, setDoneMessage] = useState<string | null>(null);
   const [uploadProgress, setUploadProgress] = useState(0);
+  const [notifyLive, setNotifyLive] = useState(false);
+  const [notifyEvents, setNotifyEvents] = useState(false);
 
   const maxTitle = wall?.maxTitleLength ?? 50;
   const maxLen = wall?.maxTextLength ?? 500;
@@ -90,13 +93,38 @@ export default function TestimonySubmitModal({
     return [firstName, lastName].filter(Boolean).join(' ').trim() || 'Votre nom';
   }, [isAnonymous, firstName, lastName]);
 
+  /**
+   * Remet le formulaire à zéro après envoi ou à la fermeture.
+   */
+  const resetForm = useCallback(() => {
+    setKind('text');
+    setFirstName('');
+    setLastName('');
+    setTitle('');
+    setText('');
+    setVideo('');
+    setVideoSource(settings.allowYoutubeLink ? 'link' : 'upload');
+    setVideoFile(null);
+    setEmail('');
+    setPhone('');
+    setCategory('');
+    setIsAnonymous(false);
+    setPostitColor(colors[0]?.value ?? '#FFF6D9');
+    setFontFamily(fonts[0]?.value ?? 'Inter, sans-serif');
+    setImages([]);
+    setUploadProgress(0);
+    setError(null);
+    setNotifyLive(false);
+    setNotifyEvents(false);
+  }, [settings.allowYoutubeLink, colors, fonts]);
+
   if (!open) {
     return null;
   }
 
   const resetAndClose = () => {
     setDoneMessage(null);
-    setError(null);
+    resetForm();
     onClose();
   };
 
@@ -125,10 +153,13 @@ export default function TestimonySubmitModal({
           is_anonymous: isAnonymous,
           verification_type: 'email',
           images: images.length > 0 ? images : undefined,
+          notify_live: notifyLive,
+          notify_events: notifyEvents,
         },
         (percent) => setUploadProgress(percent),
       );
       setDoneMessage(result.message);
+      resetForm();
       onSuccess();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Envoi impossible.');
@@ -302,6 +333,19 @@ export default function TestimonySubmitModal({
                 <label className="mb-1 block text-xs font-medium">E-mail * (pour la notification de publication)</label>
                 <input required type="email" className={INPUT_CLASS} value={email} onChange={(e) => setEmail(e.target.value)} />
               </div>
+
+              <div>
+                <label className="mb-1 block text-xs font-medium">Téléphone (optionnel, pour alertes SMS/WhatsApp)</label>
+                <input type="tel" className={INPUT_CLASS} value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+243…" />
+              </div>
+
+              <AlertSubscribeCheckboxes
+                notifyLive={notifyLive}
+                notifyEvents={notifyEvents}
+                onNotifyLiveChange={setNotifyLive}
+                onNotifyEventsChange={setNotifyEvents}
+                compact
+              />
 
               {settings.allowPhotoUpload ? (
                 <FileDropZone

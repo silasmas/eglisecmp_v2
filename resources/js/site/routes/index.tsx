@@ -16,6 +16,7 @@ import OffrandesPage from '../pages/OffrandesPage';
 import PrayerRequestPage from '../pages/PrayerRequestPage';
 import AppointmentPage from '../pages/AppointmentPage';
 import TestimonyWallPage from '../pages/TestimonyWallPage';
+import AlertUnsubscribePage from '../pages/AlertUnsubscribePage';
 
 export const router = createBrowserRouter([
   {
@@ -38,6 +39,7 @@ export const router = createBrowserRouter([
       { path: 'requete-de-priere', element: <PrayerRequestPage /> },
       { path: 'rendez-vous', element: <AppointmentPage /> },
       { path: 'temoignages', element: <TestimonyWallPage /> },
+      { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },
     ],
   },
 ]);

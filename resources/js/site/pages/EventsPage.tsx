@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import PageHero from '../components/ui/PageHero';
 import EventCard from '../components/cards/EventCard';
 import EventDetailModal from '../components/ui/EventDetailModal';
+import AlertSubscribeForm from '../components/alerts/AlertSubscribeForm';
 import { events as fallbackEvents } from '../data/content';
 import type { Event } from '../data/types';
 import { useSiteEvents } from '../hooks/useSiteEvents';
@@ -114,6 +115,12 @@ export default function EventsPage() {
               ))}
             </motion.div>
           )}
+        </div>
+      </section>
+
+      <section className="border-t border-surface-100 bg-surface-50 py-16 dark:border-surface-800 dark:bg-surface-950">
+        <div className="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
+          <AlertSubscribeForm source="events" title="Ne manquez plus nos événements" />
         </div>
       </section>
 

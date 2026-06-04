@@ -217,6 +217,22 @@ return [
         'max_videos_per_run' => 500,
         'max_playlist_videos_per_run' => 120,
         'import_shorts' => true,
+        /** Arrêt après N vidéos déjà en base (uploads / playlists modifiées). */
+        'incremental_stop_after_existing' => (int) env('YOUTUBE_SYNC_STOP_AFTER_EXISTING', 8),
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Notification démarrage live (email + SMS)
+    |--------------------------------------------------------------------------
+    |
+    | Les abonnés YouTube natifs ne sont pas joignables via l’API : seuls les
+    | comptes du site (users) et les contacts témoignages sont notifiés.
+    |
+    */
+    'youtube_live_notify' => [
+        'enabled' => (bool) env('YOUTUBE_LIVE_NOTIFY_ENABLED', false),
+        'site_url' => env('APP_URL', 'https://cmp-philadelphie.org'),
     ],
 
     /*

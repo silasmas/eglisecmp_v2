@@ -44,7 +44,32 @@ php artisan youtube:sync --dry-run
 php artisan youtube:sync
 ```
 
+Par défaut la synchro est **incrémentale** : elle mémorise le nombre de vidéos par playlist et ne parcourt que les uploads / playlists modifiés. Si rien de nouveau :
+
+> Aucun nouveau contenu YouTube (dernière synchro : …).
+
+Forcer un scan complet (comme avant) :
+
+```bash
+php artisan youtube:sync --full
+```
+
 Ou dans l’admin Filament : **Contenu → Publications → Synchroniser YouTube**.
+
+### Éviter le 504 Gateway Time-out (admin)
+
+La synchro complète dure **10 à 20 minutes** (100+ playlists). Si elle tourne dans la requête HTTP, **nginx** coupe la connexion → page **504**.
+
+Le bouton admin lance désormais la synchro **en arrière-plan** :
+
+- avec `QUEUE_CONNECTION=database` → job `SyncYoutubeChannelJob` (lancer un worker : `php artisan queue:work --timeout=3600`)
+- sinon → processus `nohup php artisan youtube:sync` (log : `storage/logs/youtube-sync.log`)
+
+En production, préférez :
+
+```env
+QUEUE_CONNECTION=database
+```
 
 ### Ce qui est importé
 
@@ -59,7 +84,10 @@ Champs ajoutés : `youtube_video_id`, `youtube_kind`, `youtube_playlist_id`, `yo
 
 ### Planification automatique
 
-La commande `youtube:sync` est planifiée **toutes les heures** (`routes/console.php`). En production, configurez le cron Laravel :
+- `youtube:sync` — toutes les **30 minutes** (incrémental)
+- `youtube:check-live` — toutes les **3 minutes** (notifications live, si activé)
+
+En production, configurez le cron Laravel :
 
 ```bash
 * * * * * cd /chemin/eglisecmp_v2 && php artisan schedule:run >> /dev/null 2>&1
@@ -97,11 +125,40 @@ Les autres playlists vont dans **Enseignements → Playlists**.
 ### Logique (résumé)
 
 1. **Playlists** : l’API liste les playlists de la chaîne → création/mise à jour d’un **événement** par playlist (titre, description, miniature).
-2. **Vidéos** : l’API lit la playlist « uploads » → pour chaque vidéo : titre, **description complète**, miniature HD, durée, lien, date → **publication** (`posts`).
-3. **Liens** : chaque vidéo d’une playlist reçoit `event_id` pour l’onglet Playlists ; les cultes hebdomadaires reçoivent aussi `weekly_service_day`.
-4. **Affichage** : la SPA lit la base via `/api/site/posts` et `/api/site/teachings/*` — pas d’appel YouTube côté navigateur (économie de quota et rapidité).
+2. **Vidéos** : depuis la playlist « uploads », parcours du **plus récent vers l’ancien** ; arrêt après 8 vidéos déjà en base (configurable). Les playlists dont le **nombre d’éléments** n’a pas changé sont ignorées.
+3. **Liens** : chaque vidéo d’une playlist modifiée reçoit `event_id` pour l’onglet Playlists ; les cultes hebdomadaires reçoivent aussi `weekly_service_day`.
+4. **État** : cache `youtube.channel.sync.state` mémorise la dernière synchro et les compteurs par playlist.
+5. **Affichage** : la SPA lit la base via `/api/site/posts` et `/api/site/teachings/*` — pas d’appel YouTube côté navigateur (économie de quota et rapidité).
 
-## 8. Limites connues
+## 8. Live sur le site + notifications
+
+### Affichage (sans import en base)
+
+- Service `YoutubeLiveStatusService` : appel API `search?eventType=live` sur la chaîne, résultat mis en **cache 90 s**.
+- API : `GET /api/site/youtube/live` + fusion dans le hero (`PublicHeroMetaController`).
+- Front : `YoutubeLiveProvider` interroge l’API toutes les ~90 s → badge menu, modale, tuile hero.
+
+### Notifications email / SMS (opt-in uniquement)
+
+```env
+YOUTUBE_LIVE_NOTIFY_ENABLED=true
+```
+
+Commandes planifiées :
+
+- `youtube:check-live` (toutes les 3 min) → abonnés **live**
+- `events:check-alerts` (toutes les 5 min) → abonnés **événements** (en cours, à la une, rappel 24 h)
+
+Les destinataires sont enregistrés dans la table `alert_subscriptions` (cases cochées volontairement) :
+
+- Formulaire **footer**, page **Événements**, modale **live**, modale **détail événement**
+- Cases à cocher lors du dépôt d’un **témoignage** (+ téléphone optionnel pour SMS)
+
+Désabonnement : lien dans chaque e-mail → `/alertes/desabonnement?token=…`
+
+**Important** : l’API YouTube ne permet pas d’envoyer des mails aux abonnés de la chaîne. Seuls les inscrits sur le site sont notifiés.
+
+## 9. Limites connues
 
 - Les **audios** (type 2) ne viennent pas de YouTube ; ils restent saisis à la main.
 - Une vidéo retirée de YouTube n’est **pas désactivée** automatiquement (éviter de masquer du contenu archivé).

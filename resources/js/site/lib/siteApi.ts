@@ -602,6 +602,12 @@ export function submitTestimony(
   if (payload.is_anonymous !== undefined) {
     form.append('is_anonymous', payload.is_anonymous ? '1' : '0');
   }
+  if (payload.notify_live === true) {
+    form.append('notify_live', '1');
+  }
+  if (payload.notify_events === true) {
+    form.append('notify_events', '1');
+  }
   if (payload.video_source !== undefined) {
     form.append('video_source', payload.video_source);
   }
@@ -655,4 +661,80 @@ export function submitTestimony(
 
     xhr.send(form);
   });
+}
+
+export type AlertSubscribePayload = {
+  email?: string;
+  phone?: string;
+  name?: string;
+  notify_live: boolean;
+  notify_events: boolean;
+  source: 'footer' | 'events' | 'live' | 'testimony';
+};
+
+/**
+ * Inscription opt-in aux alertes live et événements.
+ */
+export async function subscribeToAlerts(payload: AlertSubscribePayload): Promise<{ message: string }> {
+  const response = await fetch(siteApiUrl('/alert-subscriptions'), {
+    method: 'POST',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      email: payload.email?.trim() || undefined,
+      phone: payload.phone?.trim() || undefined,
+      name: payload.name?.trim() || undefined,
+      notify_live: payload.notify_live,
+      notify_events: payload.notify_events,
+      source: payload.source,
+    }),
+  });
+
+  let parsed: unknown = null;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const message = extractApiErrorMessage(parsed);
+    throw new Error(message !== '' ? message : `Inscription impossible (${response.status})`);
+  }
+
+  const res = parsed as { data?: { message?: string } };
+
+  return {
+    message: res.data?.message ?? 'Merci ! Vous recevrez nos alertes selon vos choix.',
+  };
+}
+
+/**
+ * Désabonnement via le jeton reçu par e-mail.
+ */
+export async function unsubscribeFromAlerts(token: string): Promise<{ message: string }> {
+  const response = await fetch(siteApiUrl(`/alert-subscriptions/unsubscribe/${encodeURIComponent(token)}`), {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+  });
+
+  let parsed: unknown = null;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const message = extractApiErrorMessage(parsed);
+    throw new Error(message !== '' ? message : 'Lien invalide ou expiré.');
+  }
+
+  const res = parsed as { data?: { message?: string } };
+
+  return {
+    message: res.data?.message ?? 'Vous êtes désabonné(e) des alertes.',
+  };
 }

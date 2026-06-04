@@ -6,7 +6,9 @@ namespace App\Http\Controllers\Api\Site;
 
 use App\Http\Controllers\Controller;
 use App\Models\ContentReaction;
+use App\Models\AlertSubscription;
 use App\Models\Testimony;
+use App\Services\Alert\AlertSubscriptionService;
 use App\Models\TestimonyImage;
 use App\Models\TestimonyWallSetting;
 use App\Support\SitePublicSerializer;
@@ -194,6 +196,8 @@ final class PublicTestimonyController extends Controller
             'verification_type' => 'nullable|string|in:'.Testimony::VERIFY_EMAIL.','.Testimony::VERIFY_PHONE.','.Testimony::VERIFY_BOTH,
             'images' => 'nullable|array|max:'.$maxPhotos,
             'images.*' => 'image|max:5120',
+            'notify_live' => 'nullable|boolean',
+            'notify_events' => 'nullable|boolean',
         ]);
 
         $isAnonymous = (bool) ($validated['is_anonymous'] ?? false);
@@ -297,6 +301,8 @@ final class PublicTestimonyController extends Controller
             return $testimony->id;
         });
 
+        $this->registerAlertSubscriptionFromTestimony($request, $validated, $isAnonymous);
+
         return response()->json([
             'data' => [
                 'ok' => true,
@@ -356,5 +362,43 @@ final class PublicTestimonyController extends Controller
     private function testimonyReactionKeys(): array
     {
         return (array) config('site_public.testimony_reaction_keys', []);
+    }
+
+    /**
+     * Enregistre l’opt-in alertes si l’utilisateur a coché les cases au dépôt du témoignage.
+     *
+     * @param  array<string, mixed>  $validated
+     */
+    private function registerAlertSubscriptionFromTestimony(
+        Request $request,
+        array $validated,
+        bool $isAnonymous,
+    ): void {
+        $notifyLive = $request->boolean('notify_live');
+        $notifyEvents = $request->boolean('notify_events');
+
+        if (! $notifyLive && ! $notifyEvents) {
+            return;
+        }
+
+        $name = $isAnonymous
+            ? null
+            : trim(implode(' ', array_filter([
+                (string) ($validated['first_name'] ?? ''),
+                (string) ($validated['last_name'] ?? ''),
+            ])));
+
+        try {
+            app(AlertSubscriptionService::class)->subscribe(
+                (string) ($validated['email'] ?? ''),
+                isset($validated['phone']) ? (string) $validated['phone'] : null,
+                $notifyLive,
+                $notifyEvents,
+                AlertSubscription::SOURCE_TESTIMONY,
+                $name !== '' ? $name : null,
+            );
+        } catch (\InvalidArgumentException) {
+            // Opt-in ignoré si données insuffisantes (ex. SMS sans téléphone).
+        }
     }
 }

@@ -136,6 +136,49 @@ final class YoutubeApiClient
     }
 
     /**
+     * Parcourt une playlist du plus récent vers l’ancien et s’arrête après N vidéos déjà connues.
+     *
+     * @param  callable(string): bool  $videoAlreadyImported  True si la vidéo est déjà en base.
+     * @return list<string> IDs vidéo potentiellement nouveaux (ordre playlist).
+     */
+    public function collectNewPlaylistVideoIds(
+        string $playlistId,
+        callable $videoAlreadyImported,
+        int $maxScan = 200,
+        int $stopAfterConsecutiveExisting = 8,
+    ): array {
+        $newIds = [];
+        $consecutiveExisting = 0;
+        $scanned = 0;
+        $pageToken = null;
+
+        do {
+            $batch = $this->playlistItemsPage($playlistId, 50, $pageToken);
+            foreach ($batch['items'] as $item) {
+                $videoId = $item['videoId'];
+                $scanned++;
+
+                if ($videoAlreadyImported($videoId)) {
+                    $consecutiveExisting++;
+                    if ($consecutiveExisting >= $stopAfterConsecutiveExisting) {
+                        return $newIds;
+                    }
+                } else {
+                    $consecutiveExisting = 0;
+                    $newIds[] = $videoId;
+                }
+
+                if ($scanned >= $maxScan) {
+                    return $newIds;
+                }
+            }
+            $pageToken = $batch['nextPageToken'] ?? null;
+        } while ($pageToken !== null);
+
+        return $newIds;
+    }
+
+    /**
      * Playlists publiques d'une chaîne (pagination YouTube).
      *
      * @return list<array{id: string, title: string, description: string, thumbnailUrl: string, itemCount: int, publishedAt: string|null}>

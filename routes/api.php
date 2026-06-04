@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\Api\Site\PublicAlertSubscriptionController;
 use App\Http\Controllers\Api\Site\PublicAppointmentController;
 use App\Http\Controllers\Api\Site\PublicBundaController;
 use App\Http\Controllers\Api\Site\PublicContentReactionController;
@@ -59,6 +60,10 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
         ->middleware('throttle:60,1');
     Route::post('testimonies', [PublicTestimonyController::class, 'store'])
         ->middleware('throttle:15,1');
+    Route::post('alert-subscriptions', [PublicAlertSubscriptionController::class, 'store'])
+        ->middleware('throttle:30,1');
+    Route::post('alert-subscriptions/unsubscribe/{token}', [PublicAlertSubscriptionController::class, 'unsubscribe'])
+        ->middleware('throttle:60,1');
     Route::get('ministers', [PublicMinisterController::class, 'index']);
     Route::get('appointments/ministers', [PublicAppointmentController::class, 'ministers']);
     Route::get('appointments/dates', [PublicAppointmentController::class, 'dates']);
