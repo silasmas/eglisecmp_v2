@@ -46,8 +46,8 @@ export default function TeachingsPage() {
           <TeachingsTabBar />
 
           {tab === 'sermons' ? <MessagesGridView {...viewProps} /> : null}
-          {tab === 'meditations' ? <MeditationsByThemeView {...viewProps} /> : null}
-          {tab === 'playlists' ? <PlaylistsStackedView {...viewProps} /> : null}
+          {tab === 'meditations' ? <MeditationsByThemeView /> : null}
+          {tab === 'playlists' ? <PlaylistsStackedView /> : null}
         </div>
       </section>
     </>

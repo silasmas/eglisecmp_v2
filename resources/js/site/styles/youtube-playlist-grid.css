@@ -1,0 +1,134 @@
+.yt-playlist-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem 1rem;
+}
+
+@media (min-width: 640px) {
+  .yt-playlist-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 2rem 1.25rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  .yt-playlist-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1280px) {
+  .yt-playlist-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+  }
+}
+
+.yt-playlist-card {
+  min-width: 0;
+}
+
+.yt-playlist-count-above {
+  margin: 0 0 0.45rem;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  color: #606060;
+}
+
+.yt-playlist-thumb-link {
+  display: block;
+  text-decoration: none;
+}
+
+.yt-playlist-stack {
+  position: relative;
+  padding-top: 56.25%;
+}
+
+.yt-playlist-stack-layer {
+  position: absolute;
+  left: 8%;
+  right: 8%;
+  height: 6px;
+  border-radius: 6px 6px 0 0;
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.yt-playlist-stack-layer--2 {
+  top: 0;
+  left: 12%;
+  right: 12%;
+}
+
+.yt-playlist-stack-layer--1 {
+  top: 4px;
+  left: 10%;
+  right: 10%;
+}
+
+.yt-playlist-stack-front {
+  position: absolute;
+  inset: 8px 0 0;
+  overflow: hidden;
+  border-radius: 12px;
+  background: #0f0f0f;
+}
+
+.yt-playlist-count {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: 4px;
+  background: rgba(0, 0, 0, 0.8);
+  padding: 2px 6px;
+  font-size: 11px;
+  font-weight: 600;
+  color: #fff;
+}
+
+.yt-playlist-meta {
+  margin-top: 0.65rem;
+  padding-right: 0.25rem;
+}
+
+.yt-playlist-title {
+  display: block;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  line-height: 1.35;
+  color: #0f0f0f;
+  text-decoration: none;
+}
+
+.yt-playlist-title:hover {
+  color: #950000;
+}
+
+.yt-playlist-visibility {
+  margin-top: 0.2rem;
+  font-size: 0.75rem;
+  color: #606060;
+}
+
+.yt-playlist-desc {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  color: #606060;
+}
+
+.yt-playlist-action {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #606060;
+  text-decoration: none;
+}
+
+.yt-playlist-action:hover {
+  color: #950000;
+  text-decoration: underline;
+}

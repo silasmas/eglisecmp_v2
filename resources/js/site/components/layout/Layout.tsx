@@ -4,7 +4,21 @@ import Navbar from './Navbar';
 import Footer from './Footer';
 import FloatingActionsMenu from './FloatingActionsMenu';
 import { FeaturedEventProvider } from '../../context/FeaturedEventContext';
+import { YoutubeLiveProvider } from '../../context/YoutubeLiveContext';
+import YoutubeLiveModal from '../ui/YoutubeLiveModal';
 import { useScrollToTop } from '../../hooks/useScrollToTop';
+import { useYoutubeLive } from '../../context/YoutubeLiveContext';
+
+function SiteChrome() {
+  const { live, modalOpen, dismissLiveModal } = useYoutubeLive();
+
+  return (
+    <>
+      <YoutubeLiveModal open={modalOpen} live={live} onClose={dismissLiveModal} />
+      <FloatingActionsMenu />
+    </>
+  );
+}
 
 export default function Layout() {
   const location = useLocation();
@@ -12,6 +26,7 @@ export default function Layout() {
 
   return (
     <FeaturedEventProvider>
+      <YoutubeLiveProvider>
       <div className="min-h-screen flex flex-col">
         <Navbar />
         <main className="flex-1">
@@ -28,8 +43,9 @@ export default function Layout() {
           </AnimatePresence>
         </main>
         <Footer />
-        <FloatingActionsMenu />
+        <SiteChrome />
       </div>
+      </YoutubeLiveProvider>
     </FeaturedEventProvider>
   );
 }

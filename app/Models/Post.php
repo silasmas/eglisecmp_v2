@@ -34,6 +34,10 @@ class Post extends Model
         'featured_sort_order',
         'weekly_service_day',
         'youtube_duration_seconds',
+        'youtube_video_id',
+        'youtube_kind',
+        'youtube_playlist_id',
+        'youtube_synced_at',
     ];
 
     protected function casts(): array
@@ -52,6 +56,7 @@ class Post extends Model
             'featured_until' => 'datetime',
             'featured_sort_order' => 'integer',
             'youtube_duration_seconds' => 'integer',
+            'youtube_synced_at' => 'datetime',
         ];
     }
 
@@ -100,7 +105,12 @@ class Post extends Model
             return (string) $this->minister->fullname;
         }
 
-        return (string) ($this->author ?: 'Inconnu');
+        $author = trim((string) ($this->author ?? ''));
+        if ($author !== '') {
+            return $author;
+        }
+
+        return (string) config('site_public.default_speaker_name', 'Centre Missionnaire Philadelphie');
     }
 
     public function getSpeakerInitials(): string

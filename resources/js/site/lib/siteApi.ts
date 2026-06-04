@@ -1,4 +1,12 @@
-import type { PostsPageMeta, Sermon } from '../data/types';
+import type {
+  PostsPageMeta,
+  Sermon,
+  Testimony,
+  TestimonySubmitPayload,
+  WallConfig,
+  WallTestimony,
+  WallTestimonyMeta,
+} from '../data/types';
 
 /**
  * Construit l'URL de base des endpoints `/api/site/*` consommés par la SPA.
@@ -170,6 +178,69 @@ export async function fetchSitePostsPage(
   }
 
   return fetchSiteJson<PostsPageResponse>(`posts?${query.toString()}`);
+}
+
+/**
+ * Cultes hebdomadaires (playlists YouTube configurées).
+ */
+export async function fetchTeachingsMeditations(): Promise<import('../data/types').TeachingsPlaylistGroup[]> {
+  const body = await fetchSiteJson<{ data: import('../data/types').TeachingsPlaylistGroup[] }>(
+    'teachings/meditations',
+  );
+  return body.data ?? [];
+}
+
+/**
+ * Playlists YouTube (hors cultes hebdomadaires).
+ */
+export async function fetchTeachingsPlaylists(): Promise<import('../data/types').TeachingsPlaylistGroup[]> {
+  const body = await fetchSiteJson<{ data: import('../data/types').TeachingsPlaylistGroup[] }>(
+    'teachings/playlists',
+  );
+  return body.data ?? [];
+}
+
+/**
+ * Détail playlist (messages + identifiant YouTube).
+ */
+export async function fetchSitePlaylistDetail(
+  eventId: string,
+): Promise<import('../data/types').TeachingsPlaylistGroup> {
+  const body = await fetchSiteJson<{ data: import('../data/types').TeachingsPlaylistGroup }>(
+    `teachings/playlists/${encodeURIComponent(eventId)}`,
+  );
+  return body.data;
+}
+
+/**
+ * Recherche globale site (pasteurs, messages, événements, pages).
+ */
+export async function fetchSiteSearch(q: string): Promise<import('../data/types').SiteSearchHit[]> {
+  const query = new URLSearchParams({ q: q.trim() });
+  const body = await fetchSiteJson<{ data: import('../data/types').SiteSearchHit[] }>(
+    `search?${query.toString()}`,
+  );
+  return body.data ?? [];
+}
+
+/**
+ * Données page Bunda (dernière édition, archives, annonce).
+ */
+export async function fetchSiteBunda(): Promise<import('../data/types').BundaPageData> {
+  const body = await fetchSiteJson<{ data: import('../data/types').BundaPageData | null }>('bunda');
+  const fallbackYear = new Date().getFullYear();
+  return (
+    body.data ?? {
+      upcoming: {
+        title: `Bunda ${fallbackYear}`,
+        monthLabel: 'Novembre',
+        year: fallbackYear,
+        description: '',
+      },
+      latestEdition: null,
+      pastEditions: [],
+    }
+  );
 }
 
 /**
@@ -399,4 +470,189 @@ export async function submitSiteInquiry(payload: {
 
   const res = await fetchSitePostJson<{ data: { ok: boolean } }>('inquiries', body);
   return { ok: Boolean(res.data?.ok) };
+}
+
+type WallTestimoniesPageResponse = {
+  data: WallTestimony[];
+  meta: WallTestimonyMeta;
+};
+
+/**
+ * Charge une page du mur de témoignages approuvés.
+ */
+export async function fetchWallTestimoniesPage(
+  page: number,
+  options?: { category?: string; kind?: string; perPage?: number },
+): Promise<WallTestimoniesPageResponse> {
+  const query = new URLSearchParams({
+    page: String(page),
+    per_page: String(options?.perPage ?? 12),
+  });
+  const category = options?.category?.trim();
+  if (category !== undefined && category !== '' && category.toLowerCase() !== 'tous') {
+    query.set('category', category);
+  }
+  if (options?.kind !== undefined && options.kind !== '') {
+    query.set('kind', options.kind);
+  }
+
+  return fetchSiteJson<WallTestimoniesPageResponse>(`testimonies?${query.toString()}`);
+}
+
+/**
+ * Témoignages mis en avant pour la page d’accueil.
+ */
+export async function fetchFeaturedTestimonies(): Promise<Testimony[]> {
+  return fetchSiteList<Testimony>('testimonies/featured');
+}
+
+/**
+ * Configuration du mur (catégories, couleurs, polices).
+ */
+export async function fetchWallConfig(): Promise<{
+  wall: WallConfig;
+  wallSettings: import('../data/types').TestimonyWallSettings;
+  allowPhotoUpload: boolean;
+  reactionKeys: Record<string, string>;
+}> {
+  const body = await fetchSiteData<{
+    wall: WallConfig;
+    wallSettings?: import('../data/types').TestimonyWallSettings;
+    allowPhotoUpload: boolean;
+    reactionKeys: Record<string, string>;
+  }>('testimonies/wall-config');
+  const wallSettings = body.wallSettings ?? {
+    allowPhotoUpload: Boolean(body.allowPhotoUpload),
+    maxPhotosPerTestimony: 5,
+    allowYoutubeLink: true,
+    allowVideoUpload: true,
+    maxVideoUploadMb: body.wall?.maxVideoUploadMb ?? 5,
+    allowAnonymous: true,
+    requireFirstName: true,
+    requireLastName: false,
+  };
+  return {
+    wall: body.wall,
+    wallSettings,
+    allowPhotoUpload: wallSettings.allowPhotoUpload,
+    reactionKeys: body.reactionKeys ?? {},
+  };
+}
+
+/**
+ * Témoignages pour le carrousel hero.
+ */
+export async function fetchWallCarousel(limit = 24): Promise<WallTestimony[]> {
+  return fetchSiteList<WallTestimony>(`testimonies/carousel?limit=${limit}`);
+}
+
+/**
+ * Statistiques du mur (compteurs pied de page).
+ */
+export async function fetchWallStats(): Promise<import('../data/types').WallStats> {
+  return fetchSiteData<import('../data/types').WallStats>('testimonies/stats');
+}
+
+/**
+ * Enregistre un partage social pour un témoignage.
+ */
+export async function recordTestimonyShare(testimonyId: string): Promise<void> {
+  await fetchSitePostJson<{ data: { shareCount: number } }>(`testimonies/${testimonyId}/share`, {});
+}
+
+/**
+ * Envoie un témoignage (multipart) en attente de modération.
+ */
+/**
+ * Envoie un témoignage avec suivi de progression upload (XHR).
+ */
+export function submitTestimony(
+  payload: TestimonySubmitPayload,
+  onProgress?: (percent: number) => void,
+): Promise<{ ok: boolean; message: string }> {
+  const form = new FormData();
+  form.append('kind', payload.kind);
+  form.append('first_name', payload.first_name);
+  if (payload.last_name !== undefined && payload.last_name.trim() !== '') {
+    form.append('last_name', payload.last_name.trim());
+  }
+  form.append('title', payload.title);
+  form.append('email', payload.email);
+  if (payload.text !== undefined && payload.text.trim() !== '') {
+    form.append('text', payload.text.trim());
+  }
+  if (payload.video !== undefined && payload.video.trim() !== '') {
+    form.append('video', payload.video.trim());
+  }
+  if (payload.postit_color !== undefined) {
+    form.append('postit_color', payload.postit_color);
+  }
+  if (payload.font_family !== undefined) {
+    form.append('font_family', payload.font_family);
+  }
+  if (payload.category !== undefined && payload.category.trim() !== '') {
+    form.append('category', payload.category.trim());
+  }
+  if (payload.phone !== undefined && payload.phone.trim() !== '') {
+    form.append('phone', payload.phone.trim());
+  }
+  if (payload.verification_type !== undefined) {
+    form.append('verification_type', payload.verification_type);
+  }
+  if (payload.is_anonymous !== undefined) {
+    form.append('is_anonymous', payload.is_anonymous ? '1' : '0');
+  }
+  if (payload.video_source !== undefined) {
+    form.append('video_source', payload.video_source);
+  }
+  if (payload.video_file !== undefined) {
+    form.append('video_file', payload.video_file);
+  }
+  if (payload.images !== undefined) {
+    payload.images.forEach((file) => {
+      form.append('images[]', file);
+    });
+  }
+
+  const url = siteApiUrl('/testimonies');
+
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', url);
+    xhr.setRequestHeader('Accept', 'application/json');
+
+    xhr.upload.addEventListener('progress', (event) => {
+      if (event.lengthComputable && onProgress !== undefined) {
+        onProgress(Math.min(100, Math.round((event.loaded / event.total) * 100)));
+      }
+    });
+
+    xhr.addEventListener('load', () => {
+      let parsed: unknown = null;
+      try {
+        parsed = JSON.parse(xhr.responseText);
+      } catch {
+        parsed = null;
+      }
+
+      if (xhr.status < 200 || xhr.status >= 300) {
+        const message = extractApiErrorMessage(parsed);
+        reject(new Error(message !== '' ? message : `Envoi impossible (${xhr.status})`));
+        return;
+      }
+
+      const res = parsed as { data: { ok: boolean; message?: string } };
+      onProgress?.(100);
+      resolve({
+        ok: Boolean(res.data?.ok),
+        message: res.data?.message ?? 'Merci pour votre témoignage.',
+      });
+    });
+
+    xhr.addEventListener('error', () => {
+      reject(new Error('Erreur réseau lors de l’envoi.'));
+    });
+
+    xhr.send(form);
+  });
 }

@@ -29,6 +29,9 @@ class Event extends Model
         'featured_from',
         'featured_until',
         'description',
+        'youtube_playlist_id',
+        'youtube_playlist_item_count',
+        'youtube_published_at',
     ];
 
     protected function casts(): array
@@ -43,6 +46,7 @@ class Event extends Model
             'date_fin' => 'datetime',
             'featured_from' => 'datetime',
             'featured_until' => 'datetime',
+            'youtube_published_at' => 'datetime',
             'is_active' => 'boolean',
             'est_a_la_une' => 'boolean',
         ];

@@ -29,14 +29,18 @@ class PublicEventController extends Controller
 
         $rows = Event::query()
             ->where('is_active', true)
-            ->orderByDesc('est_a_la_une')
-            ->orderBy('date_debut')
-            ->limit($limit)
+            ->orderByDesc('date_debut')
+            ->orderByDesc('youtube_published_at')
+            ->orderByDesc('id')
+            ->limit(min($limit * 4, 200))
             ->get();
 
-        $payload = $rows->map(
-            static fn (Event $event): array => SitePublicSerializer::eventToPublicArray($event, $locale, $fallback)
-        )->values()->all();
+        $payload = $rows
+            ->map(static fn (Event $event): array => SitePublicSerializer::eventToPublicArray($event, $locale, $fallback))
+            ->filter(static fn (array $row): bool => ($row['hasPoster'] ?? false) === true)
+            ->take($limit)
+            ->values()
+            ->all();
 
         return response()->json(['data' => $payload]);
     }

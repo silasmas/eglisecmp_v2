@@ -1,4 +1,4 @@
-import { createBrowserRouter } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
 import HomePage from '../pages/HomePage';
 import DiscoverPage from '../pages/DiscoverPage';
@@ -12,10 +12,10 @@ import EventsPage from '../pages/EventsPage';
 import BundaPage from '../pages/BundaPage';
 import MediaPage from '../pages/MediaPage';
 import JoinPage from '../pages/JoinPage';
-import ContactPage from '../pages/ContactPage';
 import OffrandesPage from '../pages/OffrandesPage';
 import PrayerRequestPage from '../pages/PrayerRequestPage';
 import AppointmentPage from '../pages/AppointmentPage';
+import TestimonyWallPage from '../pages/TestimonyWallPage';
 
 export const router = createBrowserRouter([
   {
@@ -33,10 +33,11 @@ export const router = createBrowserRouter([
       { path: 'events/bunda', element: <BundaPage /> },
       { path: 'media', element: <MediaPage /> },
       { path: 'join', element: <JoinPage /> },
-      { path: 'contact', element: <ContactPage /> },
+      { path: 'contact', element: <Navigate to="/join#contact" replace /> },
       { path: 'offrandes', element: <OffrandesPage /> },
       { path: 'requete-de-priere', element: <PrayerRequestPage /> },
       { path: 'rendez-vous', element: <AppointmentPage /> },
+      { path: 'temoignages', element: <TestimonyWallPage /> },
     ],
   },
 ]);

@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronRight, Youtube } from 'lucide-react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
-import type { Sermon } from '../data/types';
-import { fetchSitePlaylistPosts } from '../lib/siteApi';
+import type { Sermon, TeachingsPlaylistGroup } from '../data/types';
+import { fetchSitePlaylistDetail, fetchSitePlaylistPosts } from '../lib/siteApi';
 import CollapsibleRichText from '../components/ui/CollapsibleRichText';
 import ReactionBar from '../components/ui/ReactionBar';
 import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
@@ -15,6 +15,7 @@ export default function PlaylistWatchPage() {
   const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Sermon[]>([]);
+  const [playlistMeta, setPlaylistMeta] = useState<TeachingsPlaylistGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -32,11 +33,15 @@ export default function PlaylistWatchPage() {
       try {
         setLoading(true);
         setError(null);
-        const data = await fetchSitePlaylistPosts(eventId);
+        const [detail, data] = await Promise.all([
+          fetchSitePlaylistDetail(eventId),
+          fetchSitePlaylistPosts(eventId),
+        ]);
         if (cancelled) {
           return;
         }
-        setItems(data);
+        setPlaylistMeta(detail);
+        setItems(data.length > 0 ? data : detail.items ?? []);
       } catch (err) {
         if (!cancelled) {
           setItems([]);
@@ -86,7 +91,12 @@ export default function PlaylistWatchPage() {
     return `${url}${sep}autoplay=1&mute=1&playsinline=1`;
   }, [current?.youtubeEmbedUrl, autoplayRequested]);
 
-  const eventTitle = items[0]?.eventTitle?.trim() || 'Playlist';
+  const eventTitle = playlistMeta?.title?.trim() || items[0]?.eventTitle?.trim() || 'Playlist';
+  const youtubePlaylistId = playlistMeta?.youtubePlaylistId ?? null;
+  const youtubePlaylistEmbed =
+    youtubePlaylistId !== null && youtubePlaylistId.trim() !== ''
+      ? `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(youtubePlaylistId)}`
+      : '';
   const playlistBackHref = '/teachings?tab=playlists';
 
   useEffect(() => {
@@ -159,7 +169,26 @@ export default function PlaylistWatchPage() {
 
         {error ? <p className="text-center text-burgundy-600">{error}</p> : null}
 
-        {!loading && items.length === 0 && !error ? (
+        {!loading && items.length === 0 && !error && youtubePlaylistEmbed !== '' ? (
+          <div className="space-y-6">
+            <div className="overflow-hidden rounded-2xl bg-black shadow-xl ring-1 ring-black/15">
+              <div className="aspect-video">
+                <iframe
+                  src={youtubePlaylistEmbed}
+                  title={`Playlist YouTube : ${eventTitle}`}
+                  className="h-full w-full border-0"
+                  allowFullScreen
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              </div>
+            </div>
+            <p className="text-center text-sm text-surface-500">
+              Lecture de la playlist YouTube. Les messages seront disponibles sur le site après la prochaine synchronisation.
+            </p>
+          </div>
+        ) : null}
+
+        {!loading && items.length === 0 && !error && youtubePlaylistEmbed === '' ? (
           <p className="text-center text-surface-500">Cette playlist ne contient aucun message pour le moment.</p>
         ) : null}
 

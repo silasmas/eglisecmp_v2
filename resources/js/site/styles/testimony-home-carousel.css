@@ -1,0 +1,84 @@
+.tw-home-carousel-wrap {
+  position: relative;
+  overflow: hidden;
+  margin: 0 -0.25rem;
+  padding: 0.5rem 0 1rem;
+  mask-image: linear-gradient(to right, transparent, #000 4%, #000 96%, transparent);
+}
+
+.tw-home-carousel-track {
+  display: flex;
+  align-items: stretch;
+  gap: 1.25rem;
+  width: max-content;
+  will-change: transform;
+  animation: tw-scroll-horizontal 55s linear infinite;
+}
+
+.tw-home-carousel-track--static {
+  animation: none;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.tw-home-carousel-wrap:hover .tw-home-carousel-track:not(.tw-home-carousel-track--static) {
+  animation-play-state: paused;
+}
+
+@keyframes tw-scroll-horizontal {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(-50%);
+  }
+}
+
+.tw-home-card {
+  width: 260px;
+  min-height: 200px;
+  border-radius: 1rem;
+  padding: 1rem 1.125rem;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  transition: transform 0.2s, box-shadow 0.2s;
+  display: flex;
+  flex-direction: column;
+}
+
+.tw-home-card:hover {
+  transform: scale(1.02) rotate(0deg) !important;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.14);
+  z-index: 2;
+}
+
+.tw-home-card--skeleton {
+  cursor: default;
+}
+
+.tw-home-cta-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  background: linear-gradient(145deg, #fff6d9 0%, #fff 55%);
+  border: 2px dashed #950000;
+  text-decoration: none;
+  color: inherit;
+}
+
+.tw-home-cta-card:hover {
+  border-color: #750000;
+  background: linear-gradient(145deg, #fff0c4 0%, #fff 60%);
+}
+
+.tw-home-card .tw-card-mini-text {
+  font-size: 0.8125rem;
+  color: #374151;
+  line-height: 1.45;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}

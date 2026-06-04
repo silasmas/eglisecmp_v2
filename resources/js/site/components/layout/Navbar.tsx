@@ -5,6 +5,7 @@ import { motion, AnimatePresence, useScroll, useTransform } from 'framer-motion'
 import { navigation } from '../../data/navigation';
 import { cn } from '../../lib/utils';
 import MobileMenu from './MobileMenu';
+import NavbarInstantSearch from './NavbarInstantSearch';
 import cmpLogo from '../../assets/Logo-CMP-2023-new.png';
 
 export default function Navbar() {
@@ -13,6 +14,7 @@ export default function Navbar() {
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const location = useLocation();
   const isHome = location.pathname === '/';
+  const isTestimonyWall = location.pathname === '/temoignages';
   const { scrollYProgress } = useScroll();
   const progressScaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
@@ -27,8 +29,8 @@ export default function Navbar() {
     setOpenDropdown(null);
   }, [location.pathname]);
 
-  // On homepage, unscrolled nav is over the dark hero
-  const isTransparentDark = isHome && !scrolled;
+  /** Hero sombre (accueil ou mur de témoignages) : logo et liens en blanc. */
+  const isTransparentDark = (isHome || isTestimonyWall) && !scrolled;
 
   return (
     <>
@@ -166,6 +168,7 @@ export default function Navbar() {
               >
                 Nous rejoindre
               </Link>
+              <NavbarInstantSearch isTransparentDark={isTransparentDark} />
               <motion.button
                 onClick={() => setMobileOpen(!mobileOpen)}
                 whileTap={{ scale: 0.9 }}

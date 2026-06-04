@@ -23,6 +23,29 @@ export interface Sermon {
 /** Onglets de la page Enseignements. */
 export type TeachingsTab = 'sermons' | 'meditations' | 'playlists';
 
+/** Playlist YouTube / événement pour la page Enseignements. */
+export interface TeachingsPlaylistGroup {
+  eventId: string;
+  title: string;
+  description: string;
+  thumbnail: string;
+  videoCount: number;
+  syncedCount?: number;
+  visibility: string;
+  items: Sermon[];
+  youtubePlaylistId?: string | null;
+}
+
+/** Résultat de recherche globale site. */
+export interface SiteSearchHit {
+  type: string;
+  id: string;
+  title: string;
+  subtitle: string;
+  href: string;
+  thumbnail?: string;
+}
+
 /** Métadonnées de pagination API posts. */
 export interface PostsPageMeta {
   current_page: number;
@@ -57,6 +80,38 @@ export interface Event {
   featuredFrom?: string | null;
   featuredUntil?: string | null;
   reactableKey?: string;
+  contentHref?: string | null;
+  contentType?: string | null;
+  contentLabel?: string | null;
+  contentCount?: number;
+  temporalStatus?: 'past' | 'ongoing' | 'upcoming';
+  temporalLabel?: string;
+  dateEnd?: string;
+  youtubePlaylistId?: string | null;
+}
+
+/** Édition Bunda (API /api/site/bunda). */
+export interface BundaEdition {
+  id: string;
+  title: string;
+  date: string;
+  image: string;
+  description: string;
+  contentHref: string | null;
+  contentLabel: string | null;
+  buttonLabel: string;
+  videoCount: number;
+}
+
+export interface BundaPageData {
+  upcoming: {
+    title: string;
+    monthLabel: string;
+    year: number;
+    description: string;
+  };
+  latestEdition: BundaEdition | null;
+  pastEditions: BundaEdition[];
 }
 
 export interface Leader {
@@ -158,12 +213,23 @@ export interface HeroLiveTiming {
   dayLabel?: string;
 }
 
+/** Live YouTube détecté via l’API Data v3. */
+export interface YoutubeLivePayload {
+  isLive: boolean;
+  videoId: string;
+  title: string;
+  embedUrl: string;
+  thumbnailUrl: string;
+  watchUrl: string;
+}
+
 /** Données agrégées pour le bandeau du hero. */
 export interface HeroMeta {
   verse: DailyVerse | null;
   liveSlots: HeroLiveSlot[];
   liveTiming?: HeroLiveTiming | null;
   stripCards?: HeroStripCards;
+  youtubeLive?: YoutubeLivePayload | null;
   reactionKeys?: Record<string, string>;
 }
 
@@ -196,12 +262,96 @@ export interface GalleryItem {
   category: string;
 }
 
+/** Citation courte pour la section d’accueil. */
 export interface Testimony {
   id: string;
   name: string;
   quote: string;
   role?: string;
 }
+
+/** Témoignage complet affiché sur le mur public. */
+export interface WallTestimony {
+  id: string;
+  kind: 'text' | 'video' | 'mix';
+  author: string;
+  title: string;
+  text: string;
+  video: string;
+  videoFileUrl: string;
+  videoEmbedUrl: string;
+  videoThumbnailUrl?: string;
+  postitColor: string;
+  fontFamily: string;
+  category: string;
+  images: { id: string; url: string }[];
+  shareCount?: number;
+  reactableKey: string;
+  sharePath?: string;
+  createdAt: string;
+  /** Date de validation / publication sur le mur (ISO 8601). */
+  publishedAt?: string;
+}
+
+/** Statistiques globales du mur (pied de page). */
+export interface WallStats {
+  testimonies: number;
+  reactions: number;
+  shares: number;
+}
+
+/** Réglages dynamiques du mur (admin Filament). */
+export interface TestimonyWallSettings {
+  allowPhotoUpload: boolean;
+  maxPhotosPerTestimony: number;
+  allowYoutubeLink: boolean;
+  allowVideoUpload: boolean;
+  maxVideoUploadMb: number;
+  allowAnonymous: boolean;
+  requireFirstName: boolean;
+  requireLastName: boolean;
+}
+
+export interface WallTestimonyMeta {
+  current_page: number;
+  last_page: number;
+  per_page: number;
+  total: number;
+  has_more: boolean;
+  wall?: WallConfig;
+  wallSettings?: TestimonyWallSettings;
+  allowPhotoUpload?: boolean;
+  reactionKeys?: Record<string, string>;
+}
+
+export interface WallConfig {
+  categories: string[];
+  postItColors: { name: string; value: string; border: string }[];
+  fontStyles: { name: string; value: string }[];
+  maxTitleLength?: number;
+  maxTextLength: number;
+  maxVideoUploadMb?: number;
+  perPage: number;
+}
+
+export type TestimonySubmitPayload = {
+  kind: 'text' | 'video' | 'mix';
+  first_name: string;
+  last_name?: string;
+  title: string;
+  text?: string;
+  video?: string;
+  video_source?: 'link' | 'upload';
+  video_file?: File;
+  postit_color?: string;
+  font_family?: string;
+  category?: string;
+  email: string;
+  phone?: string;
+  is_anonymous?: boolean;
+  verification_type?: 'email' | 'phone' | 'both';
+  images?: File[];
+};
 
 export interface NavItem {
   label: string;

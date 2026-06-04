@@ -5,7 +5,9 @@ declare(strict_types=1);
 namespace App\Http\Controllers\Api\Site;
 
 use App\Http\Controllers\Controller;
+use App\Models\Event;
 use App\Models\Post;
+use App\Support\EventPostQuery;
 use App\Support\SitePublicSerializer;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\JsonResponse;
@@ -50,7 +52,14 @@ class PublicPostController extends Controller
         $this->applyTabFilter($query, $tab);
 
         if ($eventIdFilter !== null) {
-            $query->where('event_id', $eventIdFilter);
+            $event = Event::query()->find($eventIdFilter);
+            if ($event instanceof Event) {
+                $query->where(function ($sub) use ($event): void {
+                    EventPostQuery::applyForEvent($sub, $event);
+                });
+            } else {
+                $query->where('event_id', $eventIdFilter);
+            }
         }
 
         if ($searchToken !== null) {

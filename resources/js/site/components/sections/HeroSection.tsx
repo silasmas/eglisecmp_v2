@@ -56,7 +56,10 @@ export default function HeroSection() {
   const eventCard = strip?.event;
   const readingCard = strip?.reading;
   const locationCard = strip?.location;
-  const isLiveNow = liveCard?.status === 'live' || heroMeta.liveTiming?.status === 'live';
+  const isLiveNow =
+    heroMeta.youtubeLive !== null && heroMeta.youtubeLive !== undefined
+      ? true
+      : liveCard?.status === 'live' || heroMeta.liveTiming?.status === 'live';
 
   const liveCountdown = useMemo(
     () =>

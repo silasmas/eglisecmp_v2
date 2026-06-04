@@ -60,7 +60,7 @@ const footerLinks = [
       { label: 'Prendre rendez-vous', href: '/rendez-vous' },
       { label: 'Devenir membre', href: '/join' },
       { label: 'Demande de prière', href: '/requete-de-priere' },
-      { label: 'Contact', href: '/contact' },
+      { label: 'Contact', href: '/join#contact' },
     ],
   },
   {

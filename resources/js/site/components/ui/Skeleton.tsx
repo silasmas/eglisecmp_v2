@@ -130,6 +130,64 @@ export function AboutPreviewSkeleton() {
   );
 }
 
+/** Skeleton carrousel hero témoignages (2 colonnes). */
+export function TestimonyCarouselSkeleton() {
+  return (
+    <div className="hidden h-[min(640px,70vh)] gap-5 lg:grid lg:grid-cols-2">
+      <Skeleton className="h-full rounded-2xl" />
+      <Skeleton className="h-full rounded-2xl" />
+    </div>
+  );
+}
+
+/** Skeleton carte post-it témoignage. */
+export function TestimonyPostItSkeleton() {
+  return <Skeleton className="min-h-[200px] rounded-2xl" />;
+}
+
+/** Skeleton grille mur de témoignages. */
+export function TestimonyWallGridSkeleton({ count = 6 }: { count?: number }) {
+  return (
+    <div className="tw-grid">
+      {Array.from({ length: count }).map((_, index) => (
+        <TestimonyPostItSkeleton key={index} />
+      ))}
+    </div>
+  );
+}
+
+/** Skeleton filtres catégories. */
+export function TestimonyFiltersSkeleton() {
+  return (
+    <div className="mb-8 flex flex-wrap justify-center gap-2">
+      {Array.from({ length: 7 }).map((_, index) => (
+        <Skeleton key={index} className="h-9 w-24 rounded-full" />
+      ))}
+    </div>
+  );
+}
+
+/** Skeleton section CTA bas de page témoignages. */
+export function TestimonyCtaSkeleton() {
+  return (
+    <div className="mx-auto max-w-3xl space-y-6 px-4 py-12">
+      <div className="flex flex-wrap justify-center gap-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-10 w-44 rounded-full" />
+        ))}
+      </div>
+      <Skeleton className="mx-auto h-10 w-64" />
+      <Skeleton className="mx-auto h-4 w-full max-w-lg" />
+      <div className="grid gap-4 md:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, index) => (
+          <Skeleton key={index} className="h-40 rounded-2xl" />
+        ))}
+      </div>
+      <Skeleton className="mx-auto h-12 w-56 rounded-lg" />
+    </div>
+  );
+}
+
 /** Skeleton grille programmes. */
 export function ProgramsGridSkeleton() {
   return (

@@ -3,14 +3,16 @@ import { Clock, MapPin, Users, HandHeart, ArrowRight } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
 import CTAButton from '../components/ui/CTAButton';
 import { churchInfo } from '../data/content';
+import JoinContactSection from '../components/sections/JoinContactSection';
 
+/** Page « Nous rejoindre » : rendez-vous, membre, prière et contact. */
 export default function JoinPage() {
   return (
     <>
       <PageHero
         badge="Nous rejoindre"
         title="Faites partie de la famille"
-        description="Prenez rendez-vous, devenez membre ou partagez vos sujets de prière."
+        description="Prenez rendez-vous, devenez membre, partagez une requête de prière ou contactez-nous."
         backgroundImage="https://images.unsplash.com/photo-1519834785169-98be25ec3f84?w=1400&h=600&fit=crop"
       />
 
@@ -110,6 +112,8 @@ export default function JoinPage() {
           </motion.div>
         </div>
       </section>
+
+      <JoinContactSection />
     </>
   );
 }

@@ -1,5 +1,6 @@
 import { useState } from 'react';
-import { Calendar, MapPin, ArrowRight, Sparkles } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { Calendar, MapPin, ArrowRight, Sparkles, Play } from 'lucide-react';
 import type { Event } from '../../data/types';
 import SocialShareToolbar from '../ui/SocialShareToolbar';
 import { cn } from '../../lib/utils';
@@ -38,6 +39,15 @@ export default function EventCard({ event, featured, banner, onOpenDetail }: Eve
   const handleOpenDetail = () => {
     onOpenDetail?.(event);
   };
+
+  const contentHref =
+    event.contentHref !== undefined && event.contentHref !== null && event.contentHref.trim() !== ''
+      ? event.contentHref
+      : null;
+  const contentLabel =
+    event.contentLabel !== undefined && event.contentLabel !== null && event.contentLabel.trim() !== ''
+      ? event.contentLabel
+      : 'Voir le contenu';
 
   const shareToolbar = (
     <div
@@ -139,6 +149,21 @@ export default function EventCard({ event, featured, banner, onOpenDetail }: Eve
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-gold-300">{event.theme}</p>
         ) : null}
 
+        {event.temporalLabel ? (
+          <span
+            className={cn(
+              'mb-2 inline-flex w-fit rounded-full px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.12em]',
+              event.temporalStatus === 'ongoing'
+                ? 'bg-emerald-500/20 text-emerald-100'
+                : event.temporalStatus === 'upcoming'
+                  ? 'bg-sky-500/20 text-sky-100'
+                  : 'bg-white/15 text-white/75',
+            )}
+          >
+            {event.temporalLabel}
+          </span>
+        ) : null}
+
         <h3 className="font-heading text-xl font-bold leading-snug text-white sm:text-2xl">{event.title}</h3>
 
         <div className="mt-3 flex flex-wrap items-center gap-3 text-[12px] text-white/70">
@@ -159,14 +184,26 @@ export default function EventCard({ event, featured, banner, onOpenDetail }: Eve
           <p className="mt-3 line-clamp-2 text-sm leading-relaxed text-white/60">{event.description}</p>
         ) : null}
 
-        <button
-          type="button"
-          onClick={handleOpenDetail}
-          className="mt-4 inline-flex w-fit items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-surface-900 transition hover:bg-white"
-        >
-          Voir en détail
-          <ArrowRight className="h-4 w-4" />
-        </button>
+        <div className="mt-4 flex flex-wrap gap-2">
+          {contentHref !== null ? (
+            <Link
+              to={contentHref}
+              onClick={(clickEvent) => clickEvent.stopPropagation()}
+              className="inline-flex items-center gap-1.5 rounded-full bg-burgundy-700 px-4 py-2 text-sm font-semibold text-white transition hover:bg-burgundy-600"
+            >
+              <Play className="h-4 w-4" />
+              {event.temporalStatus === 'past' ? 'Ouvrir la playlist' : contentLabel}
+            </Link>
+          ) : null}
+          <button
+            type="button"
+            onClick={handleOpenDetail}
+            className="inline-flex items-center gap-1.5 rounded-full bg-white/95 px-4 py-2 text-sm font-semibold text-surface-900 transition hover:bg-white"
+          >
+            Voir en détail
+            <ArrowRight className="h-4 w-4" />
+          </button>
+        </div>
       </div>
     </article>
   );

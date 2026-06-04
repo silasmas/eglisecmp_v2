@@ -48,6 +48,13 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Orateur par défaut (messages YouTube sans pasteur lié)
+    |--------------------------------------------------------------------------
+    */
+    'default_speaker_name' => 'Centre Missionnaire Philadelphie',
+
+    /*
+    |--------------------------------------------------------------------------
     | Tuiles hero (modales) — lieu
     |--------------------------------------------------------------------------
     |
@@ -75,6 +82,18 @@ return [
         'pray' => 'Prière',
         'heart' => 'Merci',
         'hallelujah' => 'Alléluia',
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Réactions mur de témoignages
+    |--------------------------------------------------------------------------
+    */
+    'testimony_reaction_keys' => [
+        'amen' => 'Amen',
+        'gloire' => 'Gloire à Dieu',
+        'beni' => 'Béni soit Dieu',
+        'aime' => 'Aimé',
     ],
 
     /*
@@ -138,5 +157,89 @@ return [
     |
     */
     'mail_logo_url' => env('MAIL_LOGO_URL'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mur de témoignages (SPA)
+    |--------------------------------------------------------------------------
+    */
+    'testimony_wall' => [
+        'categories' => [
+            'Tous',
+            'Vidéos',
+            'Guérison',
+            'Provision',
+            'Famille',
+            'Délivrance',
+            'Éducation',
+            'Protection',
+            'Autre',
+        ],
+        'postItColors' => [
+            ['name' => 'Jaune doux', 'value' => '#FFF6D9', 'border' => '#F5D693'],
+            ['name' => 'Rose clair', 'value' => '#FFE5E5', 'border' => '#FFD6DC'],
+            ['name' => 'Vert menthe', 'value' => '#E4FFEB', 'border' => '#B8E6C3'],
+            ['name' => 'Lavande', 'value' => '#F3E5F5', 'border' => '#E1BEE7'],
+            ['name' => 'Pêche', 'value' => '#FFE0B2', 'border' => '#FFCC80'],
+            ['name' => 'Bleu ciel', 'value' => '#E3F2FD', 'border' => '#BBDEFB'],
+        ],
+        'fontStyles' => [
+            ['name' => 'Sans-serif', 'value' => 'Inter, sans-serif'],
+            ['name' => 'Serif', 'value' => 'Merriweather, serif'],
+            ['name' => 'Indie Flower', 'value' => 'Indie Flower, cursive'],
+            ['name' => 'Caveat', 'value' => 'Caveat, cursive'],
+            ['name' => 'Patrick Hand', 'value' => 'Patrick Hand, cursive'],
+        ],
+        'maxTitleLength' => 50,
+        'maxTextLength' => 500,
+        'maxVideoUploadMb' => 5,
+        'perPage' => 12,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Chaîne YouTube (détection live API Data v3)
+    |--------------------------------------------------------------------------
+    |
+    | YOUTUBE_CHANNEL_ID : identifiant chaîne (UC…), pas l’URL @handle.
+    | YOUTUBE_API_KEY : clé API Google Cloud (YouTube Data API v3 activée).
+    |
+    */
+    'youtube_channel_id' => env('YOUTUBE_CHANNEL_ID', ''),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Synchronisation chaîne → publications (enseignements)
+    |--------------------------------------------------------------------------
+    */
+    'youtube_sync' => [
+        'default_locale' => 'fr',
+        'max_videos_per_run' => 500,
+        'max_playlist_videos_per_run' => 120,
+        'import_shorts' => true,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Playlists YouTube → onglet Méditations (cultes hebdomadaires)
+    |--------------------------------------------------------------------------
+    |
+    | `match` : fragments présents dans le titre de la playlist YouTube (insensible à la casse).
+    |
+    */
+    'youtube_meditation_playlist_groups' => [
+        [
+            'label' => 'Culte d\'enseignement',
+            'match' => ['culte d\'enseignement', 'enseignement'],
+        ],
+        [
+            'label' => 'Culte de jeudi etoko',
+            'match' => ['jeudi etoko', 'culte de jeudi', 'etoko'],
+        ],
+        [
+            'label' => 'Cultes dominicaux',
+            'match' => ['cultes dominicaux', 'culte dominical', 'dominicaux'],
+        ],
+    ],
 
 ];

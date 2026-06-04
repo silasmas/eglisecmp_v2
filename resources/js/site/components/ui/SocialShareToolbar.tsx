@@ -22,6 +22,8 @@ export interface SocialShareToolbarProps {
   inline?: boolean;
   /** Animation au clic sur chaque bouton de partage. */
   animateOnClick?: boolean;
+  /** Appelé après un partage (compteur analytics côté API). */
+  onShare?: () => void;
   className?: string;
 }
 
@@ -58,6 +60,7 @@ export default function SocialShareToolbar({
   tone = 'light',
   inline = false,
   animateOnClick = false,
+  onShare,
   className,
 }: SocialShareToolbarProps) {
   const [open, setOpen] = useState(false);
@@ -217,6 +220,7 @@ export default function SocialShareToolbar({
           aria-label={`Partager sur ${item.label}`}
           onClick={() => {
             triggerShareAnimation(item.key);
+            onShare?.();
             setOpen(false);
           }}
           whileTap={{ scale: 0.88 }}
@@ -236,6 +240,7 @@ export default function SocialShareToolbar({
         aria-label={item.label}
         onClick={() => {
           item.onClick?.();
+          onShare?.();
           if (item.key !== 'copy') {
             triggerShareAnimation(item.key);
             setOpen(false);

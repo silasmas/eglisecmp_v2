@@ -9,7 +9,6 @@ use App\Models\ContentReaction;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 
 /**
  * Lecture et bascule des réactions publiques (visiteur identifié par un UUID stocké côté client).
@@ -76,29 +75,58 @@ class PublicContentReactionController extends Controller
      */
     public function store(Request $request): JsonResponse
     {
-        $allowed = array_keys((array) config('site_public.reaction_keys', []));
-
         $validated = $request->validate([
             'reactable_key' => ['required', 'string', 'max:80', function (string $attribute, mixed $value, \Closure $fail): void {
                 if (! is_string($value) || ! self::isValidReactableKey($value)) {
                     $fail('La clé de contenu est invalide.');
                 }
             }],
-            'reaction_key' => ['required', 'string', 'max:32', Rule::in($allowed)],
+            'reaction_key' => ['required', 'string', 'max:32', function (string $attribute, mixed $value, \Closure $fail) use ($request): void {
+                if (! is_string($value)) {
+                    $fail('Réaction invalide.');
+
+                    return;
+                }
+                $reactableKey = $request->input('reactable_key');
+                $allowed = self::allowedReactionKeys(is_string($reactableKey) ? $reactableKey : '');
+                if (! in_array($value, $allowed, true)) {
+                    $fail('Réaction invalide.');
+                }
+            }],
             'visitor_token' => ['required', 'uuid'],
         ]);
 
         $reactableKey = $validated['reactable_key'];
         $reactionKey = $validated['reaction_key'];
         $visitorToken = $validated['visitor_token'];
+        $isTestimony = str_starts_with($reactableKey, 'testimony:');
 
-        $exists = ContentReaction::query()
+        $existsSame = ContentReaction::query()
             ->where('reactable_key', $reactableKey)
             ->where('reaction_key', $reactionKey)
             ->where('visitor_token', $visitorToken)
             ->exists();
 
-        if ($exists) {
+        if ($isTestimony) {
+            if ($existsSame) {
+                ContentReaction::query()
+                    ->where('reactable_key', $reactableKey)
+                    ->where('visitor_token', $visitorToken)
+                    ->delete();
+                $active = false;
+            } else {
+                ContentReaction::query()
+                    ->where('reactable_key', $reactableKey)
+                    ->where('visitor_token', $visitorToken)
+                    ->delete();
+                ContentReaction::query()->create([
+                    'reactable_key' => $reactableKey,
+                    'reaction_key' => $reactionKey,
+                    'visitor_token' => $visitorToken,
+                ]);
+                $active = true;
+            }
+        } elseif ($existsSame) {
             ContentReaction::query()
                 ->where('reactable_key', $reactableKey)
                 ->where('reaction_key', $reactionKey)
@@ -183,5 +211,17 @@ class PublicContentReactionController extends Controller
     private static function isValidReactableKey(string $key): bool
     {
         return (bool) preg_match('/^[a-z0-9_]+:\d+$/', $key);
+    }
+
+    /**
+     * @return list<string> Clés de réaction autorisées selon le type de contenu.
+     */
+    private static function allowedReactionKeys(string $reactableKey): array
+    {
+        if (str_starts_with($reactableKey, 'testimony:')) {
+            return array_keys((array) config('site_public.testimony_reaction_keys', []));
+        }
+
+        return array_keys((array) config('site_public.reaction_keys', []));
     }
 }

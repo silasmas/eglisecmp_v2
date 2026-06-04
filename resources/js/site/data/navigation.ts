@@ -35,8 +35,4 @@ export const navigation: NavItem[] = [
     label: 'Médias',
     href: '/media',
   },
-  {
-    label: 'Contact',
-    href: '/contact',
-  },
 ];

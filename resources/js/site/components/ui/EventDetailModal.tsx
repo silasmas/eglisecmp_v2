@@ -1,7 +1,9 @@
 import { useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Calendar, Clock, ExternalLink, MapPin, Sparkles, X } from 'lucide-react';
+import { Calendar, Clock, MapPin, Play, Sparkles, X } from 'lucide-react';
 import type { Event } from '../../data/types';
+import { cn } from '../../lib/utils';
 import ImageWithSkeleton from './ImageWithSkeleton';
 import ReactionBar from './ReactionBar';
 import SocialShareToolbar from './SocialShareToolbar';
@@ -53,6 +55,14 @@ export default function EventDetailModal({
   const formattedDate = event !== null ? formatEventDate(event.date) : '';
   const isSpotlight = variant === 'spotlight';
   const showFeaturedBadge = event !== null && (event.featured === true || isSpotlight);
+  const contentHref =
+    event?.contentHref !== undefined && event.contentHref !== null && event.contentHref.trim() !== ''
+      ? event.contentHref
+      : null;
+  const contentLabel =
+    event?.contentLabel !== undefined && event.contentLabel !== null && event.contentLabel.trim() !== ''
+      ? event.contentLabel
+      : 'Voir le contenu';
 
   return (
     <AnimatePresence>
@@ -183,9 +193,47 @@ export default function EventDetailModal({
                   />
                 </div>
 
+                {event.temporalLabel ? (
+                  <span
+                    className={cn(
+                      'inline-flex items-center rounded-full px-3 py-1.5 text-xs font-semibold',
+                      event.temporalStatus === 'ongoing'
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : event.temporalStatus === 'upcoming'
+                          ? 'bg-sky-100 text-sky-800'
+                          : 'bg-surface-100 text-surface-600',
+                    )}
+                  >
+                    {event.temporalLabel}
+                  </span>
+                ) : null}
+
+                {contentHref !== null ? (
+                  <Link
+                    to={contentHref}
+                    onClick={onClose}
+                    className="mt-6 flex w-full items-center justify-center gap-2 rounded-2xl bg-burgundy-800 py-3.5 text-sm font-semibold text-white transition hover:bg-burgundy-700"
+                  >
+                    <Play className="h-4 w-4" aria-hidden />
+                    {event.temporalStatus === 'past' && event.contentType === 'playlist'
+                      ? 'Ouvrir la playlist'
+                      : contentLabel}
+                    {event.contentCount !== undefined && event.contentCount > 0 ? (
+                      <span className="rounded-full bg-white/15 px-2 py-0.5 text-xs">
+                        {event.contentCount} vidéo{event.contentCount > 1 ? 's' : ''}
+                      </span>
+                    ) : null}
+                  </Link>
+                ) : null}
+
                 <button
                   type="button"
-                  className="mt-6 w-full rounded-2xl bg-burgundy-800 py-3 text-sm font-semibold text-white transition hover:bg-burgundy-700"
+                  className={cn(
+                    'w-full rounded-2xl py-3 text-sm font-semibold transition',
+                    contentHref !== null
+                      ? 'mt-3 border border-surface-200 bg-surface-50 text-surface-800 hover:bg-surface-100'
+                      : 'mt-6 bg-burgundy-800 text-white hover:bg-burgundy-700',
+                  )}
                   onClick={onClose}
                 >
                   {isSpotlight ? 'Continuer la visite' : 'Fermer'}

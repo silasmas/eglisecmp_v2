@@ -40,7 +40,7 @@ export default function VisitCTASection() {
                   <CTAButton to="/requete-de-priere" variant="ghost" className="text-white border border-white/20 hover:bg-white/10 hover:text-white">
                     <HandHeart className="w-4 h-4" /> Demande de prière
                   </CTAButton>
-                  <CTAButton to="/contact" variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10">
+                  <CTAButton to="/join#contact" variant="ghost" className="text-white/70 hover:text-white hover:bg-white/10">
                     Nous contacter
                   </CTAButton>
                 </div>

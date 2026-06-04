@@ -9,6 +9,7 @@ use App\Models\Event;
 use App\Models\Gallery;
 use App\Models\Post;
 use App\Models\ScheduleProgram;
+use App\Models\Testimony;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
@@ -162,10 +163,14 @@ final class SitePublicSerializer
         $dateStr = $start ? $start->format('Y-m-d') : '';
         $timeStr = self::formatTimeRange($start, $end);
 
+        $content = EventPublicContent::resolve($event);
+        $temporal = EventTemporalStatus::resolve($event);
+
         return [
             'id' => (string) $event->getKey(),
             'title' => $title !== '' ? $title : 'Événement',
             'date' => $dateStr,
+            'dateEnd' => $temporal['dateEnd'],
             'time' => $timeStr,
             'location' => $location !== '' ? $location : '—',
             'description' => $description !== '' ? $description : '',
@@ -176,6 +181,13 @@ final class SitePublicSerializer
             'featuredFrom' => $event->featured_from?->toIso8601String(),
             'featuredUntil' => $event->featured_until?->toIso8601String(),
             'reactableKey' => 'event:'.$event->getKey(),
+            'contentHref' => $content['contentHref'],
+            'contentType' => $content['contentType'],
+            'contentLabel' => $content['contentLabel'],
+            'contentCount' => $content['contentCount'],
+            'temporalStatus' => $temporal['temporalStatus'],
+            'temporalLabel' => $temporal['temporalLabel'],
+            'youtubePlaylistId' => is_string($event->youtube_playlist_id) ? $event->youtube_playlist_id : null,
         ];
     }
 
@@ -538,6 +550,74 @@ final class SitePublicSerializer
         }
 
         return 'https://www.youtube.com/embed/'.$id.'?rel=0&modestbranding=1';
+    }
+
+    /**
+     * Sérialise un témoignage approuvé pour le mur public (sans coordonnées privées).
+     *
+     * @return array<string, mixed>
+     */
+    public static function testimonyToWallArray(Testimony $testimony): array
+    {
+        $images = $testimony->relationLoaded('images')
+            ? $testimony->images
+            : $testimony->images()->get();
+
+        $videoFileUrl = filled($testimony->video_file)
+            ? self::normalizePublicImageUrl((string) $testimony->video_file)
+            : '';
+
+        $embedFromLink = self::youtubeEmbedUrlFromLink($testimony->video);
+        $videoId = self::youtubeVideoIdFromLink($testimony->video);
+        $videoThumbnail = $videoId !== null ? "https://i.ytimg.com/vi/{$videoId}/hqdefault.jpg" : '';
+
+        return [
+            'id' => (string) $testimony->id,
+            'kind' => $testimony->kind,
+            'author' => $testimony->publicAuthorName(),
+            'title' => $testimony->title,
+            'text' => $testimony->text ?? '',
+            'video' => $testimony->video ?? '',
+            'videoFileUrl' => $videoFileUrl,
+            'videoEmbedUrl' => $embedFromLink !== '' ? $embedFromLink : '',
+            'videoThumbnailUrl' => $videoThumbnail,
+            'postitColor' => $testimony->postit_color ?? '#FFF6D9',
+            'fontFamily' => $testimony->font_family ?? 'Inter, sans-serif',
+            'category' => $testimony->category ?? '',
+            'images' => $images->map(
+                static fn ($image): array => [
+                    'id' => (string) $image->id,
+                    'url' => self::normalizePublicImageUrl((string) $image->image),
+                ],
+            )->values()->all(),
+            'shareCount' => (int) ($testimony->share_count ?? 0),
+            'reactableKey' => $testimony->reactableKey(),
+            'sharePath' => '/temoignages?open='.$testimony->id,
+            'createdAt' => $testimony->created_at?->toIso8601String() ?? '',
+            'publishedAt' => $testimony->approved_at?->toIso8601String()
+                ?? $testimony->updated_at?->toIso8601String()
+                ?? '',
+        ];
+    }
+
+    /**
+     * Format court pour la section témoignages de la page d’accueil.
+     *
+     * @return array<string, string>
+     */
+    public static function testimonyToHomeQuoteArray(Testimony $testimony): array
+    {
+        $quote = trim((string) ($testimony->text ?? ''));
+        if ($quote === '') {
+            $quote = trim((string) $testimony->title);
+        }
+
+        return [
+            'id' => (string) $testimony->id,
+            'name' => $testimony->publicAuthorName(),
+            'quote' => Str::limit($quote, 280),
+            'role' => $testimony->category ?? '',
+        ];
     }
 
     /**

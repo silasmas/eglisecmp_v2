@@ -35,6 +35,7 @@ export function useHeroMeta() {
           liveSlots: Array.isArray(data?.liveSlots) ? data.liveSlots : [],
           liveTiming: data?.liveTiming ?? null,
           stripCards: data?.stripCards,
+          youtubeLive: data?.youtubeLive ?? null,
           reactionKeys: data?.reactionKeys ?? {},
         });
         setError(null);
