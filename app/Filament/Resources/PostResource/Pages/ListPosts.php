@@ -28,7 +28,17 @@ class ListPosts extends ListRecords
                 ->modalHeading('Importer depuis YouTube')
                 ->modalDescription('Vidéos, shorts et playlists de la chaîne seront alignés sur les publications et événements (onglet Playlists).')
                 ->action(function (YoutubeChannelSyncService $sync): void {
-                    $result = $sync->sync(false);
+                    try {
+                        $result = $sync->sync(false);
+                    } catch (\Throwable $exception) {
+                        Notification::make()
+                            ->title('Synchronisation YouTube interrompue')
+                            ->body($exception->getMessage())
+                            ->danger()
+                            ->send();
+
+                        return;
+                    }
                     if (! $result['ok']) {
                         Notification::make()->title($result['message'])->danger()->send();
 
@@ -36,7 +46,7 @@ class ListPosts extends ListRecords
                     }
                     Notification::make()
                         ->title($result['message'])
-                        ->body("Playlists : {$result['playlists']} — Vidéos : {$result['videos']}")
+                        ->body("Playlists : {$result['playlists']} — Vidéos : {$result['videos']} — Créées : {$result['created']} — Mises à jour : {$result['updated']}")
                         ->success()
                         ->send();
                 }),

@@ -8,6 +8,8 @@ use App\Models\Event;
 use App\Models\Post;
 use App\Support\YoutubeEventDateResolver;
 use App\Support\YoutubePlaylistMatcher;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -16,6 +18,9 @@ use Illuminate\Support\Str;
  */
 final class YoutubeChannelSyncService
 {
+    /** @var array<string, true> Vidéos déjà traitées durant la passe en cours (évite les doublons). */
+    private array $processedVideoIds = [];
+
     public function __construct(
         private readonly YoutubeApiClient $api,
     ) {}
@@ -51,6 +56,7 @@ final class YoutubeChannelSyncService
         $updated = 0;
         $skipped = 0;
         $playlistCount = 0;
+        $this->processedVideoIds = [];
 
         $playlists = $this->api->channelPlaylists($channelId, 200);
         $playlistCount = count($playlists);
@@ -238,9 +244,18 @@ final class YoutubeChannelSyncService
      */
     private function upsertVideoAsPost(array $video, string $kind, string $locale): string
     {
-        $post = Post::query()->where('youtube_video_id', $video['id'])->first();
+        $videoId = trim($video['id']);
+        if ($videoId === '') {
+            return 'skipped';
+        }
 
-        $linkUrl = 'https://www.youtube.com/watch?v='.$video['id'];
+        if (isset($this->processedVideoIds[$videoId])) {
+            return 'updated';
+        }
+
+        $post = $this->findPostForYoutubeVideo($videoId);
+
+        $linkUrl = 'https://www.youtube.com/watch?v='.$videoId;
         $title = [$locale => $video['title']];
         $body = $video['description'] !== '' ? [$locale => $video['description']] : null;
         $publishedAt = $video['publishedAt'] !== null
@@ -254,7 +269,7 @@ final class YoutubeChannelSyncService
             'type' => 1,
             'author' => $defaultAuthor,
             'link_url' => $linkUrl,
-            'youtube_video_id' => $video['id'],
+            'youtube_video_id' => $videoId,
             'youtube_kind' => $kind,
             'youtube_synced_at' => now(),
             'date_publication' => $publishedAt,
@@ -271,18 +286,58 @@ final class YoutubeChannelSyncService
             $payload['image_url'] = [$locale => $video['thumbnailUrl']];
         }
 
-        $payload['references'] = [$locale => 'youtube:'.$video['id']];
+        $payload['references'] = [$locale => 'youtube:'.$videoId];
 
         if ($post === null) {
-            $payload['slug'] = $this->uniqueSlug($video['title'], $video['id']);
-            Post::query()->create($payload);
+            $payload['slug'] = $this->uniqueSlug($video['title'], $videoId);
 
-            return 'created';
+            try {
+                Post::query()->create($payload);
+                $this->processedVideoIds[$videoId] = true;
+
+                return 'created';
+            } catch (UniqueConstraintViolationException $exception) {
+                $existing = Post::query()->where('youtube_video_id', $videoId)->first();
+                if ($existing === null) {
+                    throw $exception;
+                }
+                $existing->update($payload);
+                $this->processedVideoIds[$videoId] = true;
+
+                return 'updated';
+            }
         }
 
         $post->update($payload);
+        $this->processedVideoIds[$videoId] = true;
 
         return 'updated';
+    }
+
+    /**
+     * Retrouve une publication existante par ID YouTube ou par lien legacy (sans youtube_video_id).
+     */
+    private function findPostForYoutubeVideo(string $videoId): ?Post
+    {
+        $byId = Post::query()->where('youtube_video_id', $videoId)->first();
+        if ($byId !== null) {
+            return $byId;
+        }
+
+        $watchUrl = 'https://www.youtube.com/watch?v='.$videoId;
+        $shortUrl = 'https://youtu.be/'.$videoId;
+
+        return Post::query()
+            ->where(function (Builder $query) use ($videoId, $watchUrl, $shortUrl): void {
+                $query->where('link_url', $watchUrl)
+                    ->orWhere('link_url', $shortUrl)
+                    ->orWhere('link_url', 'like', '%'.$videoId.'%')
+                    ->orWhere('references', 'like', '%'.$videoId.'%');
+            })
+            ->orderByRaw('CASE WHEN youtube_video_id IS NOT NULL AND youtube_video_id != "" THEN 0 ELSE 1 END')
+            ->orderByDesc('date_publication')
+            ->orderByDesc('id')
+            ->first();
     }
 
     /**
