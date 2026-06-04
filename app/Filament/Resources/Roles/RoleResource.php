@@ -17,16 +17,18 @@ use Filament\Schemas\Components\Grid;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
-use Illuminate\Validation\Rules\Unique;
+use Illuminate\Validation\Rule;
 
 /**
- * Rôles Shield (surcharge) : nom non modifiable à l’édition, unicité nom + guard, messages FR.
+ * Rôles Shield (surcharge) : en édition, le nom n’est pas revalidé (uniquement les permissions).
  */
 class RoleResource extends ShieldRoleResource
 {
     #[\Override]
     public static function form(Schema $schema): Schema
     {
+        $rolesTable = config('permission.table_names.roles', 'roles');
+
         return $schema
             ->components([
                 Grid::make()
@@ -37,26 +39,21 @@ class RoleResource extends ShieldRoleResource
                                     ->label(__('filament-shield::filament-shield.field.name'))
                                     ->disabled(fn (?Model $record): bool => $record !== null)
                                     ->dehydrated()
-                                    ->unique(
-                                        ignoreRecord: true,
-                                        modifyRuleUsing: function (Unique $rule, callable $get, ?Model $record): Unique {
-                                            $guard = $get('guard_name')
-                                                ?? $record?->guard_name
-                                                ?? Utils::getFilamentAuthGuard();
-
-                                            $scoped = $rule->where('guard_name', $guard);
-
-                                            return Utils::isTenancyEnabled()
-                                                ? $scoped->where(Utils::getTenantModelForeignKey(), Filament::getTenant()?->id)
-                                                : $scoped;
-                                        }
-                                    )
-                                    ->validationMessages([
-                                        'unique' => 'Ce nom de rôle est déjà utilisé pour ce guard. Si l’erreur persiste, exécutez : php artisan migrate',
-                                        'required' => 'Le nom du rôle est obligatoire.',
-                                    ])
                                     ->required()
-                                    ->maxLength(255),
+                                    ->maxLength(255)
+                                    ->rules(fn (?Model $record): array => $record !== null
+                                        ? ['required', 'string', 'max:255']
+                                        : [
+                                            'required',
+                                            'string',
+                                            'max:255',
+                                            Rule::unique($rolesTable, 'name')
+                                                ->where('guard_name', Utils::getFilamentAuthGuard()),
+                                        ])
+                                    ->validationMessages([
+                                        'unique' => 'Ce nom de rôle existe déjà pour ce guard.',
+                                        'required' => 'Le nom du rôle est obligatoire.',
+                                    ]),
 
                                 TextInput::make('guard_name')
                                     ->label(__('filament-shield::filament-shield.field.guard_name'))
