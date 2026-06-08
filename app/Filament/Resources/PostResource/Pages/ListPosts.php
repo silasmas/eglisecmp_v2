@@ -34,19 +34,19 @@ class ListPosts extends ListRecords
                 ->action(function (): void {
                     $queue = (string) Config::get('queue.default', 'sync');
 
-                    if ($queue === 'sync') {
-                        $this->runYoutubeSyncInBackgroundProcess();
+                    if ($queue === 'database') {
+                        SyncYoutubeChannelJob::dispatch();
+
+                        Notification::make()
+                            ->title('Synchronisation YouTube lancée')
+                            ->body('Le traitement s’exécute en arrière-plan via la file. Assurez-vous que queue:work tourne.')
+                            ->success()
+                            ->send();
 
                         return;
                     }
 
-                    SyncYoutubeChannelJob::dispatch();
-
-                    Notification::make()
-                        ->title('Synchronisation YouTube lancée')
-                        ->body('Le traitement s’exécute en arrière-plan. Revenez dans 10–20 minutes puis actualisez la liste.')
-                        ->success()
-                        ->send();
+                    $this->runYoutubeSyncInBackgroundProcess();
                 }),
             CreateAction::make(),
         ];
