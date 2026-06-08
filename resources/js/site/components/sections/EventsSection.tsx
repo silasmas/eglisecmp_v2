@@ -1,7 +1,8 @@
 import { useMemo, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowLeft, ArrowRight, CalendarDays, MapPin } from 'lucide-react';
+import { ArrowLeft, ArrowRight, Bell, CalendarDays, MapPin } from 'lucide-react';
 import CTAButton from '../ui/CTAButton';
+import AlertSubscribeModal from '../alerts/AlertSubscribeModal';
 import { events as fallbackEvents } from '../../data/content';
 import { useSiteEvents } from '../../hooks/useSiteEvents';
 import ImageWithSkeleton from '../ui/ImageWithSkeleton';
@@ -16,16 +17,24 @@ export default function EventsSection() {
   const { events, loading } = useSiteEvents(fallbackEvents, 20);
   const featuredId = events.find((event) => event.featured)?.id;
   const orderedEvents = useMemo(() => {
+    const highlight = events.filter(
+      (event) =>
+        event.temporalStatus === 'upcoming' ||
+        event.temporalStatus === 'ongoing' ||
+        event.featured === true,
+    );
+    const pool = highlight.length > 0 ? highlight : events;
     if (!featuredId) {
-      return events;
+      return pool;
     }
-    const featured = events.find((event) => event.id === featuredId);
-    const rest = events.filter((event) => event.id !== featuredId);
-    return featured ? [featured, ...rest] : events;
+    const featured = pool.find((event) => event.id === featuredId);
+    const rest = pool.filter((event) => event.id !== featuredId);
+    return featured ? [featured, ...rest] : pool;
   }, [events, featuredId]);
 
   const [activeIndex, setActiveIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
 
   const goTo = (index: number) => {
     setActiveIndex((index + orderedEvents.length) % Math.max(orderedEvents.length, 1));
@@ -142,6 +151,14 @@ export default function EventsSection() {
                                 <CTAButton to="/events" variant="white" className="shadow-lg shadow-black/25">
                                   Voir l&apos;événement
                                 </CTAButton>
+                                <button
+                                  type="button"
+                                  onClick={() => setAlertModalOpen(true)}
+                                  className="inline-flex items-center gap-2 rounded-2xl bg-red-700 px-6 py-3 text-sm font-bold text-white shadow-lg shadow-red-900/30 transition hover:bg-red-600"
+                                >
+                                  <Bell className="h-4 w-4" aria-hidden />
+                                  Me prévenir
+                                </button>
                               </div>
                             </div>
                           </div>
@@ -203,6 +220,15 @@ export default function EventsSection() {
           </div>
         ) : null}
       </div>
+
+      <AlertSubscribeModal
+        open={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        source="events"
+        title="Ne manquez plus nos événements"
+        defaultNotifyLive={false}
+        defaultNotifyEvents={true}
+      />
     </section>
   );
 }

@@ -1,40 +1,53 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { Calendar, MapPin, ArrowRight, Star, Sparkles } from 'lucide-react';
+import { ArrowRight, Calendar, Download, MapPin, Sparkles } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
-import CTAButton from '../components/ui/CTAButton';
 import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
 import { fetchSiteBunda } from '../lib/siteApi';
 import type { BundaEdition, BundaPageData, TeachingsPlaylistGroup } from '../data/types';
 import YoutubePlaylistGrid from '../components/teachings/YoutubePlaylistGrid';
+import AlertSubscribeModal from '../components/alerts/AlertSubscribeModal';
+import BundaArchivesToolbar, { type BundaArchiveViewMode } from '../components/bunda/BundaArchivesToolbar';
+import BundaNotifyButton from '../components/bunda/BundaNotifyButton';
 import '../styles/youtube-playlist-grid.css';
 
 const FALLBACK_HERO =
   'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1400&h=600&fit=crop';
 
 /**
- * Transforme une édition Bunda API en groupe playlist pour la grille empilée.
+ * Transforme une édition Bunda en carte playlist YouTube empilée.
  *
- * @param edition Édition Bunda sérialisée.
+ * @param edition Édition renvoyée par l'API publique.
+ * @returns Groupe compatible avec la grille playlists.
  */
 function editionToPlaylistGroup(edition: BundaEdition): TeachingsPlaylistGroup {
+  const href =
+    edition.contentHref !== null && edition.contentHref.trim() !== ''
+      ? edition.contentHref
+      : `/teachings/playlist/${encodeURIComponent(edition.id)}`;
+
   return {
     eventId: edition.id,
     title: edition.title,
     description: edition.description,
     thumbnail: edition.image.trim() !== '' ? edition.image : FALLBACK_HERO,
     videoCount: edition.videoCount,
-    visibility: 'Conférence',
+    visibility: edition.editionYear > 0 ? `Édition ${edition.editionYear}` : 'Conférence',
     items: [],
+    href,
   };
 }
 
 /**
- * Page publique Bunda : dernière édition, annonce à venir et archives.
+ * Page publique Bunda 21 : contenus admin, plan alimentaire, alertes et archives par édition.
  */
 export default function BundaPage() {
   const [data, setData] = useState<BundaPageData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [informOpen, setInformOpen] = useState(false);
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
+  const [viewMode, setViewMode] = useState<BundaArchiveViewMode>('grid');
 
   useEffect(() => {
     let cancelled = false;
@@ -60,12 +73,9 @@ export default function BundaPage() {
     };
   }, []);
 
-  const latest = data?.latestEdition ?? null;
-  const heroImage =
-    latest !== null && latest.image.trim() !== '' ? latest.image : FALLBACK_HERO;
-  const heroTitle = latest?.title ?? 'Conférence Bunda';
-  const ctaHref = latest?.contentHref ?? '/join';
-  const ctaLabel = latest?.buttonLabel ?? "S'inscrire";
+  const editions = data?.editions ?? [];
+  const latestEdition = data?.latestEdition ?? editions[0] ?? null;
+  const intro = data?.intro;
   const upcoming = data?.upcoming ?? {
     title: 'Bunda',
     monthLabel: 'Novembre',
@@ -73,12 +83,56 @@ export default function BundaPage() {
     description: '',
   };
 
+  const heroImage =
+    latestEdition?.image && latestEdition.image.trim() !== ''
+      ? latestEdition.image
+      : intro?.heroImage && intro.heroImage.trim() !== ''
+        ? intro.heroImage
+        : FALLBACK_HERO;
+  const heroTitle = intro?.title ?? latestEdition?.title ?? 'Conférence Bunda';
+
+  const latestHref =
+    latestEdition?.contentHref !== null && latestEdition?.contentHref !== undefined && latestEdition.contentHref.trim() !== ''
+      ? latestEdition.contentHref
+      : latestEdition?.id
+        ? `/teachings/playlist/${encodeURIComponent(latestEdition.id)}`
+        : '/teachings?tab=playlists';
+  const latestButtonLabel = latestEdition?.buttonLabel ?? `Bunda ${latestEdition?.editionYear ?? upcoming.year}`;
+
+  const editionYears = useMemo(() => {
+    const years = editions
+      .map((edition) => edition.editionYear)
+      .filter((year) => year > 0);
+    return [...new Set(years)].sort((a, b) => b - a);
+  }, [editions]);
+
+  const filteredEditions = useMemo(() => {
+    if (selectedYear === 'all') {
+      return editions;
+    }
+    return editions.filter((edition) => edition.editionYear === selectedYear);
+  }, [editions, selectedYear]);
+
+  const filteredGroups = useMemo(
+    () => filteredEditions.map(editionToPlaylistGroup),
+    [filteredEditions],
+  );
+
+  const mealPlanUrl = intro?.mealPlanUrl ?? editions[0]?.mealPlanUrl ?? null;
+  const mealPlanLabel = intro?.mealPlanLabel ?? 'Plan alimentaire';
+  const introSubtitle = intro?.subtitle?.trim() ?? '';
+  const introBody = intro?.body?.trim() ?? '';
+
   return (
     <>
       <PageHero
         badge="Bunda"
         title={heroTitle}
-        description="Notre conférence annuelle phare qui rassemble des milliers de fidèles autour de la Parole de Dieu."
+        description={
+          introSubtitle !== ''
+            ? introSubtitle
+            : 'Notre conférence annuelle phare qui rassemble des milliers de fidèles autour de la Parole de Dieu.'
+        }
         backgroundImage={heroImage}
       />
 
@@ -94,24 +148,25 @@ export default function BundaPage() {
               <h2 className="mb-6 font-heading text-3xl font-semibold leading-tight text-surface-900 sm:text-4xl">
                 Un moment unique de communion et de célébration
               </h2>
-              <p className="mb-6 text-lg leading-relaxed text-surface-600">
-                Bunda est la conférence annuelle du Centre Missionnaire Philadelphie. C'est un événement majeur qui
-                rassemble notre communauté et des invités de marque pour des jours d'enseignement, de louange et de
-                prière intenses.
-              </p>
-              <p className="mb-8 leading-relaxed text-surface-500">
-                Chaque édition de Bunda est un tournant spirituel pour des milliers de participants. Des orateurs
-                puissants, une louange vibrante et la présence tangible de Dieu font de cet événement un rendez-vous
-                incontournable pour tout chrétien.
-              </p>
+              {introBody !== '' ? (
+                <p className="mb-8 whitespace-pre-wrap text-lg leading-relaxed text-surface-600">{introBody}</p>
+              ) : (
+                <>
+                  <p className="mb-6 text-lg leading-relaxed text-surface-600">
+                    Bunda est la conférence annuelle du Centre Missionnaire Philadelphie. C&apos;est un événement majeur
+                    qui rassemble notre communauté pour des jours d&apos;enseignement, de louange et de prière intenses.
+                  </p>
+                  <p className="mb-8 leading-relaxed text-surface-500">
+                    Combats, possède et jouis de ton héritage.
+                  </p>
+                </>
+              )}
 
               <div className="mb-10 space-y-4">
                 <div className="flex items-center gap-4 text-surface-600">
                   <Calendar className="h-5 w-5 shrink-0 text-burgundy-600" />
                   <span>
-                    {data !== null
-                      ? `Prochaine édition : ${upcoming.monthLabel} ${upcoming.year}`
-                      : 'Prochaine édition en novembre'}
+                    Prochaine édition : {upcoming.monthLabel} {upcoming.year}
                   </span>
                 </div>
                 <div className="flex items-center gap-4 text-surface-600">
@@ -120,15 +175,25 @@ export default function BundaPage() {
                 </div>
               </div>
 
-              {latest?.contentHref ? (
-                <CTAButton to={latest.contentHref} size="lg">
-                  {ctaLabel} <ArrowRight className="h-4 w-4" />
-                </CTAButton>
-              ) : (
-                <CTAButton to={ctaHref} size="lg">
-                  {ctaLabel} <ArrowRight className="h-4 w-4" />
-                </CTAButton>
-              )}
+              <div className="flex flex-wrap gap-3">
+                {latestEdition !== null ? (
+                  <Link to={latestHref} className="tw-cta-primary inline-flex items-center gap-2">
+                    {latestButtonLabel} <ArrowRight className="h-4 w-4" />
+                  </Link>
+                ) : null}
+                {mealPlanUrl !== null ? (
+                  <a
+                    href={mealPlanUrl}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-2 rounded-xl border border-burgundy-200 bg-burgundy-50 px-5 py-3 text-sm font-semibold text-burgundy-800 transition hover:bg-burgundy-100"
+                  >
+                    <Download className="h-4 w-4" />
+                    {mealPlanLabel}
+                  </a>
+                ) : null}
+                <BundaNotifyButton onClick={() => setInformOpen(true)} />
+              </div>
             </motion.div>
 
             <motion.div
@@ -139,44 +204,14 @@ export default function BundaPage() {
               className="space-y-6"
             >
               <div className="aspect-video overflow-hidden rounded-2xl">
-                <ImageWithSkeleton
-                  src={heroImage}
-                  alt={heroTitle}
-                  className="h-full w-full object-cover"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                {[
-                  { label: 'Participants attendus', value: '5 000+' },
-                  { label: 'Jours de conférence', value: '3' },
-                  { label: 'Orateurs invités', value: '8+' },
-                  { label: 'Éditions réussies', value: '10+' },
-                ].map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="rounded-xl border border-surface-200 bg-white p-5 text-center shadow-sm"
-                  >
-                    <p className="font-heading text-2xl font-bold text-surface-900">{stat.value}</p>
-                    <p className="mt-1 text-xs text-surface-500">{stat.label}</p>
-                  </div>
-                ))}
-              </div>
-
-              <div className="rounded-2xl border border-burgundy-100 bg-burgundy-50 p-6">
-                <Star className="mb-3 h-5 w-5 text-gold-400" />
-                <p className="text-sm italic leading-relaxed text-surface-700">
-                  "Bunda a changé ma vie. En trois jours, j'ai reçu une nouvelle vision de Dieu pour mon avenir et mon
-                  ministère."
-                </p>
-                <p className="mt-3 text-xs font-medium text-burgundy-700">— Grâce L., participante</p>
+                <ImageWithSkeleton src={heroImage} alt={heroTitle} className="h-full w-full object-cover" />
               </div>
             </motion.div>
           </div>
         </div>
       </section>
 
-      <section className="border-t border-surface-100 bg-surface-50 py-20">
+      <section id="bunda-upcoming" className="border-t border-surface-100 bg-surface-50 py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 flex flex-wrap items-end justify-between gap-4">
             <div>
@@ -194,38 +229,81 @@ export default function BundaPage() {
               ))}
             </div>
           ) : data !== null ? (
-            <div className="space-y-8">
-              <article className="yt-playlist-card overflow-hidden rounded-2xl border border-burgundy-200 bg-gradient-to-br from-burgundy-50 to-white p-6 sm:p-8">
-                <div className="flex flex-wrap items-start gap-4">
-                  <span className="inline-flex items-center gap-2 rounded-full border border-burgundy-200 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-burgundy-800">
-                    <Sparkles className="h-3.5 w-3.5" aria-hidden />
-                    À venir
-                  </span>
-                </div>
-                <h3 className="mt-4 font-heading text-2xl font-bold text-surface-900">
-                  {upcoming.title}
-                </h3>
+            <div className="space-y-10">
+              <article className="overflow-hidden rounded-2xl border border-burgundy-200 bg-gradient-to-br from-burgundy-50 to-white p-6 sm:p-8">
+                <span className="inline-flex items-center gap-2 rounded-full border border-burgundy-200 bg-white px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.14em] text-burgundy-800">
+                  <Sparkles className="h-3.5 w-3.5" aria-hidden />
+                  À venir
+                </span>
+                <h3 className="mt-4 font-heading text-2xl font-bold text-surface-900">{upcoming.title}</h3>
                 <p className="mt-2 max-w-2xl text-surface-600">
                   Rendez-vous en <strong>{upcoming.monthLabel}</strong> pour la prochaine conférence.
                   {upcoming.description !== '' ? ` ${upcoming.description}` : ''}
                 </p>
-                <CTAButton to="/join" className="mt-6" size="md">
-                  Être informé <ArrowRight className="h-4 w-4" />
-                </CTAButton>
+                <div className="mt-6">
+                  <BundaNotifyButton onClick={() => setInformOpen(true)} />
+                </div>
               </article>
 
-              {data !== null && data.pastEditions.length > 0 ? (
-                <YoutubePlaylistGrid
-                  groups={data.pastEditions.map(editionToPlaylistGroup)}
-                  emptyMessage=""
-                />
-              ) : null}
+              {editions.length > 0 ? (
+                <>
+                  <BundaArchivesToolbar
+                    years={editionYears}
+                    selectedYear={selectedYear}
+                    onSelectYear={setSelectedYear}
+                    viewMode={viewMode}
+                    onViewModeChange={setViewMode}
+                  />
+
+                  {filteredGroups.length === 0 ? (
+                    <p className="text-center text-surface-500">Aucune archive pour cette année.</p>
+                  ) : viewMode === 'grid' ? (
+                    <YoutubePlaylistGrid groups={filteredGroups} emptyMessage="" />
+                  ) : (
+                    <div className="space-y-12">
+                      {filteredEditions.map((edition) => (
+                        <article key={edition.programId ?? edition.id} className="space-y-5">
+                          <div className="text-center sm:text-left">
+                            <h3 className="font-heading text-2xl font-bold text-surface-900">{edition.title}</h3>
+                            {edition.description !== '' ? (
+                              <p className="mt-2 max-w-3xl text-surface-600">{edition.description}</p>
+                            ) : null}
+                            {edition.mealPlanUrl ? (
+                              <a
+                                href={edition.mealPlanUrl}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="mt-3 inline-flex items-center gap-2 text-sm font-semibold text-burgundy-700 hover:underline"
+                              >
+                                <Download className="h-4 w-4" />
+                                {edition.mealPlanLabel ?? 'Plan alimentaire'}
+                              </a>
+                            ) : null}
+                          </div>
+                          <YoutubePlaylistGrid groups={[editionToPlaylistGroup(edition)]} emptyMessage="" />
+                        </article>
+                      ))}
+                    </div>
+                  )}
+                </>
+              ) : (
+                <p className="text-center text-surface-500">Les archives Bunda seront bientôt disponibles.</p>
+              )}
             </div>
           ) : (
-            <p className="text-center text-surface-500">Les archives Bunda seront bientôt disponibles.</p>
+            <p className="text-center text-surface-500">Impossible de charger les données Bunda.</p>
           )}
         </div>
       </section>
+
+      <AlertSubscribeModal
+        open={informOpen}
+        onClose={() => setInformOpen(false)}
+        source="bunda"
+        title="Ne manquez pas la prochaine édition Bunda"
+        defaultNotifyLive={false}
+        defaultNotifyEvents={true}
+      />
     </>
   );
 }

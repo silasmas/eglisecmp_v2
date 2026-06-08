@@ -258,6 +258,7 @@ export default function HeroSection() {
         onOpenMap={stripModal === 'location' ? openLocationMap : undefined}
         showLivePlayer={stripModal === 'live' && isLiveNow}
         liveCountdownInfo={stripModal === 'live' ? liveCountdown : undefined}
+        showNotifyButton={stripModal === 'event'}
       />
     </section>
   );

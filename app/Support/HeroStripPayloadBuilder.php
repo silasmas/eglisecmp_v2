@@ -329,9 +329,11 @@ final class HeroStripPayloadBuilder
             $liveProgram instanceof ScheduleProgram ? (string) ($liveProgram->link_url ?? '') : ''
         );
 
+        $weeklyModalPrograms = self::buildWeeklyProgramsModalItems($now, $locale, $fallbackLocale);
+
         $eventCard = $nextEvent instanceof Event
-            ? self::buildEventStripCard($nextEvent, $locale, $fallbackLocale)
-            : self::buildWeeklyProgramStripCard($weeklyState, $locale, $fallbackLocale);
+            ? self::buildEventStripCard($nextEvent, $locale, $fallbackLocale, $weeklyModalPrograms)
+            : self::buildWeeklyProgramStripCard($weeklyState, $locale, $fallbackLocale, $weeklyModalPrograms);
 
         $readingCard = $verse instanceof DailyVerse
             ? self::buildReadingStripCard($verse, $locale, $fallbackLocale)
@@ -437,8 +439,12 @@ final class HeroStripPayloadBuilder
      *
      * @return array<string, mixed>
      */
-    private static function buildEventStripCard(Event $event, string $locale, string $fallbackLocale): array
-    {
+    private static function buildEventStripCard(
+        Event $event,
+        string $locale,
+        string $fallbackLocale,
+        array $weeklyModalPrograms,
+    ): array {
         $row = SitePublicSerializer::eventToPublicArray($event, $locale, $fallbackLocale);
         $bannerRaw = SitePublicSerializer::imageUrl($event->image_url, $locale, $fallbackLocale);
 
@@ -453,6 +459,7 @@ final class HeroStripPayloadBuilder
             'tileSecondary' => (string) ($row['date'] ?? '').' · '.(string) ($row['time'] ?? ''),
             'modalBadge' => 'Événement à venir',
             'modalBadgeTone' => 'featured',
+            'modalPrograms' => $weeklyModalPrograms,
         ];
     }
 
@@ -488,8 +495,12 @@ final class HeroStripPayloadBuilder
      * @param  array<string, mixed>  $weeklyState  État calculé.
      * @return array<string, mixed>
      */
-    private static function buildWeeklyProgramStripCard(array $weeklyState, string $locale, string $fallbackLocale): array
-    {
+    private static function buildWeeklyProgramStripCard(
+        array $weeklyState,
+        string $locale,
+        string $fallbackLocale,
+        array $weeklyModalPrograms,
+    ): array {
         $program = $weeklyState['program'] ?? null;
 
         if (! $program instanceof ScheduleProgram) {
@@ -504,6 +515,7 @@ final class HeroStripPayloadBuilder
                 'tileSecondary' => 'Consultez nos rendez-vous',
                 'modalBadge' => 'Programme de la semaine',
                 'modalBadgeTone' => 'program',
+                'modalPrograms' => $weeklyModalPrograms,
             ];
         }
 
@@ -530,6 +542,7 @@ final class HeroStripPayloadBuilder
                     : $name,
                 'modalBadge' => 'Programme en cours',
                 'modalBadgeTone' => 'program-live',
+                'modalPrograms' => $weeklyModalPrograms,
             ];
         }
 
@@ -548,7 +561,76 @@ final class HeroStripPayloadBuilder
             'modalBadge' => 'Programme de la semaine',
             'modalBadgeTone' => 'program',
             'isRecurring' => (bool) $program->is_recurring,
+            'modalPrograms' => $weeklyModalPrograms,
         ];
+    }
+
+    /**
+     * Liste modale : événement de la semaine (si présent) puis Mercredi, Jeudi, Dimanche.
+     *
+     * @return list<array<string, mixed>>
+     */
+    private static function buildWeeklyProgramsModalItems(Carbon $now, string $locale, string $fallbackLocale): array
+    {
+        $items = [];
+        $weekStart = $now->copy()->startOfWeek();
+        $weekEnd = $now->copy()->endOfWeek();
+
+        $eventsThisWeek = Event::query()
+            ->where('is_active', true)
+            ->whereBetween('date_debut', [$weekStart, $weekEnd])
+            ->orderBy('date_debut')
+            ->get();
+
+        foreach ($eventsThisWeek as $event) {
+            $row = SitePublicSerializer::eventToPublicArray($event, $locale, $fallbackLocale);
+            $banner = SitePublicSerializer::imageUrl($event->image_url, $locale, $fallbackLocale);
+
+            $items[] = [
+                'type' => 'event',
+                'title' => (string) ($row['title'] ?? 'Événement'),
+                'subtitle' => (string) ($row['date'] ?? '').' · '.(string) ($row['time'] ?? ''),
+                'bannerImage' => $banner,
+                'description' => (string) ($row['description'] ?? ''),
+                'badge' => 'Cette semaine',
+            ];
+        }
+
+        foreach ([3, 4, 0] as $weekday) {
+            $program = ScheduleProgram::query()
+                ->where('is_active', true)
+                ->where('weekday', $weekday)
+                ->whereIn('kind', [
+                    ScheduleProgram::KIND_WEEKLY,
+                    ScheduleProgram::KIND_LIVE,
+                    ScheduleProgram::KIND_DAILY,
+                ])
+                ->orderBy('sort_order')
+                ->first();
+
+            if (! $program instanceof ScheduleProgram) {
+                continue;
+            }
+
+            $serialized = SitePublicSerializer::scheduleProgramToPublicArray($program, $locale, $fallbackLocale);
+            $name = (string) ($serialized['name'] ?? 'Programme');
+            $dayLabel = (string) ($program->day_label ?? '');
+            $timeLabel = (string) ($program->time_label ?? $serialized['time'] ?? '');
+            $subtitle = $dayLabel !== '' && $timeLabel !== ''
+                ? "{$dayLabel} · {$timeLabel}"
+                : ($dayLabel !== '' ? $dayLabel : $timeLabel);
+
+            $items[] = [
+                'type' => 'program',
+                'title' => $name,
+                'subtitle' => $subtitle,
+                'bannerImage' => self::scheduleProgramBannerImage($program, $locale, $fallbackLocale),
+                'description' => (string) ($serialized['description'] ?? ''),
+                'badge' => $dayLabel !== '' ? $dayLabel : null,
+            ];
+        }
+
+        return $items;
     }
 
     /**
@@ -621,13 +703,7 @@ final class HeroStripPayloadBuilder
      */
     private static function scheduleProgramBannerImage(ScheduleProgram $program, string $locale, string $fallbackLocale): string
     {
-        $banner = SitePublicSerializer::imageUrl($program->banner_image ?? [], $locale, $fallbackLocale);
-
-        if ($banner === '') {
-            $banner = SitePublicSerializer::imageUrl($program->image_url ?? [], $locale, $fallbackLocale);
-        }
-
-        return $banner;
+        return ScheduleProgramBannerResolver::resolve($program, $locale, $fallbackLocale);
     }
 
     /**

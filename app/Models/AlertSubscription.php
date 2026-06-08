@@ -30,6 +30,8 @@ class AlertSubscription extends Model
 
     public const SOURCE_FOOTER = 'footer';
 
+    public const SOURCE_BUNDA = 'bunda';
+
     protected $fillable = [
         'email',
         'phone',

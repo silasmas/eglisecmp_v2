@@ -8,7 +8,12 @@ import { fetchSiteList } from '../lib/siteApi';
  * @param fallback Jeu de données statique en cas d’erreur API ou liste vide.
  * @param limit Nombre maximum d’événements demandés (1–100).
  */
-export function useSiteEvents(fallback: Event[], limit = 20) {
+export type SiteEventsScope = 'highlight' | 'all';
+
+/**
+ * @param scope `highlight` = à venir, en cours ou à la une (défaut). `all` = tous les événements avec affiche.
+ */
+export function useSiteEvents(fallback: Event[], limit = 20, scope: SiteEventsScope = 'highlight') {
   const fallbackRef = useRef<Event[]>(fallback);
   fallbackRef.current = fallback;
 
@@ -22,7 +27,9 @@ export function useSiteEvents(fallback: Event[], limit = 20) {
     async function load() {
       try {
         setLoading(true);
-        const data = await fetchSiteList<Event>(`events?limit=${encodeURIComponent(String(limit))}`);
+        const data = await fetchSiteList<Event>(
+          `events?limit=${encodeURIComponent(String(limit))}&scope=${encodeURIComponent(scope)}`,
+        );
         if (cancelled) {
           return;
         }
@@ -50,7 +57,7 @@ export function useSiteEvents(fallback: Event[], limit = 20) {
     return () => {
       cancelled = true;
     };
-  }, [limit]);
+  }, [limit, scope]);
 
   return { events, loading, error };
 }

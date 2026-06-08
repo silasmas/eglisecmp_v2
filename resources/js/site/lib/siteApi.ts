@@ -229,18 +229,51 @@ export async function fetchSiteSearch(q: string): Promise<import('../data/types'
 export async function fetchSiteBunda(): Promise<import('../data/types').BundaPageData> {
   const body = await fetchSiteJson<{ data: import('../data/types').BundaPageData | null }>('bunda');
   const fallbackYear = new Date().getFullYear();
-  return (
-    body.data ?? {
-      upcoming: {
-        title: `Bunda ${fallbackYear}`,
-        monthLabel: 'Novembre',
-        year: fallbackYear,
-        description: '',
-      },
-      latestEdition: null,
-      pastEditions: [],
-    }
-  );
+  const fallback: import('../data/types').BundaPageData = {
+    intro: {
+      title: 'Conférence Bunda',
+      subtitle: '',
+      body: '',
+      heroImage: '',
+      mealPlanUrl: null,
+      mealPlanLabel: 'Plan alimentaire',
+    },
+    upcoming: {
+      title: `Bunda ${fallbackYear}`,
+      monthLabel: 'Novembre',
+      year: fallbackYear,
+      description: '',
+    },
+    editions: [],
+    latestEdition: null,
+    pastEditions: [],
+  };
+
+  if (body.data === null || body.data === undefined) {
+    return fallback;
+  }
+
+  const raw = body.data;
+
+  return {
+    intro: {
+      title: raw.intro?.title ?? fallback.intro.title,
+      subtitle: raw.intro?.subtitle ?? '',
+      body: raw.intro?.body ?? '',
+      heroImage: raw.intro?.heroImage ?? '',
+      mealPlanUrl: raw.intro?.mealPlanUrl ?? null,
+      mealPlanLabel: raw.intro?.mealPlanLabel ?? fallback.intro.mealPlanLabel,
+    },
+    upcoming: {
+      title: raw.upcoming?.title ?? fallback.upcoming.title,
+      monthLabel: raw.upcoming?.monthLabel ?? fallback.upcoming.monthLabel,
+      year: raw.upcoming?.year ?? fallback.upcoming.year,
+      description: raw.upcoming?.description ?? '',
+    },
+    editions: Array.isArray(raw.editions) ? raw.editions : [],
+    latestEdition: raw.latestEdition ?? null,
+    pastEditions: Array.isArray(raw.pastEditions) ? raw.pastEditions : [],
+  };
 }
 
 /**
@@ -669,7 +702,7 @@ export type AlertSubscribePayload = {
   name?: string;
   notify_live: boolean;
   notify_events: boolean;
-  source: 'footer' | 'events' | 'live' | 'testimony';
+  source: 'footer' | 'events' | 'live' | 'testimony' | 'bunda' | 'weekly';
 };
 
 /**

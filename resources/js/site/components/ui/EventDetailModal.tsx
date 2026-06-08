@@ -1,13 +1,13 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
-import { Calendar, Clock, MapPin, Play, Sparkles, X } from 'lucide-react';
+import { Bell, Calendar, Clock, MapPin, Play, Sparkles, X } from 'lucide-react';
 import type { Event } from '../../data/types';
 import { cn } from '../../lib/utils';
 import ImageWithSkeleton from './ImageWithSkeleton';
 import ReactionBar from './ReactionBar';
 import SocialShareToolbar from './SocialShareToolbar';
-import AlertSubscribeForm from '../alerts/AlertSubscribeForm';
+import AlertSubscribeModal from '../alerts/AlertSubscribeModal';
 
 /**
  * Formate la date d'un événement pour l'affichage français.
@@ -39,6 +39,8 @@ export default function EventDetailModal({
   event: Event | null;
   variant?: 'default' | 'spotlight';
 }) {
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+
   useEffect(() => {
     if (!open) {
       return undefined;
@@ -64,8 +66,11 @@ export default function EventDetailModal({
     event?.contentLabel !== undefined && event.contentLabel !== null && event.contentLabel.trim() !== ''
       ? event.contentLabel
       : 'Voir le contenu';
+  const showNotifyButton =
+    event?.temporalStatus === 'upcoming' || event?.temporalStatus === 'ongoing';
 
   return (
+    <>
     <AnimatePresence>
       {open && event !== null ? (
         <motion.div
@@ -227,13 +232,16 @@ export default function EventDetailModal({
                   </Link>
                 ) : null}
 
-                <div className="mt-6">
-                  <AlertSubscribeForm
-                    source="events"
-                    title="Alertes pour cet événement"
-                    className="border-surface-200 shadow-none"
-                  />
-                </div>
+                {showNotifyButton ? (
+                  <button
+                    type="button"
+                    onClick={() => setAlertModalOpen(true)}
+                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-burgundy-200 bg-burgundy-50 py-3.5 text-sm font-semibold text-burgundy-800 transition hover:bg-burgundy-100"
+                  >
+                    <Bell className="h-4 w-4" aria-hidden />
+                    Me prévenir
+                  </button>
+                ) : null}
 
                 <button
                   type="button"
@@ -253,5 +261,15 @@ export default function EventDetailModal({
         </motion.div>
       ) : null}
     </AnimatePresence>
+
+    <AlertSubscribeModal
+      open={alertModalOpen}
+      onClose={() => setAlertModalOpen(false)}
+      source="events"
+      title="Ne manquez plus nos événements"
+      defaultNotifyLive={false}
+      defaultNotifyEvents={true}
+    />
+    </>
   );
 }

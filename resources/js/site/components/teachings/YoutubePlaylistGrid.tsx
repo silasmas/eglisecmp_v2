@@ -21,9 +21,11 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage }: YoutubePla
     <div className="yt-playlist-grid">
       {groups.map((group) => {
         const href =
-          group.eventId !== ''
-            ? `/teachings/playlist/${encodeURIComponent(group.eventId)}`
-            : '/teachings?tab=playlists';
+          group.href !== undefined && group.href.trim() !== ''
+            ? group.href
+            : group.eventId !== ''
+              ? `/teachings/playlist/${encodeURIComponent(group.eventId)}`
+              : '/teachings?tab=playlists';
 
         return (
           <article key={group.eventId || group.title} className="yt-playlist-card">

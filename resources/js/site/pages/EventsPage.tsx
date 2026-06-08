@@ -1,30 +1,33 @@
 import { useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Bell } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
 import EventCard from '../components/cards/EventCard';
 import EventDetailModal from '../components/ui/EventDetailModal';
-import AlertSubscribeForm from '../components/alerts/AlertSubscribeForm';
+import AlertSubscribeModal from '../components/alerts/AlertSubscribeModal';
 import { events as fallbackEvents } from '../data/content';
 import type { Event } from '../data/types';
 import { useSiteEvents } from '../hooks/useSiteEvents';
 import { cn } from '../lib/utils';
 
-type EventFilter = 'all' | 'upcoming' | 'ongoing' | 'past';
+type EventFilter = 'all' | 'upcoming' | 'ongoing' | 'past' | 'featured';
 
 const FILTER_OPTIONS: { id: EventFilter; label: string }[] = [
   { id: 'all', label: 'Tous' },
   { id: 'upcoming', label: 'À venir' },
   { id: 'ongoing', label: 'En cours' },
   { id: 'past', label: 'Passés' },
+  { id: 'featured', label: 'À la une' },
 ];
 
 /**
  * Page publique listant les événements avec modale de détail et filtres chronologiques.
  */
 export default function EventsPage() {
-  const { events, loading } = useSiteEvents(fallbackEvents, 80);
+  const { events, loading } = useSiteEvents(fallbackEvents, 80, 'all');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [filter, setFilter] = useState<EventFilter>('all');
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
 
   const orderedEvents = useMemo(() => {
     return [...events]
@@ -40,6 +43,9 @@ export default function EventsPage() {
     if (filter === 'all') {
       return orderedEvents;
     }
+    if (filter === 'featured') {
+      return orderedEvents.filter((event) => event.featured === true);
+    }
     return orderedEvents.filter((event) => event.temporalStatus === filter);
   }, [orderedEvents, filter]);
 
@@ -49,6 +55,7 @@ export default function EventsPage() {
       upcoming: orderedEvents.filter((e) => e.temporalStatus === 'upcoming').length,
       ongoing: orderedEvents.filter((e) => e.temporalStatus === 'ongoing').length,
       past: orderedEvents.filter((e) => e.temporalStatus === 'past').length,
+      featured: orderedEvents.filter((e) => e.featured === true).length,
     };
   }, [orderedEvents]);
 
@@ -63,7 +70,8 @@ export default function EventsPage() {
 
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="mb-10 flex flex-wrap gap-2">
+          <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
+            <div className="flex flex-wrap gap-2">
             {FILTER_OPTIONS.map((option) => (
               <button
                 key={option.id}
@@ -87,6 +95,15 @@ export default function EventsPage() {
                 </span>
               </button>
             ))}
+            </div>
+            <button
+              type="button"
+              onClick={() => setAlertModalOpen(true)}
+              className="inline-flex items-center gap-2 rounded-full border border-burgundy-200 bg-burgundy-50 px-4 py-2 text-sm font-semibold text-burgundy-800 transition hover:bg-burgundy-100"
+            >
+              <Bell className="h-4 w-4" aria-hidden />
+              Me prévenir
+            </button>
           </div>
 
           {loading ? (
@@ -118,11 +135,14 @@ export default function EventsPage() {
         </div>
       </section>
 
-      <section className="border-t border-surface-100 bg-surface-50 py-16 dark:border-surface-800 dark:bg-surface-950">
-        <div className="mx-auto max-w-xl px-4 sm:px-6 lg:px-8">
-          <AlertSubscribeForm source="events" title="Ne manquez plus nos événements" />
-        </div>
-      </section>
+      <AlertSubscribeModal
+        open={alertModalOpen}
+        onClose={() => setAlertModalOpen(false)}
+        source="events"
+        title="Ne manquez plus nos événements"
+        defaultNotifyLive={false}
+        defaultNotifyEvents={true}
+      />
 
       <EventDetailModal
         open={selectedEvent !== null}

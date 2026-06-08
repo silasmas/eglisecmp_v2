@@ -1,8 +1,9 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { CalendarClock, Clock3, ExternalLink, MapPin } from 'lucide-react';
+import { Bell, CalendarClock, Clock3, ExternalLink, MapPin } from 'lucide-react';
 import type { HeroStripCard } from '../../data/types';
 import type { LiveCountdownInfo } from '../../lib/liveCountdown';
+import AlertSubscribeModal from '../alerts/AlertSubscribeModal';
 import DailyReadingShare from './DailyReadingShare';
 import HeroStripBlinkBadge from './HeroStripBlinkBadge';
 import ReactionBar from './ReactionBar';
@@ -19,6 +20,7 @@ export default function HeroStripModal({
   onOpenMap,
   showLivePlayer = false,
   liveCountdownInfo,
+  showNotifyButton = false,
 }: {
   open: boolean;
   onClose: () => void;
@@ -30,7 +32,11 @@ export default function HeroStripModal({
   showLivePlayer?: boolean;
   /** Décompte et infos du prochain live (tuile live). */
   liveCountdownInfo?: LiveCountdownInfo;
+  /** Affiche le bouton « Me prévenir » (programmes hebdomadaires / événements). */
+  showNotifyButton?: boolean;
 }) {
+  const [alertModalOpen, setAlertModalOpen] = useState(false);
+
   useEffect(() => {
     if (!open) {
       return undefined;
@@ -56,6 +62,7 @@ export default function HeroStripModal({
   const showModalBadge = modalBadgeLabel !== '' && modalBadgeTone !== undefined;
 
   return (
+    <>
     <AnimatePresence>
       {open && card !== null ? (
         <motion.div
@@ -208,6 +215,40 @@ export default function HeroStripModal({
                 </div>
               ) : null}
 
+              {card.modalPrograms !== undefined && card.modalPrograms.length > 0 ? (
+                <div className="mt-5 space-y-4">
+                  {card.modalPrograms.map((item) => {
+                    const thumb = item.bannerImage.trim() !== '' ? item.bannerImage : '';
+                    return (
+                      <article
+                        key={`${item.type}-${item.title}`}
+                        className="overflow-hidden rounded-2xl border border-surface-200 bg-surface-50"
+                      >
+                        {thumb !== '' ? (
+                          <div className="relative aspect-[21/9] w-full bg-surface-100">
+                            <ImageWithSkeleton src={thumb} alt="" className="h-full w-full object-cover" />
+                            {item.badge !== undefined && item.badge !== null && item.badge.trim() !== '' ? (
+                              <span className="absolute left-3 top-3 rounded-full bg-black/55 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-white backdrop-blur-sm">
+                                {item.badge}
+                              </span>
+                            ) : null}
+                          </div>
+                        ) : null}
+                        <div className="p-4">
+                          <h3 className="font-heading text-base font-bold text-surface-900">{item.title}</h3>
+                          {item.subtitle.trim() !== '' ? (
+                            <p className="mt-1 text-sm text-surface-500">{item.subtitle}</p>
+                          ) : null}
+                          {item.description.trim() !== '' ? (
+                            <p className="mt-2 line-clamp-3 text-sm leading-relaxed text-surface-600">{item.description}</p>
+                          ) : null}
+                        </div>
+                      </article>
+                    );
+                  })}
+                </div>
+              ) : null}
+
               {card.description.trim() !== '' ? (
                 <p className="mt-4 whitespace-pre-line text-sm leading-relaxed text-surface-700">{card.description}</p>
               ) : isUpcomingLivePreview ? (
@@ -258,6 +299,16 @@ export default function HeroStripModal({
                 />
               ) : null}
               <ReactionBar reactableKey={card.reactableKey || undefined} className="mt-5" />
+              {showNotifyButton ? (
+                <button
+                  type="button"
+                  onClick={() => setAlertModalOpen(true)}
+                  className="mt-5 inline-flex w-full items-center justify-center gap-2 rounded-2xl border border-burgundy-200 bg-burgundy-50 py-3 text-sm font-semibold text-burgundy-800 transition hover:bg-burgundy-100"
+                >
+                  <Bell className="h-4 w-4" aria-hidden />
+                  Me prévenir
+                </button>
+              ) : null}
               <button
                 type="button"
                 className="mt-6 w-full rounded-2xl border border-surface-200 bg-surface-50 py-3 text-sm font-semibold text-surface-800 transition hover:bg-surface-100"
@@ -271,5 +322,15 @@ export default function HeroStripModal({
         </motion.div>
       ) : null}
     </AnimatePresence>
+
+    <AlertSubscribeModal
+      open={alertModalOpen}
+      onClose={() => setAlertModalOpen(false)}
+      source="weekly"
+      title="Programmes et événements de la semaine"
+      defaultNotifyLive={false}
+      defaultNotifyEvents={true}
+    />
+    </>
   );
 }

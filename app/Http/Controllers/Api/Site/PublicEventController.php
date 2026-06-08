@@ -6,6 +6,7 @@ namespace App\Http\Controllers\Api\Site;
 
 use App\Http\Controllers\Controller;
 use App\Models\Event;
+use App\Support\EventPublicFilter;
 use App\Support\SitePublicSerializer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -26,6 +27,7 @@ class PublicEventController extends Controller
         $locale = SitePublicSerializer::localeFromRequest($request);
         $fallback = SitePublicSerializer::fallbackLocale();
         $limit = min(max((int) $request->query('limit', 20), 1), 100);
+        $scope = (string) $request->query('scope', 'highlight');
 
         $rows = Event::query()
             ->where('is_active', true)
@@ -38,11 +40,25 @@ class PublicEventController extends Controller
         $payload = $rows
             ->map(static fn (Event $event): array => SitePublicSerializer::eventToPublicArray($event, $locale, $fallback))
             ->filter(static fn (array $row): bool => ($row['hasPoster'] ?? false) === true)
-            ->take($limit)
-            ->values()
             ->all();
 
-        return response()->json(['data' => $payload]);
+        if ($scope === 'highlight') {
+            $payload = EventPublicFilter::onlyHighlight($payload);
+        }
+
+        usort($payload, static function (array $a, array $b): int {
+            $aFeatured = ($a['featured'] ?? false) === true ? 1 : 0;
+            $bFeatured = ($b['featured'] ?? false) === true ? 1 : 0;
+            if ($aFeatured !== $bFeatured) {
+                return $bFeatured <=> $aFeatured;
+            }
+
+            return strcmp((string) ($b['date'] ?? ''), (string) ($a['date'] ?? ''));
+        });
+
+        $payload = array_slice($payload, 0, $limit);
+
+        return response()->json(['data' => array_values($payload)]);
     }
 
     /**

@@ -1,11 +1,11 @@
 {
   "resources/css/app.css": {
-    "file": "assets/app-Mg3dfR4x.css",
+    "file": "assets/app-AnuuuCZd.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-WWDX3XuN.css",
+    "file": "assets/theme-FIQJQLXw.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
@@ -20,12 +20,12 @@
     "src": "resources/js/site/assets/Logo-CMP-2023-new.png"
   },
   "resources/js/site/main.tsx": {
-    "file": "assets/main-C4oWWYt1.js",
+    "file": "assets/main-DSqKiEw4.js",
     "name": "main",
     "src": "resources/js/site/main.tsx",
     "isEntry": true,
     "css": [
-      "assets/main-CfQp7xMR.css"
+      "assets/main-Dwa3kFtZ.css"
     ],
     "assets": [
       "assets/Logo-CMP-2023-new-BaryjCFu.png"

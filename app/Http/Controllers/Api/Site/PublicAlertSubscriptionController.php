@@ -25,7 +25,7 @@ class PublicAlertSubscriptionController extends Controller
             'name' => 'nullable|string|max:120',
             'notify_live' => 'required|boolean',
             'notify_events' => 'required|boolean',
-            'source' => 'nullable|string|max:40|in:testimony,events,live,footer',
+            'source' => 'nullable|string|max:40|in:testimony,events,live,footer,bunda,weekly',
         ]);
 
         $notifyLive = (bool) $validated['notify_live'];

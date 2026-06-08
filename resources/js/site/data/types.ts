@@ -34,6 +34,8 @@ export interface TeachingsPlaylistGroup {
   visibility: string;
   items: Sermon[];
   youtubePlaylistId?: string | null;
+  /** Lien personnalisé (ex. carte « à venir » Bunda). */
+  href?: string;
 }
 
 /** Résultat de recherche globale site. */
@@ -93,23 +95,38 @@ export interface Event {
 /** Édition Bunda (API /api/site/bunda). */
 export interface BundaEdition {
   id: string;
+  programId?: string;
+  editionYear: number;
   title: string;
   date: string;
   image: string;
   description: string;
+  body?: string;
   contentHref: string | null;
   contentLabel: string | null;
   buttonLabel: string;
   videoCount: number;
+  mealPlanUrl?: string | null;
+  mealPlanLabel?: string;
+  hasPoster?: boolean;
 }
 
 export interface BundaPageData {
+  intro: {
+    title: string;
+    subtitle: string;
+    body: string;
+    heroImage: string;
+    mealPlanUrl: string | null;
+    mealPlanLabel: string;
+  };
   upcoming: {
     title: string;
     monthLabel: string;
     year: number;
     description: string;
   };
+  editions: BundaEdition[];
   latestEdition: BundaEdition | null;
   pastEditions: BundaEdition[];
 }
@@ -158,6 +175,16 @@ export interface HeroLiveSlot {
   subtitle: string;
 }
 
+/** Élément liste modale « programme de la semaine ». */
+export interface HeroStripModalProgram {
+  type: 'event' | 'program';
+  title: string;
+  subtitle: string;
+  bannerImage: string;
+  description: string;
+  badge?: string | null;
+}
+
 /** Tuile du bandeau hero (données modale). */
 export interface HeroStripCard {
   title: string;
@@ -186,6 +213,8 @@ export interface HeroStripCard {
   modalBadgeTone?: 'live' | 'upcoming-live' | 'reading' | 'program' | 'program-live' | 'featured';
   /** Programme récurrent (horaire fixe chaque semaine). */
   isRecurring?: boolean;
+  /** Programmes hebdomadaires affichés dans la modale (événement de la semaine en tête). */
+  modalPrograms?: HeroStripModalProgram[];
 }
 
 /** Les quatre tuiles cliquables sous le hero. */

@@ -62,6 +62,21 @@ return [
     | titre sur le bandeau ; la description complète est affichée dans la modale.
     |
     */
+    /*
+    |--------------------------------------------------------------------------
+    | Vignettes par défaut — programmes hebdomadaires (Mercredi, Jeudi, Dimanche)
+    |--------------------------------------------------------------------------
+    |
+    | Jour 0 = dimanche, 3 = mercredi, 4 = jeudi (convention Carbon).
+    | Remplacées par les images du dashboard si renseignées sur le programme.
+    |
+    */
+    'weekly_program_default_banners' => [
+        0 => '/images/programs/dimanche.jpg',
+        3 => '/images/programs/mercredi.jpg',
+        4 => '/images/programs/jeudi.jpg',
+    ],
+
     'hero_strip' => [
         'location' => [
             'title' => 'Nous trouver',

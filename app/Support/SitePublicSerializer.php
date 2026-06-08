@@ -326,17 +326,17 @@ final class SitePublicSerializer
             }
         }
 
+        $banner = ScheduleProgramBannerResolver::resolve($program, $locale, $fallbackLocale);
         $thumb = self::imageUrl($program->image_url ?? [], $locale, $fallbackLocale);
-        $banner = self::imageUrl($program->banner_image ?? [], $locale, $fallbackLocale);
-        if ($banner === '') {
-            $banner = $thumb;
+        if ($thumb === '' && $banner !== '') {
+            $thumb = $banner;
         }
         $placeholder = self::normalizePublicImageUrl((string) config('site_public.placeholder_image_url', ''));
         if ($thumb === '') {
             $thumb = $placeholder;
         }
         if ($banner === '') {
-            $banner = $placeholder;
+            $banner = $thumb !== '' ? $thumb : $placeholder;
         }
 
         return [
