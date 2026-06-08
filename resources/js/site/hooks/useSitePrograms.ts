@@ -11,6 +11,10 @@ type ScheduleProgramRow = {
   time: string;
   icon: string;
   gridWide: boolean;
+  weekday?: number | null;
+  thumbnail?: string;
+  bannerImage?: string;
+  reactableKey?: string;
 };
 
 /**
@@ -29,6 +33,10 @@ function mapProgramRow(row: ScheduleProgramRow): Program {
     icon: row.icon,
     kind: row.kind,
     gridWide: row.gridWide,
+    weekday: row.weekday ?? undefined,
+    thumbnail: row.thumbnail,
+    bannerImage: row.bannerImage,
+    reactableKey: row.reactableKey,
   };
 }
 

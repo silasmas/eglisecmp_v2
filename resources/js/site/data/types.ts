@@ -151,6 +151,7 @@ export interface Program {
   thumbnail?: string;
   bannerImage?: string;
   reactableKey?: string;
+  weekday?: number;
 }
 
 /** Verset / lecture du jour (API site). */
