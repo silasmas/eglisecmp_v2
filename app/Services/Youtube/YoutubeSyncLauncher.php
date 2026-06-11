@@ -55,17 +55,44 @@ final class YoutubeSyncLauncher
             ];
         }
 
-        $run->markFailed(
-            'Impossible de lancer un processus en arrière-plan sur ce serveur (exec/proc_open désactivés). '
-            .'Configurez QUEUE_CONNECTION=database et lancez php artisan queue:work, '
-            .'ou activez le cron HTTP sur « Tâches planifiées ».',
-        );
+        self::scheduleSyncAfterHttpResponse($run->id, $full, $source);
 
         return [
-            'ok' => false,
-            'run' => $run->fresh(),
-            'message' => (string) $run->error_message,
+            'ok' => true,
+            'run' => $run,
+            'message' => 'Synchronisation démarrée après envoi de cette page (mode hébergement mutualisé). '
+                .'Consultez « Synchronisations YouTube » : la ligne passe à « En cours » puis « Réussie » ou « Échouée ». '
+                .'Pour l’automatique toutes les 30 min, activez le cron HTTP dans « Tâches planifiées ».',
         ];
+    }
+
+    /**
+     * Repli sans exec/proc_open : exécute la synchro une fois la réponse HTTP envoyée à Filament.
+     *
+     * @param  string  $source  Origine du déclenchement (filament, posts_page…).
+     */
+    private static function scheduleSyncAfterHttpResponse(int $runId, bool $full, string $source): void
+    {
+        Log::info('[youtube-sync-launch] Repli afterResponse pour run #'.$runId.' (exec/proc_open indisponibles).');
+
+        app()->terminating(function () use ($runId, $full, $source): void {
+            if (function_exists('ignore_user_abort')) {
+                @ignore_user_abort(true);
+            }
+
+            if (function_exists('set_time_limit')) {
+                @set_time_limit(0);
+            }
+
+            try {
+                app(YoutubeSyncOrchestrator::class)->run($runId, false, $full, $source);
+            } catch (Throwable $throwable) {
+                Log::error('[youtube-sync-after-response] '.$throwable->getMessage(), [
+                    'run_id' => $runId,
+                    'exception' => $throwable,
+                ]);
+            }
+        });
     }
 
     /**

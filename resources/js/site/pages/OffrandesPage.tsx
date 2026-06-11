@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { Loader2, CreditCard, Heart, Smartphone, ShieldCheck } from 'lucide-react';
+import { ChevronLeft, Loader2, CreditCard, Heart, Smartphone, ShieldCheck } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
 import { cn } from '../lib/utils';
 import {
@@ -324,6 +324,17 @@ export default function OffrandesPage() {
 
   const step1Done = Boolean(reference);
 
+  /** Paiement mobile en cours (polling ou attente téléphone) — bloque le retour sans annulation. */
+  const isPaymentProcessing = useMemo(
+    () =>
+      mobileTreatment === 'sending' ||
+      mobileTreatment === 'await_device' ||
+      mobileTreatment === 'checking',
+    [mobileTreatment],
+  );
+
+  const canEditDonation = step1Done && !isPaymentProcessing;
+
   const focusStep = useMemo(() => {
     if (!step1Done) {
       return 1;
@@ -375,6 +386,35 @@ export default function OffrandesPage() {
     setMobileTreatment('await_device');
     startMobilePaymentPolling(reference);
   }, [reference, startMobilePaymentPolling]);
+
+  /** Retour étape 1 : déverrouille le formulaire don (nouvelle référence à la prochaine validation). */
+  const handleBackToStep1 = useCallback(() => {
+    stopPolling();
+    setReference(null);
+    setChannel('');
+    setPaymentPhone('');
+    setProviderCode(mobileProviders[0]?.code ?? '');
+    setBusy(false);
+    setErrorBanner(null);
+    setSuccessBanner(null);
+    setMobileTreatment('idle');
+    setVerificationPhase(0);
+    setStep3Notice(null);
+    verificationPhaseRef.current = 0;
+    phaseStartedAtRef.current = 0;
+  }, [mobileProviders, stopPolling]);
+
+  /** Retour étape 2 : annule le suivi en cours et permet de changer le mode de paiement. */
+  const handleBackToStep2 = useCallback(() => {
+    stopPolling();
+    setBusy(false);
+    setErrorBanner(null);
+    setMobileTreatment('idle');
+    setVerificationPhase(0);
+    setStep3Notice(null);
+    verificationPhaseRef.current = 0;
+    phaseStartedAtRef.current = 0;
+  }, [stopPolling]);
 
   const step1InputsLocked = step1Done;
 
@@ -716,6 +756,17 @@ export default function OffrandesPage() {
                     Réf.&nbsp;: <span className="font-mono font-semibold">{reference}</span>
                   </p>
                 ) : null}
+
+                {canEditDonation ? (
+                  <button
+                    type="button"
+                    onClick={handleBackToStep1}
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-surface-300 bg-white py-2.5 text-xs font-semibold text-surface-700 transition hover:border-burgundy-400 hover:text-burgundy-900 dark:border-surface-600 dark:bg-surface-900 dark:text-surface-200 dark:hover:border-burgundy-500 dark:hover:text-burgundy-200"
+                  >
+                    <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                    Modifier mon don
+                  </button>
+                ) : null}
               </div>
             </article>
 
@@ -740,6 +791,17 @@ export default function OffrandesPage() {
               <p className="mb-4 text-xs text-surface-500 dark:text-surface-400">
                 À activer après l&apos;étape&nbsp;1.
               </p>
+
+              {step1Done && canEditDonation ? (
+                <button
+                  type="button"
+                  onClick={handleBackToStep1}
+                  className="mb-4 inline-flex items-center gap-1 text-xs font-semibold text-burgundy-800 transition hover:text-burgundy-950 dark:text-burgundy-300 dark:hover:text-burgundy-100"
+                >
+                  <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                  Retour — modifier le don
+                </button>
+              ) : null}
 
               {!step1Done ? (
                 <div className="flex flex-1 items-center justify-center rounded-2xl border border-dashed border-surface-200 p-8 text-center text-sm text-surface-400 dark:border-surface-600">
@@ -855,15 +917,39 @@ export default function OffrandesPage() {
                     </p>
                   ) : null}
 
-                  <button
-                    type="button"
-                    disabled={busy || channel === '' || mobileTreatment === 'done'}
-                    onClick={() => void handlePay()}
-                    className="mt-6 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-900 py-3 text-sm font-semibold text-white transition hover:bg-surface-800 disabled:opacity-40 dark:bg-white dark:text-surface-900 dark:hover:bg-surface-200"
-                  >
-                    {busy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden /> : null}
-                    {channel === 'card' ? 'Ouvrir le paiement carte' : 'Lancer Mobile money'}
-                  </button>
+                  {mobileTreatment === 'error' && canEditDonation ? (
+                    <button
+                      type="button"
+                      onClick={handleBackToStep1}
+                      className="mt-4 inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-surface-300 py-2.5 text-xs font-semibold text-surface-700 transition hover:border-burgundy-400 hover:text-burgundy-900 dark:border-surface-600 dark:text-surface-200"
+                    >
+                      <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                      Modifier le montant ou le type d&apos;offrande
+                    </button>
+                  ) : null}
+
+                  <div className="mt-6 flex flex-col gap-2">
+                    <button
+                      type="button"
+                      disabled={busy || channel === '' || mobileTreatment === 'done'}
+                      onClick={() => void handlePay()}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-xl bg-surface-900 py-3 text-sm font-semibold text-white transition hover:bg-surface-800 disabled:opacity-40 dark:bg-white dark:text-surface-900 dark:hover:bg-surface-200"
+                    >
+                      {busy ? <Loader2 className="h-4 w-4 animate-spin shrink-0" aria-hidden /> : null}
+                      {channel === 'card' ? 'Ouvrir le paiement carte' : 'Lancer Mobile money'}
+                    </button>
+
+                    {isPaymentProcessing ? (
+                      <button
+                        type="button"
+                        onClick={handleBackToStep2}
+                        className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 py-2.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+                      >
+                        <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                        Annuler et modifier le paiement
+                      </button>
+                    ) : null}
+                  </div>
                 </>
               )}
             </article>
@@ -910,9 +996,21 @@ export default function OffrandesPage() {
               </div>
 
               {(busy && mobileTreatment !== 'idle') || mobileTreatment === 'checking' ? (
-                <div className="mt-8 flex justify-center gap-2 text-xs text-surface-500 dark:text-surface-400">
-                  <Loader2 className="h-5 w-5 animate-spin text-burgundy-600 shrink-0" aria-hidden />
-                  <span>Traitement en cours — le bouton de l&apos;étape&nbsp;2 reste indisponible jusqu&apos;à la fin.</span>
+                <div className="mt-8 flex flex-col items-center gap-3">
+                  <div className="flex justify-center gap-2 text-xs text-surface-500 dark:text-surface-400">
+                    <Loader2 className="h-5 w-5 animate-spin text-burgundy-600 shrink-0" aria-hidden />
+                    <span>Traitement en cours — validez sur votre téléphone si demandé.</span>
+                  </div>
+                  {isPaymentProcessing ? (
+                    <button
+                      type="button"
+                      onClick={handleBackToStep2}
+                      className="inline-flex w-full max-w-sm items-center justify-center gap-1.5 rounded-xl border border-amber-300 bg-amber-50 px-4 py-2.5 text-xs font-semibold text-amber-950 transition hover:bg-amber-100 dark:border-amber-700 dark:bg-amber-950/30 dark:text-amber-100"
+                    >
+                      <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                      Annuler et modifier le paiement
+                    </button>
+                  ) : null}
                 </div>
               ) : null}
 
@@ -951,14 +1049,43 @@ export default function OffrandesPage() {
                 </p>
               ) : null}
 
-              {focusStep === 3 && mobileTreatment === 'verification_exhausted' && reference !== null ? (
-                <button
-                  type="button"
-                  onClick={handleRetryVerification}
-                  className="mt-4 w-full rounded-xl bg-burgundy-900 py-3 text-sm font-semibold text-white transition hover:bg-burgundy-800"
-                >
-                  Relancer la vérification
-                </button>
+              {focusStep === 3 &&
+              (mobileTreatment === 'verification_exhausted' ||
+                mobileTreatment === 'error' ||
+                !isPaymentProcessing) ? (
+                <div className="mt-4 flex flex-col gap-2">
+                  {mobileTreatment === 'verification_exhausted' && reference !== null ? (
+                    <button
+                      type="button"
+                      onClick={handleRetryVerification}
+                      className="w-full rounded-xl bg-burgundy-900 py-3 text-sm font-semibold text-white transition hover:bg-burgundy-800"
+                    >
+                      Relancer la vérification
+                    </button>
+                  ) : null}
+
+                  {!isPaymentProcessing ? (
+                    <button
+                      type="button"
+                      onClick={handleBackToStep2}
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-surface-300 bg-white py-2.5 text-xs font-semibold text-surface-700 transition hover:border-burgundy-400 hover:text-burgundy-900 dark:border-surface-600 dark:bg-surface-900 dark:text-surface-200"
+                    >
+                      <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                      Retour — mode de paiement
+                    </button>
+                  ) : null}
+
+                  {canEditDonation ? (
+                    <button
+                      type="button"
+                      onClick={handleBackToStep1}
+                      className="inline-flex w-full items-center justify-center gap-1.5 rounded-xl border border-surface-200 py-2.5 text-xs font-medium text-surface-600 transition hover:text-burgundy-900 dark:border-surface-700 dark:text-surface-400"
+                    >
+                      <ChevronLeft className="h-4 w-4 shrink-0" aria-hidden />
+                      Modifier le montant ou le type d&apos;offrande
+                    </button>
+                  ) : null}
+                </div>
               ) : null}
 
               {focusStep === 3 && verificationPhase > 0 && mobileTreatment === 'checking' ? (
