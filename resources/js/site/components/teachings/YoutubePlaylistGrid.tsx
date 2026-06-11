@@ -31,35 +31,45 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
   return (
     <div className="yt-playlist-grid">
       {groups.map((group) => {
+        if (group == null || typeof group !== 'object') {
+          return null;
+        }
+
+        const eventId = typeof group.eventId === 'string' ? group.eventId : '';
+        const groupTitle = typeof group.title === 'string' ? group.title : 'Playlist';
+        const videoCount = typeof group.videoCount === 'number' ? group.videoCount : 0;
+        const description = typeof group.description === 'string' ? group.description : '';
+        const thumbnail = typeof group.thumbnail === 'string' ? group.thumbnail : '';
+
         const baseHref =
           group.href !== undefined && group.href.trim() !== ''
             ? group.href
-            : group.eventId !== ''
-              ? `/teachings/playlist/${encodeURIComponent(group.eventId)}`
+            : eventId !== ''
+              ? `/teachings/playlist/${encodeURIComponent(eventId)}`
               : '/teachings?tab=playlists';
         const href = appendPlaylistFromParam(baseHref, fromTab);
         const previewSource =
-          Array.isArray(group.items) && group.items.length > 0
-            ? group.items
-            : group.latestItem
-              ? [group.latestItem]
+          group.latestItem != null
+            ? [group.latestItem]
+            : Array.isArray(group.items) && group.items.length > 0
+              ? group.items
               : [];
         const sortedItems = sortSermonsNewestFirst(previewSource);
         const newest = sortedItems[0];
-        const stackDepth = Math.min(sortedItems.length, 3);
+        const stackDepth = Math.min(Math.max(videoCount, sortedItems.length), 3);
         const previewThumbnail =
-          newest?.thumbnail?.trim() !== '' ? newest.thumbnail : group.thumbnail;
+          newest?.thumbnail?.trim() !== '' ? newest.thumbnail : thumbnail;
 
         return (
-          <article key={group.eventId || group.title} className="yt-playlist-card">
+          <article key={eventId || groupTitle} className="yt-playlist-card">
             <p className="yt-playlist-count-above">
-              {group.videoCount} vidéo{group.videoCount > 1 ? 's' : ''}
+              {videoCount} vidéo{videoCount > 1 ? 's' : ''}
             </p>
             <Link
               to={href}
               onClick={handleNavigate}
               className="yt-playlist-thumb-link"
-              aria-label={`Voir la playlist ${group.title}`}
+              aria-label={`Voir la playlist ${groupTitle}`}
             >
               <div
                 className="yt-playlist-stack"
@@ -75,23 +85,23 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
                   />
                   <span className="yt-playlist-count">
                     <ListVideo className="h-3.5 w-3.5" aria-hidden />
-                    {group.videoCount} vidéo{group.videoCount > 1 ? 's' : ''}
+                    {videoCount} vidéo{videoCount > 1 ? 's' : ''}
                   </span>
                 </div>
               </div>
             </Link>
             <div className="yt-playlist-meta">
               <Link to={href} onClick={handleNavigate} className="yt-playlist-title line-clamp-2">
-                {group.title}
+                {groupTitle}
               </Link>
-              <p className="yt-playlist-visibility">{group.visibility}</p>
+              <p className="yt-playlist-visibility">{group.visibility ?? 'Publique'}</p>
               {newest?.title ? (
                 <p className="yt-playlist-latest line-clamp-2">
                   Dernière vidéo&nbsp;: <span className="font-medium text-surface-800">{newest.title}</span>
                 </p>
               ) : null}
-              {group.description !== '' ? (
-                <p className="yt-playlist-desc line-clamp-2">{group.description}</p>
+              {description !== '' ? (
+                <p className="yt-playlist-desc line-clamp-2">{description}</p>
               ) : null}
               <Link to={href} onClick={handleNavigate} className="yt-playlist-action">
                 Afficher la playlist complète

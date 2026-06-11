@@ -42,6 +42,30 @@ final class YoutubePlaylistMatcher
     }
 
     /**
+     * Jours de culte dans l’ordre d’affichage (onglet Méditations).
+     *
+     * @return list<string>
+     */
+    public static function weeklyServiceDaysOrdered(): array
+    {
+        return ['mercredi', 'jeudi', 'dimanche'];
+    }
+
+    /**
+     * Libellé affiché pour un jour de culte (`weekly_service_day`).
+     */
+    public static function groupLabelForWeeklyDay(string $weeklyDay): ?string
+    {
+        $map = [
+            'mercredi' => 'Culte d\'enseignement',
+            'jeudi' => 'Culte de jeudi etoko',
+            'dimanche' => 'Cultes dominicaux',
+        ];
+
+        return $map[strtolower(trim($weeklyDay))] ?? null;
+    }
+
+    /**
      * Jour de culte Filament (`weekly_service_day`) selon le groupe.
      */
     public static function weeklyServiceDayForGroup(string $groupLabel): ?string

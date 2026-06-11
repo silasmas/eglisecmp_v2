@@ -337,13 +337,18 @@ final class YoutubeChannelSyncService
                 continue;
             }
 
+            $meditationGroup = YoutubePlaylistMatcher::meditationGroupForTitle($playlist['title']);
+            $weeklyDay = $meditationGroup !== null
+                ? YoutubePlaylistMatcher::weeklyServiceDayForGroup($meditationGroup)
+                : null;
+
             $videos = $this->api->videosByIds($videoIds);
             foreach ($videos as $video) {
                 $kind = $this->resolveVideoKind($video, $importShorts);
                 if ($kind === null) {
                     continue;
                 }
-                $this->upsertVideoAsPost($video, $kind, $locale);
+                $this->upsertVideoAsPost($video, $kind, $locale, $weeklyDay);
             }
         }
     }
@@ -395,7 +400,7 @@ final class YoutubeChannelSyncService
     /**
      * @param  array{id: string, title: string, description: string, publishedAt: string|null, thumbnailUrl: string, durationSeconds: int|null, liveBroadcastContent: string}  $video
      */
-    private function upsertVideoAsPost(array $video, string $kind, string $locale): string
+    private function upsertVideoAsPost(array $video, string $kind, string $locale, ?string $weeklyServiceDay = null): string
     {
         $videoId = trim($video['id']);
         if ($videoId === '') {
@@ -435,6 +440,10 @@ final class YoutubeChannelSyncService
             'is_active' => true,
             'youtube_duration_seconds' => $video['durationSeconds'],
         ];
+
+        if (is_string($weeklyServiceDay) && trim($weeklyServiceDay) !== '') {
+            $payload['weekly_service_day'] = strtolower(trim($weeklyServiceDay));
+        }
 
         if ($body !== null) {
             $payload['body'] = $body;

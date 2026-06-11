@@ -88,6 +88,7 @@ class PostResource extends Resource
                             ->columnSpan(4),
                         Select::make('weekly_service_day')
                             ->label('Jour de culte hebdomadaire (optionnel)')
+                            ->helperText('Utilisé pour regrouper l’onglet Méditations (Mercredi / Jeudi / Dimanche). Renseigné automatiquement lors de la synchro YouTube des cultes.')
                             ->options([
                                 'mercredi' => 'Mercredi',
                                 'jeudi' => 'Jeudi',
@@ -104,7 +105,10 @@ class PostResource extends Resource
                             ->preload()
                             ->columnSpan(4),
                         TextInput::make('author')->label('Auteur')->maxLength(191)->columnSpan(6),
-                        DateTimePicker::make('date_publication')->label('Date de publication')->columnSpan(6),
+                        DateTimePicker::make('date_publication')
+                            ->label('Date de publication')
+                            ->helperText('Date de mise en ligne YouTube : sert à trier du plus récent au plus ancien sur le site.')
+                            ->columnSpan(6),
                         Toggle::make('is_active')->label('Actif')->default(true)->columnSpan(4),
                     ]),
                 Section::make('Media et video')

@@ -37,6 +37,8 @@ export interface TeachingsPlaylistGroup {
   items: Sermon[];
   /** Dernière vidéo (présent sur les listes allégées API). */
   latestItem?: Sermon;
+  /** Jour de culte (`mercredi` | `jeudi` | `dimanche`) pour l’onglet Méditations. */
+  weeklyServiceDay?: string;
   youtubePlaylistId?: string | null;
   /** Lien personnalisé (ex. carte « à venir » Bunda). */
   href?: string;

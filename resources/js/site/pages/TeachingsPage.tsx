@@ -1,36 +1,16 @@
-import { useEffect } from 'react';
-import { useSearchParams } from 'react-router-dom';
 import PageHero from '../components/ui/PageHero';
 import MeditationsByThemeView from '../components/teachings/MeditationsByThemeView';
-import MessagesGridView from '../components/teachings/MessagesGridView';
 import PlaylistsStackedView from '../components/teachings/PlaylistsStackedView';
+import TeachingsSermonsTab from '../components/teachings/TeachingsSermonsTab';
 import TeachingsTabBar, { resolveTeachingsTab } from '../components/teachings/TeachingsTabBar';
-import { useInfiniteSitePosts } from '../hooks/useInfiniteSitePosts';
-import { prefetchImageUrls } from '../lib/imagePrefetch';
+import { useSearchParams } from 'react-router-dom';
 
 /**
- * Page Enseignements : onglets Messages, Méditations, Playlists avec scroll infini.
+ * Page Enseignements : onglets Messages, Méditations, Playlists.
  */
 export default function TeachingsPage() {
   const [searchParams] = useSearchParams();
   const tab = resolveTeachingsTab(searchParams);
-  const { items, loading, loadingMore, error, hasMore, loadMore } = useInfiniteSitePosts(tab);
-
-  useEffect(() => {
-    prefetchImageUrls(
-      items.flatMap((item) => [item.thumbnail, item.eventImage]),
-      96,
-    );
-  }, [items]);
-
-  const viewProps = {
-    items,
-    loading,
-    loadingMore,
-    hasMore,
-    error,
-    onLoadMore: loadMore,
-  };
 
   return (
     <>
@@ -45,7 +25,7 @@ export default function TeachingsPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <TeachingsTabBar />
 
-          {tab === 'sermons' ? <MessagesGridView {...viewProps} /> : null}
+          {tab === 'sermons' ? <TeachingsSermonsTab /> : null}
           {tab === 'meditations' ? <MeditationsByThemeView /> : null}
           {tab === 'playlists' ? <PlaylistsStackedView /> : null}
         </div>

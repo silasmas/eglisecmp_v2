@@ -27,7 +27,9 @@ export function useTeachingsPlaylistGroups(scope: 'meditations' | 'playlists') {
       );
     } catch (err) {
       setGroups([]);
-      setError(err instanceof Error ? err.message : 'Chargement impossible.');
+      const message = err instanceof Error ? err.message : 'Chargement impossible.';
+      setError(message);
+      console.error(`[teachings/${scope}]`, err);
     } finally {
       setLoading(false);
     }

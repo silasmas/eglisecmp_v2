@@ -9,11 +9,11 @@ use App\Models\Event;
 use App\Models\Post;
 use App\Support\EventPostQuery;
 use App\Support\SitePublicSerializer;
+use App\Support\WeeklyMeditationGrouper;
 use App\Support\YoutubeEventDateResolver;
 use App\Support\YoutubePlaylistMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
-use Illuminate\Support\Collection;
 
 /**
  * Playlists YouTube regroupées pour la page Enseignements (méditations / playlists).
@@ -94,64 +94,12 @@ final class PublicTeachingsPlaylistController extends Controller
      */
     private function buildMeditationGroups(string $locale, string $fallback): array
     {
-        $groups = [];
         $events = Event::query()
             ->where('is_active', true)
             ->whereNotNull('youtube_playlist_id')
             ->get();
 
-        foreach (YoutubePlaylistMatcher::meditationGroups() as $config) {
-            $label = (string) ($config['label'] ?? '');
-            $event = $this->resolveMeditationEvent($events, $label, $locale, $fallback);
-
-            if ($event === null) {
-                continue;
-            }
-
-            $group = $this->eventToGroup($event, $locale, $fallback, listMode: true);
-            if ($this->shouldExposePlaylistGroup($group)) {
-                $groups[] = $group;
-            }
-        }
-
-        usort($groups, static fn (array $a, array $b): int => strcmp((string) ($b['sortDate'] ?? ''), (string) ($a['sortDate'] ?? '')));
-
-        return $this->stripSortDate($groups);
-    }
-
-    /**
-     * Choisit l’événement le plus récent parmi ceux dont le titre correspond au culte hebdomadaire.
-     *
-     * @param  Collection<int, Event>  $events
-     */
-    private function resolveMeditationEvent(Collection $events, string $label, string $locale, string $fallback): ?Event
-    {
-        $matches = [];
-
-        foreach ($events as $candidate) {
-            $title = SitePublicSerializer::text($candidate->designation, $locale, $fallback);
-            if (YoutubePlaylistMatcher::meditationGroupForTitle($title) === $label) {
-                $matches[] = $candidate;
-            }
-        }
-
-        if ($matches === []) {
-            return null;
-        }
-
-        if (count($matches) === 1) {
-            return $matches[0];
-        }
-
-        usort(
-            $matches,
-            fn (Event $left, Event $right): int => strcmp(
-                $this->latestActivityTimestamp($right),
-                $this->latestActivityTimestamp($left),
-            ),
-        );
-
-        return $matches[0];
+        return WeeklyMeditationGrouper::buildGroups($locale, $fallback, $events);
     }
 
     /**
@@ -182,16 +130,11 @@ final class PublicTeachingsPlaylistController extends Controller
             $thumb = (string) config('site_public.placeholder_image_url', '');
         }
 
-        $sortedPosts = EventPostQuery::newestPostsForEvent($event);
-
-        foreach ($sortedPosts as $post) {
-            $post->loadMissing(['minister', 'event']);
-        }
-
         if ($listMode) {
-            $posts = collect(array_slice($sortedPosts, 0, 1));
+            $latestPost = EventPostQuery::latestPostForEvent($event);
+            $posts = $latestPost instanceof Post ? collect([$latestPost]) : collect();
         } else {
-            $posts = collect($sortedPosts);
+            $posts = collect(EventPostQuery::newestPostsForEvent($event));
         }
 
         $items = $posts->map(

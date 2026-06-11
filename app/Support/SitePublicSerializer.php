@@ -192,40 +192,13 @@ final class SitePublicSerializer
     }
 
     /**
-     * Transforme une publication en objet « sermon » pour la SPA.
-     *
-     * @param  Post  $post  Modèle publication (relations minister chargée si possible).
-     * @param  string  $locale  Locale pour title / body / image.
-     * @param  string  $fallbackLocale  Locale de repli.
-     * @return array<string, mixed> Objet compatible avec le type `Sermon` côté TypeScript.
-     */
-    /**
-     * Horodatage ISO utilisé pour trier les messages (date du culte dans le titre, publication YouTube, synchro).
+     * Horodatage ISO pour trier les messages (date de publication YouTube, puis synchro).
      */
     public static function postSortTimestamp(Post $post): string
     {
-        $locale = app()->getLocale();
-        $fallback = self::fallbackLocale();
-        $title = self::text($post->title, $locale, $fallback);
-        $titleDate = SermonTitleDateParser::parse($title);
-
         $published = $post->date_publication;
-        if ($titleDate instanceof Carbon) {
-            if (! $published instanceof Carbon || $titleDate->lte($published)) {
-                return $titleDate->toIso8601String();
-            }
-
-            if ($published->diffInDays($titleDate, false) < -14) {
-                return $titleDate->toIso8601String();
-            }
-        }
-
         if ($published instanceof Carbon) {
             return $published->toIso8601String();
-        }
-
-        if ($titleDate instanceof Carbon) {
-            return $titleDate->toIso8601String();
         }
 
         $synced = $post->youtube_synced_at;

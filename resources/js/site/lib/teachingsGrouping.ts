@@ -1,4 +1,5 @@
 import type { PlaylistEventGroup, Sermon } from '../data/types';
+import { sortSermonsNewestFirst } from './sermonSort';
 
 /**
  * Regroupe les méditations selon les rendez-vous du programme hebdomadaire (Mercredi, Jeudi, Dimanche).
@@ -75,10 +76,7 @@ export function groupMeditationsByWeeklyProgram(items: Sermon[]): Map<string, Se
 
   for (const label of orderedLabels) {
     const list = buckets.get(label) ?? [];
-    buckets.set(
-      label,
-      [...list].sort((a, b) => b.date.localeCompare(a.date)),
-    );
+    buckets.set(label, sortSermonsNewestFirst(list));
   }
 
   return new Map(orderedLabels.map((label) => [label, buckets.get(label) ?? []]));
@@ -113,7 +111,7 @@ export function groupPostsByEvent(items: Sermon[]): PlaylistEventGroup[] {
   return [...map.values()]
     .map((group) => ({
       ...group,
-      items: [...group.items].sort((a, b) => b.date.localeCompare(a.date)),
+      items: sortSermonsNewestFirst(group.items),
     }))
     .sort((a, b) => a.eventTitle.localeCompare(b.eventTitle, 'fr'));
 }

@@ -31,42 +31,43 @@ final class EventPostQuery
     }
 
     /**
-     * Ordonne les messages d’un événement du plus récent au plus ancien.
+     * Ordonne les messages du plus récent au plus ancien (publication YouTube puis synchro).
      *
      * @param  Builder<Post>  $query
      */
     public static function orderNewestFirst(Builder $query): void
     {
-        $query->orderByDesc('date_publication')->orderByDesc('id');
+        $query
+            ->orderByDesc('date_publication')
+            ->orderByDesc('youtube_synced_at')
+            ->orderByDesc('id');
     }
 
     /**
-     * Retourne les messages triés du plus récent au plus ancien (date de culte dans le titre prioritaire).
+     * Requête de base : messages actifs liés à l'événement.
+     *
+     * @return Builder<Post>
+     */
+    public static function baseQueryForEvent(Event $event): Builder
+    {
+        return Post::query()
+            ->where('is_active', true)
+            ->where(function (Builder $sub) use ($event): void {
+                self::applyForEvent($sub, $event);
+            });
+    }
+
+    /**
+     * Retourne les messages triés du plus récent au plus ancien (tri SQL).
      *
      * @return list<Post>
      */
     public static function newestPostsForEvent(Event $event): array
     {
-        $posts = Post::query()
-            ->where('is_active', true)
-            ->where(function (Builder $sub) use ($event): void {
-                self::applyForEvent($sub, $event);
-            })
-            ->orderByDesc('id')
-            ->get()
-            ->all();
+        $query = self::baseQueryForEvent($event)->with(['minister', 'event']);
+        self::orderNewestFirst($query);
 
-        usort(
-            $posts,
-            static function (Post $left, Post $right): int {
-                $leftStamp = SitePublicSerializer::postSortTimestamp($left);
-                $rightStamp = SitePublicSerializer::postSortTimestamp($right);
-
-                return strcmp($rightStamp, $leftStamp);
-            },
-        );
-
-        return $posts;
+        return $query->get()->all();
     }
 
     /**
@@ -74,26 +75,24 @@ final class EventPostQuery
      */
     public static function activeCountForEvent(Event $event): int
     {
-        return Post::query()
-            ->where('is_active', true)
-            ->where(function (Builder $sub) use ($event): void {
-                self::applyForEvent($sub, $event);
-            })
-            ->count();
+        return self::baseQueryForEvent($event)->count();
     }
 
     /**
-     * Premier message publié (le plus récent) lié à l'événement.
+     * Message le plus récent lié à l'événement (une seule requête SQL).
      */
     public static function latestPostForEvent(Event $event): ?Post
     {
-        $posts = self::newestPostsForEvent($event);
+        $query = self::baseQueryForEvent($event)->with(['minister', 'event']);
+        self::orderNewestFirst($query);
 
-        return $posts[0] ?? null;
+        $post = $query->first();
+
+        return $post instanceof Post ? $post : null;
     }
 
     /**
-     * Trie une collection de posts du plus récent au plus ancien (date de culte dans le titre).
+     * Trie une collection de posts du plus récent au plus ancien.
      *
      * @param  Collection<int, Post>  $posts
      * @return Collection<int, Post>
