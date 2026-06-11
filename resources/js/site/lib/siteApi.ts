@@ -164,7 +164,7 @@ export async function fetchSitePostsPage(
   tab: string,
   page: number,
   perPage = 12,
-  options?: { search?: string },
+  options?: { search?: string; eventId?: string; weeklyServiceDay?: string },
 ): Promise<PostsPageResponse> {
   const query = new URLSearchParams({
     tab,
@@ -175,6 +175,16 @@ export async function fetchSitePostsPage(
   const trimmed = options?.search?.trim();
   if (trimmed !== undefined && trimmed !== '') {
     query.set('search', trimmed);
+  }
+
+  const eventId = options?.eventId?.trim();
+  if (eventId !== undefined && eventId !== '') {
+    query.set('event_id', eventId);
+  }
+
+  const weeklyDay = options?.weeklyServiceDay?.trim();
+  if (weeklyDay !== undefined && weeklyDay !== '') {
+    query.set('weekly_service_day', weeklyDay);
   }
 
   return fetchSiteJson<PostsPageResponse>(`posts?${query.toString()}`);

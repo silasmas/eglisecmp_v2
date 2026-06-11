@@ -9,9 +9,10 @@ import ReactionBar from '../components/ui/ReactionBar';
 import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
 import PageHero from '../components/ui/PageHero';
 import InfiniteScrollFooter from '../components/teachings/InfiniteScrollFooter';
+import LazyYoutubePlayer from '../components/teachings/LazyYoutubePlayer';
 import { useInfiniteSitePosts } from '../hooks/useInfiniteSitePosts';
 import { formatPreachRowDate } from '../lib/preachRowDate';
-import { withEmbedPlaybackParams } from '../lib/youtubeEmbed';
+import { Skeleton } from '../components/ui/Skeleton';
 
 /**
  * Page de lecture d’un message avec liste paginée infinie et recherche dans la colonne latérale.
@@ -66,6 +67,8 @@ export default function MessageWatchPage() {
       }
     }
 
+    setCurrent((previous) => (previous?.id === postId ? previous : null));
+
     void loadCurrent();
 
     return () => {
@@ -77,14 +80,29 @@ export default function MessageWatchPage() {
 
   const sidebarItems = items;
 
+  /** Message affiché : liste latérale en priorité au changement, puis détail API enrichi. */
+  const displaySermon = useMemo(() => {
+    const fromList = postId ? sidebarItems.find((item) => item.id === postId) : null;
+
+    if (current && current.id === postId) {
+      return current;
+    }
+
+    if (fromList) {
+      return fromList;
+    }
+
+    return current;
+  }, [current, postId, sidebarItems]);
+
   /** Index du message actuel dans la liste chargée (-1 si filtre / recherche l’exclut). */
   const currentIndex = useMemo(() => {
-    if (!current) {
+    if (!displaySermon) {
       return -1;
     }
-    const found = sidebarItems.findIndex((item) => item.id === current.id);
+    const found = sidebarItems.findIndex((item) => item.id === displaySermon.id);
     return found >= 0 ? found : -1;
-  }, [sidebarItems, current]);
+  }, [sidebarItems, displaySermon]);
 
   /** Passe au message suivant dans la liste téléchargée, ou aucun si fin de liste filtrée. */
   const goNext = useCallback(() => {
@@ -112,7 +130,7 @@ export default function MessageWatchPage() {
     <>
       <PageHero
         badge="Message"
-        title={currentLoading ? 'Chargement…' : current?.title ?? 'Message'}
+        title={currentLoading && !displaySermon ? 'Chargement…' : displaySermon?.title ?? 'Message'}
         description="Visionnez ce message puis explorez les autres avec la recherche et le défilement infini."
         compact
       />
@@ -125,71 +143,35 @@ export default function MessageWatchPage() {
           <ArrowLeft className="h-4 w-4" aria-hidden /> Retour aux messages
         </Link>
 
-        {currentLoading ? (
+        {currentLoading && !displaySermon ? (
           <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(280px,400px)]" aria-busy="true">
             <div className="space-y-4">
-              <div className="aspect-video animate-pulse rounded-2xl bg-surface-200 dark:bg-surface-800" />
-              <div className="h-8 w-2/3 animate-pulse rounded bg-surface-200 dark:bg-surface-800" />
+              <Skeleton className="aspect-video rounded-2xl" />
+              <Skeleton className="h-8 w-2/3" />
             </div>
             <div className="space-y-3">
-              <div className="h-10 animate-pulse rounded-xl bg-surface-200 dark:bg-surface-800" />
+              <Skeleton className="h-10 rounded-xl" />
               {Array.from({ length: 5 }).map((__, index) => (
-                <div
-                  key={`message-skel-${String(index)}`}
-                  className="flex gap-3 rounded-2xl border border-surface-100 p-3 dark:border-surface-700"
-                >
-                  <div className="h-16 w-16 shrink-0 animate-pulse rounded-xl bg-surface-200 dark:bg-surface-800" />
-                  <div className="flex-1 space-y-2">
-                    <div className="h-4 animate-pulse rounded bg-surface-200 dark:bg-surface-800" />
-                    <div className="h-3 w-5/6 animate-pulse rounded bg-surface-200 dark:bg-surface-800" />
-                  </div>
-                </div>
+                <Skeleton key={`message-skel-${String(index)}`} className="h-20 rounded-2xl" />
               ))}
             </div>
           </div>
         ) : null}
 
-        {currentError ? <p className="text-center text-burgundy-600">{currentError}</p> : null}
+        {currentError && !displaySermon ? <p className="text-center text-burgundy-600">{currentError}</p> : null}
 
-        {!currentLoading && current ? (
+        {displaySermon ? (
           <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,400px)] lg:gap-14">
             <div className="min-w-0 space-y-6">
               <div className="overflow-hidden rounded-2xl bg-black shadow-xl ring-1 ring-black/15">
-                {current.youtubeEmbedUrl ? (
-                  <div className="aspect-video">
-                    <iframe
-                      key={current.id}
-                      src={withEmbedPlaybackParams(current.youtubeEmbedUrl, autoplayRequested)}
-                      title={`Lecture vidéo : ${current.title}`}
-                      className="h-full w-full border-0"
-                      allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                    />
-                  </div>
-                ) : (
-                  <div className="relative aspect-video">
-                    <ImageWithSkeleton
-                      src={current.thumbnail}
-                      alt=""
-                      className="absolute inset-0 h-full w-full object-cover opacity-75"
-                    />
-                    <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 p-4 text-center">
-                      <p className="text-sm font-semibold text-white">
-                        Vidéo indisponible en lecture intégrée pour ce message (aucun lien YouTube valide renseigné).
-                      </p>
-                      {current.linkUrl ? (
-                        <a
-                          href={current.linkUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="mt-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-surface-900 hover:bg-white"
-                        >
-                          Ouvrir sur YouTube
-                        </a>
-                      ) : null}
-                    </div>
-                  </div>
-                )}
+                <LazyYoutubePlayer
+                  videoKey={displaySermon.id}
+                  embedUrl={displaySermon.youtubeEmbedUrl}
+                  title={displaySermon.title}
+                  thumbnail={displaySermon.thumbnail}
+                  linkUrl={displaySermon.linkUrl}
+                  autoplay={autoplayRequested}
+                />
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
@@ -197,33 +179,35 @@ export default function MessageWatchPage() {
                   <Youtube className="h-3.5 w-3.5 text-red-600" aria-hidden />
                   YouTube
                 </span>
-                <span className="inline-flex items-center gap-1 text-xs text-surface-500">
-                  <Clock className="h-3 w-3" aria-hidden /> {current.duration}
-                </span>
-                {current.date ? (
-                  <span className="text-xs text-surface-500">{formatPreachRowDate(current.date)}</span>
+                {displaySermon.duration ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-surface-500">
+                    <Clock className="h-3 w-3" aria-hidden /> {displaySermon.duration}
+                  </span>
+                ) : null}
+                {displaySermon.date ? (
+                  <span className="text-xs text-surface-500">{formatPreachRowDate(displaySermon.date)}</span>
                 ) : null}
               </div>
 
               <header>
                 <h1 className="font-heading text-2xl font-bold text-surface-950 dark:text-white sm:text-3xl">
-                  {current.title}
+                  {displaySermon.title}
                 </h1>
-                <p className="mt-2 text-sm text-surface-500 dark:text-surface-400">{current.speaker}</p>
+                <p className="mt-2 text-sm text-surface-500 dark:text-surface-400">{displaySermon.speaker}</p>
                 <div className="mt-4 max-w-full">
                   <SocialShareToolbar
-                    title={current.title}
-                    description={current.description}
-                    sharePath={`/teachings/message/${current.id}`}
+                    title={displaySermon.title}
+                    description={displaySermon.description}
+                    sharePath={`/teachings/message/${displaySermon.id}`}
                     compact
                     menuStyle="spread"
                   />
                 </div>
               </header>
 
-              {current.reactableKey ? (
+              {displaySermon.reactableKey ? (
                 <div className="rounded-2xl border border-surface-200 bg-surface-50 p-4 dark:border-surface-700 dark:bg-surface-900/40">
-                  <ReactionBar reactableKey={current.reactableKey} compact={false} />
+                  <ReactionBar reactableKey={displaySermon.reactableKey} compact={false} />
                 </div>
               ) : null}
 
@@ -246,7 +230,11 @@ export default function MessageWatchPage() {
                 </button>
               </div>
 
-              {current.bodyHtml && current.bodyHtml.trim() !== '' ? (
+              {currentLoading && !current?.bodyHtml ? (
+                <Skeleton className="h-40 rounded-3xl" />
+              ) : null}
+
+              {current?.bodyHtml && current.bodyHtml.trim() !== '' ? (
                 <div className="rounded-3xl border border-surface-200 bg-white p-6 shadow-inner dark:border-surface-700 dark:bg-surface-900">
                   <h2 className="mb-4 font-heading text-lg font-semibold text-surface-950 dark:text-white">
                     La prédication en texte
@@ -276,7 +264,7 @@ export default function MessageWatchPage() {
                 {listError ? <p className="text-sm text-burgundy-600">{listError}</p> : null}
                 <ul className="space-y-2 pb-10">
                   {sidebarItems.map((item) => {
-                    const selected = item.id === current.id;
+                    const selected = item.id === displaySermon.id;
 
                     return (
                       <li key={item.id}>

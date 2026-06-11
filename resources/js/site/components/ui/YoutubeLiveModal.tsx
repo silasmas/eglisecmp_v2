@@ -19,8 +19,8 @@ export default function YoutubeLiveModal({ open, live, onClose }: YoutubeLiveMod
   return (
     <div className="fixed inset-0 z-[190] flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <button type="button" className="absolute inset-0 bg-black/70" aria-label="Fermer" onClick={onClose} />
-      <div className="relative z-10 w-full max-w-3xl max-h-[92vh] overflow-y-auto rounded-2xl bg-black shadow-2xl">
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
+      <div className="relative z-10 flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-black shadow-2xl">
+        <div className="flex shrink-0 items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="inline-flex items-center gap-1.5 rounded-full bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase text-white">
               <span className="h-2 w-2 animate-pulse rounded-full bg-white" />
@@ -32,7 +32,8 @@ export default function YoutubeLiveModal({ open, live, onClose }: YoutubeLiveMod
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="aspect-video w-full bg-black">
+
+        <div className="aspect-video w-full shrink-0 bg-black">
           <iframe
             title={live.title}
             src={live.embedUrl}
@@ -41,7 +42,8 @@ export default function YoutubeLiveModal({ open, live, onClose }: YoutubeLiveMod
             allowFullScreen
           />
         </div>
-        <div className="flex flex-wrap items-center justify-between gap-3 bg-surface-900 px-4 py-3">
+
+        <div className="flex shrink-0 flex-wrap items-center justify-between gap-3 bg-surface-900 px-4 py-3">
           <p className="text-sm text-white/80">Rejoignez le culte en direct sur YouTube</p>
           <a
             href={live.watchUrl}
@@ -52,8 +54,15 @@ export default function YoutubeLiveModal({ open, live, onClose }: YoutubeLiveMod
             Ouvrir sur YouTube
           </a>
         </div>
-        <div className="bg-white p-4 dark:bg-surface-900">
-          <AlertSubscribeForm source="live" title="Recevoir un SMS ou e-mail au prochain live" />
+
+        <div className="min-h-0 flex-1 overflow-hidden bg-white dark:bg-surface-900">
+          <AlertSubscribeForm
+            source="live"
+            title="Recevoir un SMS ou e-mail au prochain live"
+            variant="embedded"
+            stickyFooter
+            className="h-full max-h-[min(42vh,360px)] rounded-none border-0 shadow-none"
+          />
         </div>
       </div>
     </div>
