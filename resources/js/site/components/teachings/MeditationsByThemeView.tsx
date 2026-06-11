@@ -6,7 +6,7 @@ import { PlaylistStackSkeleton } from '../ui/Skeleton';
  * Méditations : cultes hebdomadaires (playlists YouTube configurées) en grille type YouTube.
  */
 export default function MeditationsByThemeView() {
-  const { groups, loading, error } = useTeachingsPlaylistGroups('meditations');
+  const { groups, loading, error } = useTeachingsPlaylistGroups();
 
   if (loading) {
     return <PlaylistStackSkeleton />;

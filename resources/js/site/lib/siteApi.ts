@@ -190,14 +190,27 @@ export async function fetchTeachingsMeditations(): Promise<import('../data/types
   return body.data ?? [];
 }
 
+type PlaylistsPageResponse = {
+  data: import('../data/types').TeachingsPlaylistGroup[];
+  meta?: import('../data/types').PlaylistsPageMeta;
+};
+
 /**
- * Playlists YouTube (hors cultes hebdomadaires).
+ * Playlists YouTube paginées (hors cultes hebdomadaires).
+ *
+ * @param page Numéro de page (1-based).
+ * @param perPage Nombre de playlists par page (défaut 15).
  */
-export async function fetchTeachingsPlaylists(): Promise<import('../data/types').TeachingsPlaylistGroup[]> {
-  const body = await fetchSiteJson<{ data: import('../data/types').TeachingsPlaylistGroup[] }>(
-    'teachings/playlists',
-  );
-  return body.data ?? [];
+export async function fetchTeachingsPlaylistsPage(
+  page = 1,
+  perPage = 15,
+): Promise<PlaylistsPageResponse> {
+  const query = new URLSearchParams({
+    page: String(page),
+    per_page: String(perPage),
+  });
+
+  return fetchSiteJson<PlaylistsPageResponse>(`teachings/playlists?${query.toString()}`);
 }
 
 /**

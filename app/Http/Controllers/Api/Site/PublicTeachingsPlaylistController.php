@@ -44,22 +44,17 @@ final class PublicTeachingsPlaylistController extends Controller
     {
         $locale = SitePublicSerializer::localeFromRequest($request);
         $fallback = SitePublicSerializer::fallbackLocale();
+        $page = max((int) $request->query('page', 1), 1);
+        $perPage = min(max((int) $request->query('per_page', 15), 1), 48);
+
+        $playlistEvents = $this->resolvePublicPlaylistEvents($locale, $fallback);
+        $total = count($playlistEvents);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $offset = ($page - 1) * $perPage;
+        $pageEvents = array_slice($playlistEvents, $offset, $perPage);
 
         $groups = [];
-
-        $events = Event::query()
-            ->where('is_active', true)
-            ->whereNotNull('youtube_playlist_id')
-            ->orderByDesc('youtube_published_at')
-            ->orderByDesc('date_debut')
-            ->get();
-
-        foreach ($events as $event) {
-            $title = SitePublicSerializer::text($event->designation, $locale, $fallback);
-            if (YoutubePlaylistMatcher::meditationGroupForTitle($title) !== null) {
-                continue;
-            }
-
+        foreach ($pageEvents as $event) {
             $group = $this->eventToGroup($event, $locale, $fallback, listMode: true);
             if ($this->shouldExposePlaylistGroup($group)) {
                 $groups[] = $group;
@@ -68,7 +63,48 @@ final class PublicTeachingsPlaylistController extends Controller
 
         usort($groups, static fn (array $a, array $b): int => strcmp((string) ($b['sortDate'] ?? ''), (string) ($a['sortDate'] ?? '')));
 
-        return response()->json(['data' => $this->stripSortDate($groups)]);
+        return response()->json([
+            'data' => $this->stripSortDate($groups),
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+                'has_more' => $page < $lastPage,
+            ],
+        ]);
+    }
+
+    /**
+     * Événements playlist publics (hors cultes hebdomadaires), du plus récent au plus ancien.
+     *
+     * @return list<Event>
+     */
+    private function resolvePublicPlaylistEvents(string $locale, string $fallback): array
+    {
+        $events = Event::query()
+            ->where('is_active', true)
+            ->whereNotNull('youtube_playlist_id')
+            ->orderByDesc('youtube_published_at')
+            ->orderByDesc('date_debut')
+            ->get();
+
+        $playlistEvents = [];
+        foreach ($events as $event) {
+            $title = SitePublicSerializer::text($event->designation, $locale, $fallback);
+            if (YoutubePlaylistMatcher::meditationGroupForTitle($title) !== null) {
+                continue;
+            }
+
+            if ((int) ($event->youtube_playlist_item_count ?? 0) <= 0
+                && EventPostQuery::activeCountForEvent($event) <= 0) {
+                continue;
+            }
+
+            $playlistEvents[] = $event;
+        }
+
+        return $playlistEvents;
     }
 
     /**

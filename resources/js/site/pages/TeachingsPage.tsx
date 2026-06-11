@@ -1,9 +1,10 @@
+import { useSearchParams } from 'react-router-dom';
 import PageHero from '../components/ui/PageHero';
+import TabErrorBoundary from '../components/ui/TabErrorBoundary';
 import MeditationsByThemeView from '../components/teachings/MeditationsByThemeView';
 import PlaylistsStackedView from '../components/teachings/PlaylistsStackedView';
 import TeachingsSermonsTab from '../components/teachings/TeachingsSermonsTab';
 import TeachingsTabBar, { resolveTeachingsTab } from '../components/teachings/TeachingsTabBar';
-import { useSearchParams } from 'react-router-dom';
 
 /**
  * Page Enseignements : onglets Messages, Méditations, Playlists.
@@ -25,9 +26,21 @@ export default function TeachingsPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <TeachingsTabBar />
 
-          {tab === 'sermons' ? <TeachingsSermonsTab /> : null}
-          {tab === 'meditations' ? <MeditationsByThemeView /> : null}
-          {tab === 'playlists' ? <PlaylistsStackedView /> : null}
+          {tab === 'sermons' ? (
+            <TabErrorBoundary tabLabel="les messages">
+              <TeachingsSermonsTab />
+            </TabErrorBoundary>
+          ) : null}
+          {tab === 'meditations' ? (
+            <TabErrorBoundary tabLabel="les méditations">
+              <MeditationsByThemeView />
+            </TabErrorBoundary>
+          ) : null}
+          {tab === 'playlists' ? (
+            <TabErrorBoundary tabLabel="les playlists">
+              <PlaylistsStackedView />
+            </TabErrorBoundary>
+          ) : null}
         </div>
       </section>
     </>

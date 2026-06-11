@@ -30,7 +30,7 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
 
   return (
     <div className="yt-playlist-grid">
-      {groups.map((group) => {
+      {groups.map((group, index) => {
         if (group == null || typeof group !== 'object') {
           return null;
         }
@@ -61,7 +61,7 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
           newest?.thumbnail?.trim() !== '' ? newest.thumbnail : thumbnail;
 
         return (
-          <article key={eventId || groupTitle} className="yt-playlist-card">
+          <article key={eventId !== '' ? eventId : `${groupTitle}-${String(index)}`} className="yt-playlist-card">
             <p className="yt-playlist-count-above">
               {videoCount} vidéo{videoCount > 1 ? 's' : ''}
             </p>

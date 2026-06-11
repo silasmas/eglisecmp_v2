@@ -1,13 +1,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { TeachingsPlaylistGroup } from '../data/types';
-import { fetchTeachingsMeditations, fetchTeachingsPlaylists } from '../lib/siteApi';
+import { fetchTeachingsMeditations } from '../lib/siteApi';
 
 /**
- * Charge les groupes playlist pour l’onglet Méditations ou Playlists.
- *
- * @param scope meditations | playlists
+ * Charge les groupes playlist pour l’onglet Méditations (cultes hebdomadaires).
  */
-export function useTeachingsPlaylistGroups(scope: 'meditations' | 'playlists') {
+export function useTeachingsPlaylistGroups() {
   const [groups, setGroups] = useState<TeachingsPlaylistGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -16,8 +14,7 @@ export function useTeachingsPlaylistGroups(scope: 'meditations' | 'playlists') {
     setLoading(true);
     setError(null);
     try {
-      const data =
-        scope === 'meditations' ? await fetchTeachingsMeditations() : await fetchTeachingsPlaylists();
+      const data = await fetchTeachingsMeditations();
       const rows = Array.isArray(data) ? data : [];
       setGroups(
         rows.filter(
@@ -29,11 +26,11 @@ export function useTeachingsPlaylistGroups(scope: 'meditations' | 'playlists') {
       setGroups([]);
       const message = err instanceof Error ? err.message : 'Chargement impossible.';
       setError(message);
-      console.error(`[teachings/${scope}]`, err);
+      console.error('[teachings/meditations]', err);
     } finally {
       setLoading(false);
     }
-  }, [scope]);
+  }, []);
 
   useEffect(() => {
     void load();
