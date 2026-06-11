@@ -2,6 +2,7 @@
 
 declare(strict_types=1);
 
+use App\Http\Controllers\FlexPayCallbackController;
 use App\Http\Controllers\FlexPayPaidController;
 use App\Http\Controllers\SchedulerHttpController;
 use App\Http\Controllers\ShieldSyncController;
@@ -25,6 +26,12 @@ Route::get('/deploy/shield-sync/{token}', ShieldSyncController::class)
 Route::get('/deploy/scheduler/{token}', SchedulerHttpController::class)
     ->where('token', '[A-Za-z0-9._-]+')
     ->name('deploy.scheduler');
+
+Route::match(['get', 'post'], '/payment/flexpay/callback/mobile', [FlexPayCallbackController::class, 'mobile'])
+    ->name('flexpay.callback.mobile');
+
+Route::match(['get', 'post'], '/payment/flexpay/callback/card', [FlexPayCallbackController::class, 'card'])
+    ->name('flexpay.callback.card');
 
 Route::get('/paid/{reference}/{amount}/{currency}/{status}', FlexPayPaidController::class)
     ->where([

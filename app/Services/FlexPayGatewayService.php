@@ -39,7 +39,7 @@ final class FlexPayGatewayService
             'authorization' => 'Bearer '.$token,
             'merchant' => $merchant,
             'reference' => $reference,
-            'amount' => $amount,
+            'amount' => (string) $amount,
             'currency' => $currency,
             'description' => $description,
             'callback_url' => $callbackUrl,
@@ -96,12 +96,14 @@ final class FlexPayGatewayService
 
         $callbackUrl = rtrim((string) config('app.url', ''), '/').'/payment/flexpay/callback/mobile';
 
+        $apiType = (string) config('flexpay.flexpay_mobile_money_api_type', '1');
+
         $payload = [
             'merchant' => $merchant,
-            'type' => '1',
+            'type' => $apiType,
             'phone' => $phone,
             'reference' => $transaction->reference,
-            'amount' => $transaction->montant,
+            'amount' => (string) ($transaction->montant ?? 0),
             'currency' => $transaction->currency ?? 'CDF',
             'callbackUrl' => $callbackUrl,
         ];

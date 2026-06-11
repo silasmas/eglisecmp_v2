@@ -76,6 +76,7 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
         ->middleware('throttle:120,1');
 
     Route::get('offrandes', [PublicOffrandePaymentController::class, 'offrandes']);
+    Route::get('offrandes/mobile-providers', [PublicOffrandePaymentController::class, 'mobileProviders']);
     Route::post('offrandes/init', [PublicOffrandePaymentController::class, 'initTransaction'])
         ->middleware('throttle:60,1');
     Route::post('offrandes/process', [PublicOffrandePaymentController::class, 'processPayment'])

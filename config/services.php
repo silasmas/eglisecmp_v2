@@ -42,9 +42,9 @@ return [
     'flexpay' => [
         'merchant' => env('FLEXPAY_MARCHAND'),
         'token' => env('FLEXPAY_API_TOKEN'),
-        'gateway_mobile' => env('FLEXPAY_GATEWAY_MOBILE'),
-        'gateway_card' => env('FLEXPAY_GATEWAY_CARD'),
-        'gateway_check' => env('FLEXPAY_GATEWAY_CHECK'),
+        'gateway_mobile' => env('FLEXPAY_GATEWAY_MOBILE', 'https://backend.flexpay.cd/api/rest/v1/paymentService'),
+        'gateway_card' => env('FLEXPAY_GATEWAY_CARD', 'https://cardpayment.flexpay.cd/v1.1/pay'),
+        'gateway_check' => env('FLEXPAY_GATEWAY_CHECK', 'https://backend.flexpay.cd/api/rest/v1/check'),
     ],
 
     'google_analytics' => [

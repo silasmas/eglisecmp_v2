@@ -8,10 +8,12 @@ use App\Http\Controllers\Controller;
 use App\Models\Offrande;
 use App\Models\Transaction;
 use App\Services\FlexPayGatewayService;
+use App\Support\FlexPayMobileValidator;
 use App\Support\TransactionReferenceFactory;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 /**
  * API publique pour offrandes : liste, initialisation transaction, lancement paiement FlexPay et statut.
@@ -29,6 +31,16 @@ final class PublicOffrandePaymentController extends Controller
             ->get(['id', 'nom', 'description']);
 
         return response()->json(['data' => $rows]);
+    }
+
+    /**
+     * Liste les opérateurs Mobile Money disponibles (validation UI — pas le type API FlexPay).
+     */
+    public function mobileProviders(): JsonResponse
+    {
+        return response()->json([
+            'data' => FlexPayMobileValidator::listProviders(),
+        ]);
     }
 
     /**
@@ -89,6 +101,7 @@ final class PublicOffrandePaymentController extends Controller
             'reference' => ['required', 'string', 'max:64'],
             'channel' => ['required', 'string', 'in:mobile_money,card'],
             'phone' => ['required_if:channel,mobile_money', 'nullable', 'string', 'max:40'],
+            'provider_code' => ['required_if:channel,mobile_money', 'nullable', 'string', 'max:32'],
         ]);
 
         $transaction = Transaction::query()
@@ -100,8 +113,22 @@ final class PublicOffrandePaymentController extends Controller
         }
 
         if ($validated['channel'] === 'mobile_money') {
-            $phone = (string) ($validated['phone'] ?? '');
-            $result = $flexPay->initiateMobileMoney($transaction, $phone);
+            try {
+                $providerCode = (string) ($validated['provider_code'] ?? '');
+                $normalizedPhone = FlexPayMobileValidator::normalizeMsisdn((string) ($validated['phone'] ?? ''));
+                FlexPayMobileValidator::assertMsisdnMatchesProvider($providerCode, $normalizedPhone);
+            } catch (\InvalidArgumentException $exception) {
+                throw ValidationException::withMessages([
+                    'phone' => [$exception->getMessage()],
+                ]);
+            }
+
+            $transaction->update([
+                'phone' => $normalizedPhone,
+                'numberPhone' => $normalizedPhone,
+            ]);
+
+            $result = $flexPay->initiateMobileMoney($transaction, $normalizedPhone);
 
             $mobileSuccess = (bool) ($result['reponse'] ?? false);
             $mobileMessage = (string) ($result['message'] ?? '');

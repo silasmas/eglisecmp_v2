@@ -5,13 +5,15 @@ import PageHero from '../components/ui/PageHero';
 import { cn } from '../lib/utils';
 import {
   fetchOffrandesList,
+  fetchOffrandeMobileProviders,
   fetchOffrandePaymentStatus,
   initOffrandeTransaction,
   processOffrandePayment,
+  type SiteMobileMoneyProvider,
   type SiteOffrandeRow,
 } from '../lib/siteApi';
 
-const PHONE_HELPER = 'Utilisez le format international RD Congo : commence par 243, puis le numéro sans le 0 initial (ex. : 2438XXXXXXXX ou 2439XXXXXXXX selon votre opérateur).';
+const PHONE_HELPER = 'Format RD Congo : 243 suivi de 9 chiffres, ou 0XXXXXXXXX. Le numéro doit correspondre à l’opérateur choisi.';
 
 /** Intervalle entre deux vérifications FlexPay (ms). */
 const PAYMENT_POLL_INTERVAL_MS = 2000;
@@ -31,8 +33,8 @@ type MobileTreatmentStep =
   | 'error'
   | 'verification_exhausted';
 
-/** Forme attendue : 243 suivi de 9 chiffres (format international RD Congo). */
-function normalizePhoneRuanda(input: string): string | null {
+/** Normalise un numéro RD Congo en MSISDN 243XXXXXXXXX. */
+function normalizeMsisdn(input: string): string | null {
   const digitsOnly = input.replace(/\D/g, '');
 
   if (digitsOnly.startsWith('243')) {
@@ -49,6 +51,20 @@ function normalizePhoneRuanda(input: string): string | null {
   }
 
   return null;
+}
+
+/**
+ * Vérifie que le MSISDN correspond à l’opérateur sélectionné (regex serveur).
+ *
+ * @param provider Opérateur configuré (M-Pesa, Airtel…).
+ * @param msisdn Numéro normalisé 243XXXXXXXXX.
+ */
+function msisdnMatchesProvider(provider: SiteMobileMoneyProvider, msisdn: string): boolean {
+  try {
+    return new RegExp(provider.msisdn_regex).test(msisdn);
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -95,6 +111,7 @@ function formatPaymentErrorMessage(raw: string | undefined | null): string {
 export default function OffrandesPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const [offrandes, setOffrandes] = useState<SiteOffrandeRow[]>([]);
+  const [mobileProviders, setMobileProviders] = useState<SiteMobileMoneyProvider[]>([]);
   const [loadingList, setLoadingList] = useState(true);
 
   const [offrandeId, setOffrandeId] = useState<number | ''>('');
@@ -104,6 +121,7 @@ export default function OffrandesPage() {
   const [message, setMessage] = useState('');
 
   const [paymentPhone, setPaymentPhone] = useState('');
+  const [providerCode, setProviderCode] = useState('');
   const [reference, setReference] = useState<string | null>(null);
   const [channel, setChannel] = useState<'mobile_money' | 'card' | ''>('');
   const [busy, setBusy] = useState(false);
@@ -149,6 +167,7 @@ export default function OffrandesPage() {
     setFullname('');
     setMessage('');
     setPaymentPhone('');
+    setProviderCode(mobileProviders[0]?.code ?? '');
     setReference(null);
     setChannel('');
     setBusy(false);
@@ -165,7 +184,7 @@ export default function OffrandesPage() {
       const firstId = offrandes[0]?.id;
       return firstId !== undefined ? firstId : '';
     });
-  }, [offrandes, stopPolling]);
+  }, [mobileProviders, offrandes, stopPolling]);
 
   const startMobilePaymentPolling = useCallback(
     (paymentReference: string) => {
@@ -249,15 +268,22 @@ export default function OffrandesPage() {
     async function load() {
       try {
         setLoadingList(true);
-        const rows = await fetchOffrandesList();
+        const [rows, providers] = await Promise.all([
+          fetchOffrandesList(),
+          fetchOffrandeMobileProviders(),
+        ]);
         if (!cancelled) {
           setOffrandes(rows);
           setOffrandeId(rows[0]?.id ?? '');
+          setMobileProviders(providers);
+          setProviderCode(providers[0]?.code ?? '');
         }
       } catch {
         if (!cancelled) {
           setOffrandes([]);
           setOffrandeId('');
+          setMobileProviders([]);
+          setProviderCode('');
         }
       } finally {
         if (!cancelled) {
@@ -377,6 +403,7 @@ export default function OffrandesPage() {
       setReference(data.reference);
       setChannel('');
       setPaymentPhone('');
+      setProviderCode(mobileProviders[0]?.code ?? '');
       setMobileTreatment('idle');
     } catch (err) {
       setReference(null);
@@ -384,7 +411,7 @@ export default function OffrandesPage() {
     } finally {
       setBusy(false);
     }
-  }, [currency, fullname, message, montant, offrandeId]);
+  }, [currency, fullname, message, mobileProviders, montant, offrandeId]);
 
   /** Paiement : mobile (polling avec bouton chargé jusqu’à fin) ou carte (redirection). */
   const handlePay = useCallback(async () => {
@@ -400,9 +427,25 @@ export default function OffrandesPage() {
     }
 
     if (channel === 'mobile_money') {
-      const normalized = normalizePhoneRuanda(paymentPhone);
+      if (providerCode === '') {
+        setErrorBanner('Choisissez votre opérateur Mobile money.');
+        return;
+      }
+
+      const selectedProvider = mobileProviders.find((row) => row.code === providerCode);
+      const normalized = normalizeMsisdn(paymentPhone);
+
       if (normalized === null) {
         setErrorBanner(`Numéro invalide : ${PHONE_HELPER}`);
+        return;
+      }
+
+      if (selectedProvider === undefined || !msisdnMatchesProvider(selectedProvider, normalized)) {
+        setErrorBanner(
+          selectedProvider !== undefined
+            ? `Le numéro ne correspond pas au réseau ${selectedProvider.label}.`
+            : 'Opérateur Mobile money non reconnu.',
+        );
         return;
       }
     }
@@ -415,7 +458,8 @@ export default function OffrandesPage() {
       const result = await processOffrandePayment({
         reference,
         channel,
-        phone: channel === 'mobile_money' ? normalizePhoneRuanda(paymentPhone) ?? undefined : undefined,
+        phone: channel === 'mobile_money' ? normalizeMsisdn(paymentPhone) ?? undefined : undefined,
+        provider_code: channel === 'mobile_money' ? providerCode : undefined,
       });
 
       if (channel === 'card') {
@@ -449,7 +493,7 @@ export default function OffrandesPage() {
         setBusy(false);
       }
     }
-  }, [channel, paymentPhone, reference, reportPaymentError, startMobilePaymentPolling, stopPolling]);
+  }, [channel, mobileProviders, paymentPhone, providerCode, reference, reportPaymentError, startMobilePaymentPolling, stopPolling]);
 
   useEffect(() => {
     return () => stopPolling();
@@ -748,7 +792,36 @@ export default function OffrandesPage() {
 
                   {channel === 'mobile_money' ? (
                     <div className="mt-5 overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
-                      <label className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200" htmlFor="pay-phone">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
+                        Opérateur Mobile money *
+                      </p>
+                      {mobileProviders.length === 0 ? (
+                        <p className="mt-2 text-xs text-emerald-900/80 dark:text-emerald-300">
+                          Aucun opérateur configuré. Contactez l&apos;administration.
+                        </p>
+                      ) : (
+                        <div className="mt-2 grid grid-cols-2 gap-2">
+                          {mobileProviders.map((provider) => (
+                            <button
+                              key={provider.code}
+                              type="button"
+                              aria-pressed={providerCode === provider.code}
+                              onClick={() => setProviderCode(provider.code)}
+                              disabled={busy && mobileTreatment !== 'idle'}
+                              className={cn(
+                                'rounded-xl border px-3 py-2.5 text-left text-xs font-semibold transition',
+                                providerCode === provider.code
+                                  ? 'border-emerald-600 bg-white text-emerald-950 shadow-sm dark:border-emerald-400 dark:bg-surface-900 dark:text-emerald-100'
+                                  : 'border-emerald-300/60 bg-emerald-50/80 text-emerald-900 hover:border-emerald-500 dark:border-emerald-800 dark:bg-surface-900/40 dark:text-emerald-200',
+                              )}
+                            >
+                              {provider.label}
+                            </button>
+                          ))}
+                        </div>
+                      )}
+
+                      <label className="mt-4 block text-[10px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200" htmlFor="pay-phone">
                         Numéro Mobile money *
                       </label>
                       <input

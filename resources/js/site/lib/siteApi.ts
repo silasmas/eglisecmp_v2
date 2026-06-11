@@ -335,6 +335,20 @@ export async function fetchOffrandesList(): Promise<SiteOffrandeRow[]> {
   return fetchSiteList<SiteOffrandeRow>('offrandes');
 }
 
+/** Opérateur Mobile Money (validation UI — le type API FlexPay reste "1"). */
+export type SiteMobileMoneyProvider = {
+  type: string;
+  code: string;
+  label: string;
+  msisdn_regex: string;
+};
+
+/** Liste les opérateurs Mobile Money configurés (M-Pesa, Airtel, Orange, Afri…). */
+export async function fetchOffrandeMobileProviders(): Promise<SiteMobileMoneyProvider[]> {
+  const body = await fetchSiteJson<{ data: SiteMobileMoneyProvider[] }>('offrandes/mobile-providers');
+  return body.data ?? [];
+}
+
 export type InitOffrandePayload = {
   offrande_id: number;
   montant: number;
@@ -364,6 +378,7 @@ export type ProcessOffrandePayload = {
   reference: string;
   channel: 'mobile_money' | 'card';
   phone?: string;
+  provider_code?: string;
 };
 
 /** Lance le paiement mobile ou carte (URL de redirection pour la carte si succès). */
