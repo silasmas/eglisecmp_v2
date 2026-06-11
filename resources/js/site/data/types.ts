@@ -3,6 +3,8 @@ export interface Sermon {
   title: string;
   speaker: string;
   date: string;
+  /** Horodatage ISO (publication / synchro YouTube) pour tri fiable. */
+  sortTimestamp?: string;
   category: string;
   type?: number;
   thumbnail: string;
@@ -33,6 +35,8 @@ export interface TeachingsPlaylistGroup {
   syncedCount?: number;
   visibility: string;
   items: Sermon[];
+  /** Dernière vidéo (présent sur les listes allégées API). */
+  latestItem?: Sermon;
   youtubePlaylistId?: string | null;
   /** Lien personnalisé (ex. carte « à venir » Bunda). */
   href?: string;

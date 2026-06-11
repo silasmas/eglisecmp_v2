@@ -18,7 +18,13 @@ export function useTeachingsPlaylistGroups(scope: 'meditations' | 'playlists') {
     try {
       const data =
         scope === 'meditations' ? await fetchTeachingsMeditations() : await fetchTeachingsPlaylists();
-      setGroups(data.filter((group) => group.videoCount > 0));
+      const rows = Array.isArray(data) ? data : [];
+      setGroups(
+        rows.filter(
+          (group): group is TeachingsPlaylistGroup =>
+            group != null && typeof group === 'object' && (group.videoCount ?? 0) > 0,
+        ),
+      );
     } catch (err) {
       setGroups([]);
       setError(err instanceof Error ? err.message : 'Chargement impossible.');

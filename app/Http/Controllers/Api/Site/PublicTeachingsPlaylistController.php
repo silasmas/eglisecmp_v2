@@ -13,6 +13,7 @@ use App\Support\YoutubeEventDateResolver;
 use App\Support\YoutubePlaylistMatcher;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 
 /**
  * Playlists YouTube regroupées pour la page Enseignements (méditations / playlists).
@@ -59,7 +60,7 @@ final class PublicTeachingsPlaylistController extends Controller
                 continue;
             }
 
-            $group = $this->eventToGroup($event, $locale, $fallback);
+            $group = $this->eventToGroup($event, $locale, $fallback, listMode: true);
             if ($this->shouldExposePlaylistGroup($group)) {
                 $groups[] = $group;
             }
@@ -72,15 +73,13 @@ final class PublicTeachingsPlaylistController extends Controller
 
     /**
      * Détail d'une playlist (messages + identifiant YouTube pour repli embed).
-     *
-     * @return JsonResponse
      */
     public function show(Request $request, Event $event): JsonResponse
     {
         $locale = SitePublicSerializer::localeFromRequest($request);
         $fallback = SitePublicSerializer::fallbackLocale();
 
-        $group = $this->eventToGroup($event, $locale, $fallback);
+        $group = $this->eventToGroup($event, $locale, $fallback, listMode: false);
         unset($group['sortDate']);
 
         return response()->json([
@@ -103,21 +102,13 @@ final class PublicTeachingsPlaylistController extends Controller
 
         foreach (YoutubePlaylistMatcher::meditationGroups() as $config) {
             $label = (string) ($config['label'] ?? '');
-            $event = null;
-
-            foreach ($events as $candidate) {
-                $title = SitePublicSerializer::text($candidate->designation, $locale, $fallback);
-                if (YoutubePlaylistMatcher::meditationGroupForTitle($title) === $label) {
-                    $event = $candidate;
-                    break;
-                }
-            }
+            $event = $this->resolveMeditationEvent($events, $label, $locale, $fallback);
 
             if ($event === null) {
                 continue;
             }
 
-            $group = $this->eventToGroup($event, $locale, $fallback);
+            $group = $this->eventToGroup($event, $locale, $fallback, listMode: true);
             if ($this->shouldExposePlaylistGroup($group)) {
                 $groups[] = $group;
             }
@@ -129,9 +120,60 @@ final class PublicTeachingsPlaylistController extends Controller
     }
 
     /**
+     * Choisit l’événement le plus récent parmi ceux dont le titre correspond au culte hebdomadaire.
+     *
+     * @param  Collection<int, Event>  $events
+     */
+    private function resolveMeditationEvent(Collection $events, string $label, string $locale, string $fallback): ?Event
+    {
+        $matches = [];
+
+        foreach ($events as $candidate) {
+            $title = SitePublicSerializer::text($candidate->designation, $locale, $fallback);
+            if (YoutubePlaylistMatcher::meditationGroupForTitle($title) === $label) {
+                $matches[] = $candidate;
+            }
+        }
+
+        if ($matches === []) {
+            return null;
+        }
+
+        if (count($matches) === 1) {
+            return $matches[0];
+        }
+
+        usort(
+            $matches,
+            fn (Event $left, Event $right): int => strcmp(
+                $this->latestActivityTimestamp($right),
+                $this->latestActivityTimestamp($left),
+            ),
+        );
+
+        return $matches[0];
+    }
+
+    /**
+     * Horodatage de la dernière vidéo liée à l’événement (tri décroissant).
+     */
+    private function latestActivityTimestamp(Event $event): string
+    {
+        $latestPost = EventPostQuery::latestPostForEvent($event);
+        if ($latestPost instanceof Post) {
+            $stamp = SitePublicSerializer::postSortTimestamp($latestPost);
+            if ($stamp !== '') {
+                return $stamp;
+            }
+        }
+
+        return YoutubeEventDateResolver::sortTimestamp($event);
+    }
+
+    /**
      * @return array<string, mixed>
      */
-    private function eventToGroup(Event $event, string $locale, string $fallback): array
+    private function eventToGroup(Event $event, string $locale, string $fallback, bool $listMode): array
     {
         $title = SitePublicSerializer::text($event->designation, $locale, $fallback);
         $description = SitePublicSerializer::text($event->description, $locale, $fallback);
@@ -140,39 +182,37 @@ final class PublicTeachingsPlaylistController extends Controller
             $thumb = (string) config('site_public.placeholder_image_url', '');
         }
 
-        $posts = Post::query()
-            ->where('is_active', true)
-            ->where(function ($query) use ($event): void {
-                EventPostQuery::applyForEvent($query, $event);
-            })
-            ->orderByDesc('date_publication')
-            ->orderByDesc('youtube_synced_at')
-            ->orderByDesc('id')
-            ->with(['minister', 'event'])
-            ->get();
+        $sortedPosts = EventPostQuery::newestPostsForEvent($event);
+
+        foreach ($sortedPosts as $post) {
+            $post->loadMissing(['minister', 'event']);
+        }
+
+        if ($listMode) {
+            $posts = collect(array_slice($sortedPosts, 0, 1));
+        } else {
+            $posts = collect($sortedPosts);
+        }
 
         $items = $posts->map(
             static fn (Post $post): array => SitePublicSerializer::postToSermonArray($post, $locale, $fallback)
         )->values()->all();
 
-        $latestPost = $posts->first();
-        if ($latestPost instanceof Post) {
-            $latestThumb = SitePublicSerializer::imageUrl($latestPost->image_url, $locale, $fallback);
-            if ($latestThumb !== '') {
-                $thumb = $latestThumb;
-            }
+        $latestItem = $items[0] ?? null;
+
+        if (is_array($latestItem) && is_string($latestItem['thumbnail'] ?? null) && $latestItem['thumbnail'] !== '') {
+            $thumb = $latestItem['thumbnail'];
         }
 
-        $syncedCount = count($items);
+        $syncedCount = $listMode
+            ? EventPostQuery::activeCountForEvent($event)
+            : count($items);
         $youtubeCount = (int) ($event->youtube_playlist_item_count ?? 0);
         $videoCount = max($youtubeCount, $syncedCount);
 
-        $sortDate = YoutubeEventDateResolver::sortTimestamp($event);
-        if ($latestPost?->date_publication !== null) {
-            $sortDate = $latestPost->date_publication->toIso8601String();
-        }
+        $sortDate = $this->latestActivityTimestamp($event);
 
-        return [
+        $group = [
             'eventId' => (string) $event->id,
             'title' => $title,
             'description' => $description,
@@ -183,6 +223,12 @@ final class PublicTeachingsPlaylistController extends Controller
             'items' => $items,
             'sortDate' => $sortDate,
         ];
+
+        if ($latestItem !== null) {
+            $group['latestItem'] = $latestItem;
+        }
+
+        return $group;
     }
 
     /**

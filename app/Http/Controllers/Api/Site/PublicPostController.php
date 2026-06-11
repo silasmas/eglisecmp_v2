@@ -45,17 +45,18 @@ class PublicPostController extends Controller
 
         $query = Post::query()
             ->where('is_active', true)
-            ->with(['minister', 'event'])
-            ->orderByDesc('date_publication')
-            ->orderByDesc('id');
+            ->with(['minister', 'event']);
+
+        EventPostQuery::orderNewestFirst($query);
 
         $this->applyTabFilter($query, $tab);
 
+        $playlistEvent = null;
         if ($eventIdFilter !== null) {
-            $event = Event::query()->find($eventIdFilter);
-            if ($event instanceof Event) {
-                $query->where(function ($sub) use ($event): void {
-                    EventPostQuery::applyForEvent($sub, $event);
+            $playlistEvent = Event::query()->find($eventIdFilter);
+            if ($playlistEvent instanceof Event) {
+                $query->where(function ($sub) use ($playlistEvent): void {
+                    EventPostQuery::applyForEvent($sub, $playlistEvent);
                 });
             } else {
                 $query->where('event_id', $eventIdFilter);
@@ -64,6 +65,10 @@ class PublicPostController extends Controller
 
         if ($searchToken !== null) {
             $this->applyPostsSearchFilter($query, $searchToken);
+        }
+
+        if ($playlistEvent instanceof Event && $searchToken === null) {
+            return $this->playlistPostsResponse($playlistEvent, $locale, $fallback, $tab, $perPage, $page, $searchToken);
         }
 
         $paginator = $query->paginate(perPage: $perPage, page: $page);
@@ -105,6 +110,48 @@ class PublicPostController extends Controller
 
         return response()->json([
             'data' => SitePublicSerializer::postToSermonArray($post, $locale, $fallback),
+        ]);
+    }
+
+    /**
+     * Réponse paginée d’une playlist triée par date de culte (titre) puis publication.
+     */
+    private function playlistPostsResponse(
+        Event $event,
+        string $locale,
+        string $fallback,
+        string $tab,
+        int $perPage,
+        int $page,
+        ?string $searchToken,
+    ): JsonResponse {
+        $sortedPosts = EventPostQuery::newestPostsForEvent($event);
+
+        foreach ($sortedPosts as $post) {
+            $post->loadMissing(['minister', 'event']);
+        }
+
+        $total = count($sortedPosts);
+        $lastPage = max(1, (int) ceil($total / $perPage));
+        $offset = ($page - 1) * $perPage;
+        $pagePosts = array_slice($sortedPosts, $offset, $perPage);
+
+        $items = array_map(
+            static fn (Post $post): array => SitePublicSerializer::postToSermonArray($post, $locale, $fallback),
+            $pagePosts,
+        );
+
+        return response()->json([
+            'data' => $items,
+            'meta' => [
+                'current_page' => $page,
+                'last_page' => $lastPage,
+                'per_page' => $perPage,
+                'total' => $total,
+                'has_more' => $page < $lastPage,
+                'tab' => $tab,
+                'search' => $searchToken,
+            ],
         ]);
     }
 

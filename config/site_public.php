@@ -261,15 +261,15 @@ return [
     'youtube_meditation_playlist_groups' => [
         [
             'label' => 'Culte d\'enseignement',
-            'match' => ['culte d\'enseignement', 'enseignement'],
+            'match' => ['culte d\'enseignement', 'culte de mercredi'],
         ],
         [
             'label' => 'Culte de jeudi etoko',
-            'match' => ['jeudi etoko', 'culte de jeudi', 'etoko'],
+            'match' => ['jeudi etoko', 'culte de jeudi', 'culte jeudi'],
         ],
         [
             'label' => 'Cultes dominicaux',
-            'match' => ['cultes dominicaux', 'culte dominical', 'dominicaux'],
+            'match' => ['cultes dominicaux', 'culte dominical', 'culte du dimanche'],
         ],
     ],
 

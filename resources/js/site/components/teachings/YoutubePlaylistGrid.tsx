@@ -38,7 +38,13 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
               ? `/teachings/playlist/${encodeURIComponent(group.eventId)}`
               : '/teachings?tab=playlists';
         const href = appendPlaylistFromParam(baseHref, fromTab);
-        const sortedItems = sortSermonsNewestFirst(group.items);
+        const previewSource =
+          Array.isArray(group.items) && group.items.length > 0
+            ? group.items
+            : group.latestItem
+              ? [group.latestItem]
+              : [];
+        const sortedItems = sortSermonsNewestFirst(previewSource);
         const newest = sortedItems[0];
         const stackDepth = Math.min(sortedItems.length, 3);
         const previewThumbnail =

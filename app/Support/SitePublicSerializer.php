@@ -199,6 +199,48 @@ final class SitePublicSerializer
      * @param  string  $fallbackLocale  Locale de repli.
      * @return array<string, mixed> Objet compatible avec le type `Sermon` côté TypeScript.
      */
+    /**
+     * Horodatage ISO utilisé pour trier les messages (date du culte dans le titre, publication YouTube, synchro).
+     */
+    public static function postSortTimestamp(Post $post): string
+    {
+        $locale = app()->getLocale();
+        $fallback = self::fallbackLocale();
+        $title = self::text($post->title, $locale, $fallback);
+        $titleDate = SermonTitleDateParser::parse($title);
+
+        $published = $post->date_publication;
+        if ($titleDate instanceof Carbon) {
+            if (! $published instanceof Carbon || $titleDate->lte($published)) {
+                return $titleDate->toIso8601String();
+            }
+
+            if ($published->diffInDays($titleDate, false) < -14) {
+                return $titleDate->toIso8601String();
+            }
+        }
+
+        if ($published instanceof Carbon) {
+            return $published->toIso8601String();
+        }
+
+        if ($titleDate instanceof Carbon) {
+            return $titleDate->toIso8601String();
+        }
+
+        $synced = $post->youtube_synced_at;
+        if ($synced instanceof Carbon) {
+            return $synced->toIso8601String();
+        }
+
+        $created = $post->created_at;
+        if ($created instanceof Carbon) {
+            return $created->toIso8601String();
+        }
+
+        return '';
+    }
+
     public static function postToSermonArray(Post $post, string $locale, string $fallbackLocale): array
     {
         $placeholder = self::normalizePublicImageUrl((string) config('site_public.placeholder_image_url', ''));
@@ -262,6 +304,7 @@ final class SitePublicSerializer
             'title' => $title !== '' ? $title : 'Message',
             'speaker' => $post->getSpeakerName(),
             'date' => $published ? $published->format('Y-m-d') : '',
+            'sortTimestamp' => self::postSortTimestamp($post),
             'category' => $category,
             'type' => $typeKey,
             'thumbnail' => $thumb,
