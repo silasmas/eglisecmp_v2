@@ -4,10 +4,9 @@ declare(strict_types=1);
 
 namespace App\Jobs;
 
-use App\Services\Youtube\YoutubeChannelSyncService;
+use App\Services\Youtube\YoutubeSyncOrchestrator;
 use Illuminate\Contracts\Queue\ShouldQueue;
 use Illuminate\Foundation\Queue\Queueable;
-use Illuminate\Support\Facades\Log;
 
 /**
  * Synchronisation YouTube en arrière-plan (évite le timeout HTTP 504 sur l’admin).
@@ -22,23 +21,19 @@ class SyncYoutubeChannelJob implements ShouldQueue
     public int $tries = 1;
 
     /**
+     * @param  int|null  $syncRunId  Run journalisé créé avant dispatch.
+     * @param  bool  $full  Passe complète.
+     */
+    public function __construct(
+        public ?int $syncRunId = null,
+        public bool $full = false,
+    ) {}
+
+    /**
      * Lance l’import chaîne → posts / événements.
      */
-    public function handle(YoutubeChannelSyncService $sync): void
+    public function handle(YoutubeSyncOrchestrator $orchestrator): void
     {
-        $result = $sync->sync(false);
-
-        Log::info('[youtube-sync-job] '.$result['message'], [
-            'playlists' => $result['playlists'],
-            'videos' => $result['videos'],
-            'created' => $result['created'],
-            'updated' => $result['updated'],
-            'unchanged' => $result['unchanged'] ?? 0,
-            'skipped' => $result['skipped'],
-        ]);
-
-        if (! $result['ok']) {
-            Log::error('[youtube-sync-job] Échec : '.$result['message']);
-        }
+        $orchestrator->run($this->syncRunId, false, $this->full, 'queue');
     }
 }

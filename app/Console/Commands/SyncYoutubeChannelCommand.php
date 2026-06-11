@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace App\Console\Commands;
 
-use App\Services\Youtube\YoutubeChannelSyncService;
+use App\Services\Youtube\YoutubeSyncOrchestrator;
 use App\Services\YoutubeLiveStatusService;
 use Illuminate\Console\Command;
 
@@ -13,13 +13,22 @@ use Illuminate\Console\Command;
  */
 class SyncYoutubeChannelCommand extends Command
 {
-    protected $signature = 'youtube:sync {--dry-run : Simule sans écrire en base} {--full : Ignore l’état incrémental et rescanne tout}';
+    protected $signature = 'youtube:sync
+        {--dry-run : Simule sans écrire en base}
+        {--full : Ignore l’état incrémental et rescanne tout}
+        {--run-id= : ID d’un run déjà créé (lancement async)}
+        {--source=command : Origine du déclenchement (scheduler, filament…)}';
 
     protected $description = 'Importe vidéos, shorts et playlists YouTube vers les publications (enseignements)';
 
-    public function handle(YoutubeChannelSyncService $sync, YoutubeLiveStatusService $live): int
+    public function handle(YoutubeSyncOrchestrator $orchestrator, YoutubeLiveStatusService $live): int
     {
         $dryRun = (bool) $this->option('dry-run');
+        $full = (bool) $this->option('full');
+        $runId = $this->option('run-id');
+        $source = (string) $this->option('source');
+
+        $parsedRunId = is_numeric($runId) ? (int) $runId : null;
 
         $this->info($dryRun ? 'Simulation de synchronisation YouTube…' : 'Synchronisation YouTube en cours…');
 
@@ -30,25 +39,24 @@ class SyncYoutubeChannelCommand extends Command
             $this->line('○ Aucun live YouTube détecté pour le moment.');
         }
 
-        $full = (bool) $this->option('full');
-        $result = $sync->sync($dryRun, $full);
+        $run = $orchestrator->run($parsedRunId, $dryRun, $full, $source);
 
-        if (! $result['ok']) {
-            $this->error($result['message']);
+        if ($run->status === \App\Models\YoutubeSyncRun::STATUS_FAILED) {
+            $this->error($run->error_message ?? 'Échec de la synchronisation.');
 
             return self::FAILURE;
         }
 
-        $this->info($result['message']);
+        $this->info($run->message ?? 'Synchronisation terminée.');
         $this->table(
             ['Playlists', 'Vidéos lues', 'Créées', 'Mises à jour', 'Déjà à jour', 'Ignorées'],
             [[
-                $result['playlists'],
-                $result['videos'],
-                $result['created'],
-                $result['updated'],
-                $result['unchanged'] ?? 0,
-                $result['skipped'],
+                $run->playlists,
+                $run->videos,
+                $run->created_count,
+                $run->updated_count,
+                $run->unchanged_count,
+                $run->skipped_count,
             ]],
         );
 

@@ -84,7 +84,12 @@ final class SiteSchedulerRunner
         $ranAt = now();
 
         try {
-            $exitCode = Artisan::call($command);
+            $parameters = [];
+            if ($command === 'youtube:sync') {
+                $parameters['--source'] = 'scheduler_manual';
+            }
+
+            $exitCode = Artisan::call($command, $parameters);
             $output = trim(Artisan::output());
 
             return [
