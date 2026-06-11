@@ -61,8 +61,9 @@ class PublicHeroMetaController extends Controller
 
         $strip = HeroStripPayloadBuilder::build($locale, $fallback);
         $reactionKeys = (array) config('site_public.reaction_keys', []);
+        $liveState = HeroStripPayloadBuilder::resolveLiveState(Carbon::now(config('app.timezone')));
         $youtube = $youtubeLive->current();
-        $payload = $this->mergeYoutubeLive($strip, $youtube);
+        $payload = $this->mergeYoutubeLive($strip, $youtube, $liveState);
 
         return response()->json([
             'data' => [
@@ -83,32 +84,47 @@ class PublicHeroMetaController extends Controller
      *
      * @param  array<string, mixed>  $strip
      * @param  array<string, mixed>|null  $youtube
+     * @param  array<string, mixed>  $liveState  État horaire admin (créneau culte).
      * @return array<string, mixed>
      */
-    private function mergeYoutubeLive(array $strip, ?array $youtube): array
+    private function mergeYoutubeLive(array $strip, ?array $youtube, array $liveState = []): array
     {
         if ($youtube === null || ! isset($strip['stripCards']['live']) || ! is_array($strip['stripCards']['live'])) {
             return $strip;
         }
 
-        $end = Carbon::now(config('app.timezone'))->addHours(3);
+        $timezone = config('app.timezone');
+        $now = Carbon::now($timezone);
+        $end = $liveState['end'] ?? null;
+        if ($end instanceof Carbon && $end->gt($now)) {
+            $endIso = $end->toIso8601String();
+        } else {
+            $endIso = $now->copy()->addHours(3)->toIso8601String();
+        }
+
+        $start = $liveState['start'] ?? null;
+        $startIso = $start instanceof Carbon ? $start->toIso8601String() : $now->toIso8601String();
+
+        $liveTitle = (string) ($youtube['title'] ?? 'Live YouTube');
+
         $strip['stripCards']['live']['status'] = 'live';
         $strip['stripCards']['live']['embedUrl'] = (string) ($youtube['embedUrl'] ?? '');
         $strip['stripCards']['live']['embedKind'] = 'youtube';
         $strip['stripCards']['live']['linkUrl'] = (string) ($youtube['watchUrl'] ?? '');
-        $strip['stripCards']['live']['tilePrimary'] = 'Live YouTube';
-        $strip['stripCards']['live']['tileSecondary'] = (string) ($youtube['title'] ?? 'En direct');
+        $strip['stripCards']['live']['tilePrimary'] = 'En direct';
+        $strip['stripCards']['live']['tileSecondary'] = $liveTitle;
+        $strip['stripCards']['live']['title'] = $liveTitle;
         $strip['stripCards']['live']['modalBadge'] = 'En direct';
         $strip['stripCards']['live']['modalBadgeTone'] = 'live';
 
         $strip['liveTiming'] = [
-            'targetIso' => $end->toIso8601String(),
-            'startIso' => Carbon::now(config('app.timezone'))->toIso8601String(),
-            'endIso' => $end->toIso8601String(),
+            'targetIso' => $endIso,
+            'startIso' => $startIso,
+            'endIso' => $endIso,
             'displayMode' => 'live',
             'daysUntil' => null,
             'status' => 'live',
-            'programName' => (string) ($youtube['title'] ?? 'Live YouTube'),
+            'programName' => $liveTitle,
             'scheduledLabel' => 'Diffusion en cours sur YouTube',
             'timeLabel' => '',
             'dayLabel' => '',

@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Console\Commands;
 
 use App\Services\Youtube\YoutubeLiveNotificationService;
+use App\Services\YoutubeLiveStatusService;
 use Illuminate\Console\Command;
 
 /**
@@ -16,8 +17,9 @@ class CheckYoutubeLiveCommand extends Command
 
     protected $description = 'Vérifie si un live YouTube a démarré et envoie email/SMS aux contacts configurés';
 
-    public function handle(YoutubeLiveNotificationService $notifier): int
+    public function handle(YoutubeLiveNotificationService $notifier, YoutubeLiveStatusService $liveStatus): int
     {
+        $snapshot = $liveStatus->snapshot(true);
         $result = $notifier->checkAndNotify();
 
         if ($result['notified']) {
@@ -31,6 +33,9 @@ class CheckYoutubeLiveCommand extends Command
             $this->line('Live détecté ('.$result['videoId'].') — déjà notifié ou inchangé.');
         } else {
             $this->line('Aucun live YouTube en cours.');
+            if ($snapshot['isLive'] === false) {
+                $this->line('Vérifiez YOUTUBE_CHANNEL_ID et YOUTUBE_API_KEY dans .env si un live est actif sur YouTube.');
+            }
         }
 
         return self::SUCCESS;

@@ -6,7 +6,6 @@ namespace App\Console\Commands;
 
 use App\Services\YoutubeLiveStatusService;
 use Illuminate\Console\Command;
-use Illuminate\Support\Str;
 
 /**
  * Vérifie la configuration YouTube Live (API + chaîne).
@@ -35,12 +34,13 @@ class TestYoutubeLiveCommand extends Command
         }
 
         $this->line('Chaîne : '.$channelId);
-        $this->line('Clé API : '.Str::mask($apiKey, '*', 4, -4));
 
-        $current = $live->current();
+        $snapshot = $live->snapshot(true);
+        $current = $snapshot['live'];
 
         if ($current === null) {
             $this->warn('Aucun live actif détecté (normal si la chaîne ne diffuse pas).');
+            $this->line('Astuce : vérifiez YOUTUBE_CHANNEL_ID (ID UC…, pas @handle) et YOUTUBE_API_KEY.');
 
             return self::SUCCESS;
         }

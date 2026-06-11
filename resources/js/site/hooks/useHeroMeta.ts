@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import type { HeroMeta } from '../data/types';
 import { fetchSiteData } from '../lib/siteApi';
 
@@ -10,8 +10,11 @@ const emptyMeta: HeroMeta = {
   reactionKeys: {},
 };
 
+const POLL_MS = 60_000;
+
 /**
  * Charge le verset, les créneaux live, le timing du bandeau et les cartes modales du hero (`hero-meta`).
+ * Rafraîchit périodiquement pour synchroniser le statut live avec YouTube.
  *
  * @returns Objet `meta`, indicateur `loading` et `error` éventuel.
  */
@@ -19,44 +22,54 @@ export function useHeroMeta() {
   const [meta, setMeta] = useState<HeroMeta>(emptyMeta);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const mountedRef = useRef(true);
 
-  useEffect(() => {
-    let cancelled = false;
-
-    async function load() {
-      try {
+  const load = useCallback(async (silent = false) => {
+    try {
+      if (!silent) {
         setLoading(true);
-        const data = await fetchSiteData<HeroMeta>('hero-meta');
-        if (cancelled) {
-          return;
-        }
-        setMeta({
-          verse: data?.verse ?? null,
-          liveSlots: Array.isArray(data?.liveSlots) ? data.liveSlots : [],
-          liveTiming: data?.liveTiming ?? null,
-          stripCards: data?.stripCards,
-          youtubeLive: data?.youtubeLive ?? null,
-          reactionKeys: data?.reactionKeys ?? {},
-        });
-        setError(null);
-      } catch (err) {
-        if (!cancelled) {
-          setMeta(emptyMeta);
-          setError(err instanceof Error ? err.message : 'Erreur réseau');
-        }
-      } finally {
-        if (!cancelled) {
-          setLoading(false);
-        }
+      }
+      const data = await fetchSiteData<HeroMeta>('hero-meta');
+      if (!mountedRef.current) {
+        return;
+      }
+      setMeta({
+        verse: data?.verse ?? null,
+        liveSlots: Array.isArray(data?.liveSlots) ? data.liveSlots : [],
+        liveTiming: data?.liveTiming ?? null,
+        stripCards: data?.stripCards,
+        youtubeLive: data?.youtubeLive ?? null,
+        reactionKeys: data?.reactionKeys ?? {},
+      });
+      setError(null);
+    } catch (err) {
+      if (!mountedRef.current) {
+        return;
+      }
+      if (!silent) {
+        setMeta(emptyMeta);
+      }
+      setError(err instanceof Error ? err.message : 'Erreur réseau');
+    } finally {
+      if (mountedRef.current && !silent) {
+        setLoading(false);
       }
     }
-
-    void load();
-
-    return () => {
-      cancelled = true;
-    };
   }, []);
 
-  return { meta, loading, error };
+  useEffect(() => {
+    mountedRef.current = true;
+    void load(false);
+
+    const interval = window.setInterval(() => {
+      void load(true);
+    }, POLL_MS);
+
+    return () => {
+      mountedRef.current = false;
+      window.clearInterval(interval);
+    };
+  }, [load]);
+
+  return { meta, loading, error, reload: load };
 }

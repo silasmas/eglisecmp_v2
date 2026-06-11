@@ -1,10 +1,10 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useLocation } from 'react-router-dom';
 import { fetchSiteData } from '../lib/siteApi';
 import type { YoutubeLivePayload } from '../data/types';
 
 const DISMISS_KEY = 'cmp-youtube-live-popup-dismissed';
-const POLL_IDLE_MS = 90_000;
+const POLL_IDLE_MS = 60_000;
 const POLL_LIVE_MS = 30_000;
 
 interface YoutubeLiveContextValue {
@@ -26,22 +26,29 @@ export function YoutubeLiveProvider({ children }: { children: ReactNode }) {
   const isHome = location.pathname === '/';
   const [live, setLive] = useState<YoutubeLivePayload | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const liveRef = useRef<YoutubeLivePayload | null>(null);
+
+  useEffect(() => {
+    liveRef.current = live;
+  }, [live]);
 
   const load = useCallback(async () => {
     try {
       const data = await fetchSiteData<YoutubeLivePayload | null>('youtube/live');
       setLive(data);
     } catch {
-      setLive(null);
+      // Conserve le dernier état live connu pour éviter un clignotement « hors live ».
+      if (liveRef.current === null) {
+        setLive(null);
+      }
     }
   }, []);
 
   useEffect(() => {
     void load();
-    const intervalMs = live !== null ? POLL_LIVE_MS : POLL_IDLE_MS;
     const interval = window.setInterval(() => {
       void load();
-    }, intervalMs);
+    }, live !== null ? POLL_LIVE_MS : POLL_IDLE_MS);
 
     return () => window.clearInterval(interval);
   }, [load, live]);

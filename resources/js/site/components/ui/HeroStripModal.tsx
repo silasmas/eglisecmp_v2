@@ -167,24 +167,34 @@ export default function HeroStripModal({
 
               {isLiveModal && liveCountdownInfo ? (
                 <div className="mt-4 space-y-3">
-                  <div className="rounded-2xl border border-burgundy-100 bg-burgundy-50/80 p-4">
-                    <div className="flex items-start gap-3">
-                      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-burgundy-800 text-white">
-                        <Clock3 className="h-5 w-5" aria-hidden />
-                      </div>
-                      <div className="min-w-0">
-                        <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy-700">
-                          {liveCountdownInfo.isLiveNow ? 'Diffusion en cours' : 'Temps restant avant le live'}
-                        </p>
-                        <p className="mt-1 text-lg font-bold tabular-nums text-burgundy-950">
-                          {liveCountdownInfo.modalHeadline}
-                        </p>
-                        <p className="mt-1 text-sm leading-relaxed text-burgundy-900/80">
-                          {liveCountdownInfo.modalDetail}
-                        </p>
+                  {liveCountdownInfo.isLiveNow ? (
+                    <div className="rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
+                      <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-red-800">
+                        Diffusion en cours
+                      </p>
+                      <p className="mt-1 text-lg font-bold text-red-950">{liveCountdownInfo.modalHeadline}</p>
+                      <p className="mt-1 text-sm leading-relaxed text-red-900/85">{liveCountdownInfo.modalDetail}</p>
+                    </div>
+                  ) : (
+                    <div className="rounded-2xl border border-burgundy-100 bg-burgundy-50/80 p-4">
+                      <div className="flex items-start gap-3">
+                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-burgundy-800 text-white">
+                          <Clock3 className="h-5 w-5" aria-hidden />
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy-700">
+                            Temps restant avant le live
+                          </p>
+                          <p className="mt-1 text-lg font-bold tabular-nums text-burgundy-950">
+                            {liveCountdownInfo.modalHeadline}
+                          </p>
+                          <p className="mt-1 text-sm leading-relaxed text-burgundy-900/80">
+                            {liveCountdownInfo.modalDetail}
+                          </p>
+                        </div>
                       </div>
                     </div>
-                  </div>
+                  )}
 
                   {!liveCountdownInfo.isLiveNow && liveCountdownInfo.modalScheduledAt !== '' ? (
                     <div className="rounded-2xl border border-surface-200 bg-surface-50 p-4">
@@ -205,18 +215,6 @@ export default function HeroStripModal({
                         </div>
                       </div>
                     </div>
-                  ) : null}
-
-                  {liveCountdownInfo.isLiveNow && showLivePlayer ? (
-                    <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
-                      {liveCountdownInfo.modalDetail}
-                    </p>
-                  ) : null}
-
-                  {liveCountdownInfo.isLiveNow && !showLivePlayer ? (
-                    <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
-                      Le culte est en direct. Ouvrez la diffusion pour nous rejoindre.
-                    </p>
                   ) : null}
                 </div>
               ) : null}

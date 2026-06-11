@@ -86,12 +86,15 @@ export default function HeroSection() {
 
   const isLiveNow =
     isYoutubeLive ||
+    heroMeta.youtubeLive != null ||
     liveCard?.status === 'live' ||
     heroMeta.liveTiming?.status === 'live';
 
+  const activeYoutubeLive = youtubeLive ?? heroMeta.youtubeLive ?? null;
+
   const liveCountdown = useMemo(() => {
-    if (isYoutubeLive && youtubeLive !== null) {
-      return buildYoutubeLiveHeroInfo(youtubeLive);
+    if (activeYoutubeLive !== null) {
+      return buildYoutubeLiveHeroInfo(activeYoutubeLive);
     }
 
     return buildLiveCountdownInfo(heroMeta.liveTiming?.targetIso, now, isLiveNow, {
@@ -101,7 +104,7 @@ export default function HeroSection() {
       dayLabel: heroMeta.liveTiming?.dayLabel,
       startIso: heroMeta.liveTiming?.startIso,
     });
-  }, [heroMeta.liveTiming, liveCard?.subtitle, liveCard?.title, isLiveNow, isYoutubeLive, youtubeLive, now]);
+  }, [heroMeta.liveTiming, liveCard?.subtitle, liveCard?.title, isLiveNow, activeYoutubeLive, now]);
 
   const livePrimary = liveCountdown.tileHeadline;
   const liveSecondary = liveCountdown.tileContext;
@@ -129,8 +132,12 @@ export default function HeroSection() {
       return mergeLiveCardWithYoutube(base, youtubeLive) ?? base;
     }
 
+    if (heroMeta.youtubeLive != null) {
+      return mergeLiveCardWithYoutube(base, heroMeta.youtubeLive) ?? base;
+    }
+
     return base;
-  }, [isYoutubeLive, strip?.live, stripModal, youtubeLive]);
+  }, [heroMeta.youtubeLive, isYoutubeLive, strip?.live, stripModal, youtubeLive]);
 
   const modalCard: HeroStripCard | null = stripModal === 'live' ? liveModalCard : stripModal && strip?.[stripModal] ? strip[stripModal] : null;
 
@@ -145,6 +152,11 @@ export default function HeroSection() {
   const openLiveExperience = () => {
     if (isYoutubeLive && youtubeLive !== null) {
       openLiveModal();
+      return;
+    }
+
+    if (heroMeta.youtubeLive != null) {
+      setStripModal('live');
       return;
     }
 
@@ -214,8 +226,8 @@ export default function HeroSection() {
               className="mt-6 text-lg text-white/60 leading-relaxed max-w-xl mx-auto"
             >
               {isLiveNow
-                ? (youtubeLive?.title?.trim() !== ''
-                    ? `${youtubeLive.title} — Cliquez pour regarder la diffusion en direct.`
+                ? (activeYoutubeLive?.title?.trim() !== ''
+                    ? `${activeYoutubeLive.title} — Cliquez pour regarder la diffusion en direct.`
                     : 'Le culte est en cours sur YouTube. Rejoignez-nous dès maintenant en direct.')
                 : "L'amour fraternel au service des nations. Rejoignez une communauté vivante, engagée dans la foi et porteuse d'espérance."}
             </motion.p>
