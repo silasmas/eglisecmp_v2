@@ -1,12 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Play, MapPin, BookOpen, CalendarDays } from 'lucide-react';
+import { ArrowRight, Play, MapPin, BookOpen, CalendarDays, Radio } from 'lucide-react';
 import CTAButton from '../ui/CTAButton';
 import HeroStripModal from '../ui/HeroStripModal';
 import { churchInfo } from '../../data/content';
 import { useHeroMeta } from '../../hooks/useHeroMeta';
-import type { HeroStripCard, HeroStripCards } from '../../data/types';
-import { buildLiveCountdownInfo } from '../../lib/liveCountdown';
+import { useYoutubeLive } from '../../context/YoutubeLiveContext';
+import type { HeroStripCard, HeroStripCards, YoutubeLivePayload } from '../../data/types';
+import { buildLiveCountdownInfo, buildYoutubeLiveHeroInfo } from '../../lib/liveCountdown';
 
 type StripModalKey = keyof HeroStripCards;
 
@@ -36,12 +37,38 @@ function tileSecondary(card: HeroStripCard | undefined, fallback: string): strin
 }
 
 /**
+ * Enrichit la carte live avec les données YouTube en cours.
+ */
+function mergeLiveCardWithYoutube(
+  card: HeroStripCard | undefined,
+  youtubeLive: YoutubeLivePayload,
+): HeroStripCard | undefined {
+  if (card === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...card,
+    status: 'live',
+    embedUrl: youtubeLive.embedUrl,
+    embedKind: 'youtube',
+    linkUrl: youtubeLive.watchUrl,
+    title: youtubeLive.title.trim() !== '' ? youtubeLive.title : card.title,
+    tilePrimary: 'En direct',
+    tileSecondary: youtubeLive.title.trim() !== '' ? youtubeLive.title : 'Rejoignez le culte',
+    modalBadge: 'En direct',
+    modalBadgeTone: 'live',
+  };
+}
+
+/**
  * Section hero de l'accueil avec bandeau dynamique (live, programme, lecture, localisation).
  */
 export default function HeroSection() {
   const [now, setNow] = useState(() => new Date());
   const [stripModal, setStripModal] = useState<StripModalKey | null>(null);
   const { meta: heroMeta } = useHeroMeta();
+  const { isYoutubeLive, live: youtubeLive, openLiveModal } = useYoutubeLive();
 
   useEffect(() => {
     const timer = window.setInterval(() => {
@@ -56,22 +83,25 @@ export default function HeroSection() {
   const eventCard = strip?.event;
   const readingCard = strip?.reading;
   const locationCard = strip?.location;
-  const isLiveNow =
-    heroMeta.youtubeLive !== null && heroMeta.youtubeLive !== undefined
-      ? true
-      : liveCard?.status === 'live' || heroMeta.liveTiming?.status === 'live';
 
-  const liveCountdown = useMemo(
-    () =>
-      buildLiveCountdownInfo(heroMeta.liveTiming?.targetIso, now, isLiveNow, {
-        programName: heroMeta.liveTiming?.programName ?? liveCard?.title,
-        scheduledLabel: heroMeta.liveTiming?.scheduledLabel ?? liveCard?.subtitle,
-        timeLabel: heroMeta.liveTiming?.timeLabel,
-        dayLabel: heroMeta.liveTiming?.dayLabel,
-        startIso: heroMeta.liveTiming?.startIso,
-      }),
-    [heroMeta.liveTiming, liveCard?.subtitle, liveCard?.title, isLiveNow, now],
-  );
+  const isLiveNow =
+    isYoutubeLive ||
+    liveCard?.status === 'live' ||
+    heroMeta.liveTiming?.status === 'live';
+
+  const liveCountdown = useMemo(() => {
+    if (isYoutubeLive && youtubeLive !== null) {
+      return buildYoutubeLiveHeroInfo(youtubeLive);
+    }
+
+    return buildLiveCountdownInfo(heroMeta.liveTiming?.targetIso, now, isLiveNow, {
+      programName: heroMeta.liveTiming?.programName ?? liveCard?.title,
+      scheduledLabel: heroMeta.liveTiming?.scheduledLabel ?? liveCard?.subtitle,
+      timeLabel: heroMeta.liveTiming?.timeLabel,
+      dayLabel: heroMeta.liveTiming?.dayLabel,
+      startIso: heroMeta.liveTiming?.startIso,
+    });
+  }, [heroMeta.liveTiming, liveCard?.subtitle, liveCard?.title, isLiveNow, isYoutubeLive, youtubeLive, now]);
 
   const livePrimary = liveCountdown.tileHeadline;
   const liveSecondary = liveCountdown.tileContext;
@@ -85,16 +115,41 @@ export default function HeroSection() {
   const locationTitle = tilePrimary(locationCard, 'Nous trouver');
   const locationSubtitle = tileSecondary(locationCard, churchInfo.shortAddress);
 
-  const modalCard: HeroStripCard | null =
-    stripModal && strip?.[stripModal]
-      ? strip[stripModal]
-      : null;
+  const liveModalCard = useMemo(() => {
+    if (stripModal !== 'live') {
+      return null;
+    }
+
+    const base = strip?.live;
+    if (base === undefined) {
+      return null;
+    }
+
+    if (isYoutubeLive && youtubeLive !== null) {
+      return mergeLiveCardWithYoutube(base, youtubeLive) ?? base;
+    }
+
+    return base;
+  }, [isYoutubeLive, strip?.live, stripModal, youtubeLive]);
+
+  const modalCard: HeroStripCard | null = stripModal === 'live' ? liveModalCard : stripModal && strip?.[stripModal] ? strip[stripModal] : null;
 
   const openLocationMap = () => {
     const mapUrl = locationCard?.mapUrl?.trim();
 
     if (mapUrl) {
       window.open(mapUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
+
+  const openLiveExperience = () => {
+    if (isYoutubeLive && youtubeLive !== null) {
+      openLiveModal();
+      return;
+    }
+
+    if (heroMeta.stripCards) {
+      setStripModal('live');
     }
   };
 
@@ -117,13 +172,39 @@ export default function HeroSection() {
       <div className="relative flex-1 flex items-center">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full pt-32 pb-12">
           <div className="max-w-[760px] mx-auto text-center">
+            {isLiveNow ? (
+              <motion.button
+                type="button"
+                initial={{ opacity: 0, y: 12 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.45 }}
+                onClick={openLiveExperience}
+                className="fab-blink mb-6 inline-flex items-center gap-2.5 rounded-full border border-red-400/50 bg-red-600/95 px-5 py-2.5 text-sm font-bold uppercase tracking-wide text-white shadow-lg shadow-red-900/30"
+              >
+                <span className="relative flex h-2.5 w-2.5">
+                  <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-75" />
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-white" />
+                </span>
+                <Radio className="h-4 w-4" aria-hidden />
+                Culte en direct — Rejoignez-nous
+              </motion.button>
+            ) : null}
+
             <motion.h1
               initial={{ opacity: 0, y: 32 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.75, delay: 0.1, ease: [0.25, 0.46, 0.45, 0.94] }}
               className="font-heading font-extrabold text-[clamp(3rem,6.5vw,5.5rem)] text-white leading-[1.0] tracking-tight"
             >
-              Bienvenue à <span className="text-gold-300">Philadelphie</span>
+              {isLiveNow ? (
+                <>
+                  Nous sommes <span className="text-red-400">en live</span>
+                </>
+              ) : (
+                <>
+                  Bienvenue à <span className="text-gold-300">Philadelphie</span>
+                </>
+              )}
             </motion.h1>
 
             <motion.p
@@ -132,8 +213,11 @@ export default function HeroSection() {
               transition={{ duration: 0.6, delay: 0.25 }}
               className="mt-6 text-lg text-white/60 leading-relaxed max-w-xl mx-auto"
             >
-              L'amour fraternel au service des nations. Rejoignez une communauté
-              vivante, engagée dans la foi et porteuse d'espérance.
+              {isLiveNow
+                ? (youtubeLive?.title?.trim() !== ''
+                    ? `${youtubeLive.title} — Cliquez pour regarder la diffusion en direct.`
+                    : 'Le culte est en cours sur YouTube. Rejoignez-nous dès maintenant en direct.')
+                : "L'amour fraternel au service des nations. Rejoignez une communauté vivante, engagée dans la foi et porteuse d'espérance."}
             </motion.p>
 
             <motion.div
@@ -142,6 +226,16 @@ export default function HeroSection() {
               transition={{ duration: 0.6, delay: 0.35 }}
               className="mt-10 flex flex-wrap justify-center gap-3"
             >
+              {isLiveNow ? (
+                <CTAButton
+                  onClick={openLiveExperience}
+                  variant="primary"
+                  size="lg"
+                  className="bg-red-700 hover:bg-red-600"
+                >
+                  <Radio className="w-4 h-4" /> Regarder le live
+                </CTAButton>
+              ) : null}
               <CTAButton to="/rendez-vous" variant="primary" size="lg">
                 Prendre rendez-vous <ArrowRight className="w-4 h-4" />
               </CTAButton>
@@ -170,23 +264,21 @@ export default function HeroSection() {
               type="button"
               className={`${stripTileClass} ${
                 isLiveNow
-                  ? 'bg-red-900/40 border-red-500/30'
+                  ? 'bg-red-900/50 border-red-500/40 ring-1 ring-red-500/30'
                   : 'bg-burgundy-800/34 border-burgundy-600/25'
               }`}
-              onClick={() => {
-                if (heroMeta.stripCards) {
-                  setStripModal('live');
-                }
-              }}
+              onClick={openLiveExperience}
             >
-              <div className="w-9 h-9 rounded-xl bg-burgundy-700/35 flex items-center justify-center shrink-0">
+              <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 ${isLiveNow ? 'bg-red-700/50' : 'bg-burgundy-700/35'}`}>
                 <span className="relative flex h-2.5 w-2.5">
-                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isLiveNow ? 'animate-ping bg-red-500' : 'animate-ping bg-red-500'}`} />
+                  <span className={`absolute inline-flex h-full w-full rounded-full opacity-75 ${isLiveNow ? 'animate-ping bg-red-400' : 'animate-ping bg-red-500'}`} />
                   <span className="relative inline-flex h-2.5 w-2.5 rounded-full bg-red-600" />
                 </span>
               </div>
               <div className="min-w-0">
-                <p className="text-white text-sm font-semibold tabular-nums">{livePrimary}</p>
+                <p className={`text-sm font-semibold tabular-nums ${isLiveNow ? 'text-red-100' : 'text-white'}`}>
+                  {livePrimary}
+                </p>
                 <p className="text-white/55 text-[12px] mt-0.5 line-clamp-2">{liveSecondary}</p>
               </div>
             </button>

@@ -4,7 +4,8 @@ import { fetchSiteData } from '../lib/siteApi';
 import type { YoutubeLivePayload } from '../data/types';
 
 const DISMISS_KEY = 'cmp-youtube-live-popup-dismissed';
-const POLL_MS = 90_000;
+const POLL_IDLE_MS = 90_000;
+const POLL_LIVE_MS = 30_000;
 
 interface YoutubeLiveContextValue {
   live: YoutubeLivePayload | null;
@@ -37,11 +38,13 @@ export function YoutubeLiveProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     void load();
+    const intervalMs = live !== null ? POLL_LIVE_MS : POLL_IDLE_MS;
     const interval = window.setInterval(() => {
       void load();
-    }, POLL_MS);
+    }, intervalMs);
+
     return () => window.clearInterval(interval);
-  }, [load]);
+  }, [load, live]);
 
   useEffect(() => {
     if (live === null) {

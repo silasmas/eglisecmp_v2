@@ -174,7 +174,7 @@ export default function HeroStripModal({
                       </div>
                       <div className="min-w-0">
                         <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-burgundy-700">
-                          {liveCountdownInfo.isLiveNow ? 'Temps restant avant la fin' : 'Temps restant avant le live'}
+                          {liveCountdownInfo.isLiveNow ? 'Diffusion en cours' : 'Temps restant avant le live'}
                         </p>
                         <p className="mt-1 text-lg font-bold tabular-nums text-burgundy-950">
                           {liveCountdownInfo.modalHeadline}
@@ -210,6 +210,12 @@ export default function HeroStripModal({
                   {liveCountdownInfo.isLiveNow && showLivePlayer ? (
                     <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
                       {liveCountdownInfo.modalDetail}
+                    </p>
+                  ) : null}
+
+                  {liveCountdownInfo.isLiveNow && !showLivePlayer ? (
+                    <p className="rounded-2xl bg-red-50 px-4 py-3 text-sm font-medium text-red-900">
+                      Le culte est en direct. Ouvrez la diffusion pour nous rejoindre.
                     </p>
                   ) : null}
                 </div>

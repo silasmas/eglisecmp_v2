@@ -97,16 +97,21 @@ export default function FloatingActionsMenu() {
         ) : null}
       </AnimatePresence>
 
-      {isYoutubeLive && youtubeLive !== null && !open ? (
+      {isYoutubeLive && youtubeLive !== null ? (
         <motion.button
           type="button"
           initial={{ opacity: 0, y: 8 }}
           animate={{ opacity: 1, y: 0 }}
           onClick={openLiveModal}
           className="fab-blink pointer-events-auto flex items-center gap-2 rounded-full bg-red-600 px-4 py-2 text-xs font-bold uppercase tracking-wide text-white shadow-lg ring-4 ring-red-400/40"
+          aria-label={`Culte en direct : ${youtubeLive.title}`}
         >
+          <span className="relative flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-white opacity-80" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-white" />
+          </span>
           <Radio className="h-4 w-4" aria-hidden />
-          Live YouTube
+          En direct
         </motion.button>
       ) : null}
 
@@ -119,6 +124,27 @@ export default function FloatingActionsMenu() {
             transition={{ duration: 0.2 }}
             className="pointer-events-auto flex flex-col gap-2.5"
           >
+            {isYoutubeLive && youtubeLive !== null ? (
+              <motion.div
+                initial={{ opacity: 0, x: 28 }}
+                animate={{ opacity: 1, x: 0 }}
+                exit={{ opacity: 0, x: 28 }}
+                transition={{ duration: 0.2 }}
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    openLiveModal();
+                    setOpen(false);
+                  }}
+                  className="fab-blink flex items-center gap-3 rounded-full bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-lg transition hover:bg-red-500"
+                >
+                  <Radio className="h-5 w-5 shrink-0" aria-hidden />
+                  Culte en direct
+                </button>
+              </motion.div>
+            ) : null}
+
             {showSpotlightFab && spotlightEvent !== null ? (
               <motion.div
                 initial={{ opacity: 0, x: 28 }}

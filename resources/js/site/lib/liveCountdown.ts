@@ -1,4 +1,4 @@
-import type { HeroLiveTiming } from '../data/types';
+import type { HeroLiveTiming, YoutubeLivePayload } from '../data/types';
 
 /** Décomposition du temps restant avant la cible. */
 export interface LiveCountdownParts {
@@ -199,11 +199,11 @@ export function buildLiveCountdownInfo(
     return {
       isLiveNow,
       hasTarget: false,
-      tileHeadline: isLiveNow ? 'Live en cours' : 'Prochain live',
-      tileContext,
-      modalHeadline: isLiveNow ? 'Live en cours' : 'Prochain live',
+      tileHeadline: isLiveNow ? 'En direct' : 'Prochain live',
+      tileContext: isLiveNow ? 'Rejoignez le culte en cours' : tileContext,
+      modalHeadline: isLiveNow ? 'Culte en live' : 'Prochain live',
       modalDetail: isLiveNow
-        ? 'Rejoignez-nous en direct dès maintenant.'
+        ? 'Nous sommes en direct sur YouTube. Cliquez pour regarder le culte.'
         : 'L’horaire du prochain live sera bientôt disponible.',
       modalScheduledAt: '',
       clock: '00:00:00',
@@ -216,14 +216,14 @@ export function buildLiveCountdownInfo(
   const daysHeadline = formatDaysHeadline(parts.totalSeconds);
   const tileHeadline = isLiveNow
     ? parts.totalSeconds > 0
-      ? `Live · fin dans ${clock}`
-      : 'Live en cours'
+      ? `En direct · ${clock}`
+      : 'En direct maintenant'
     : daysHeadline ?? `Dans ${clock}`;
 
   const modalHeadline = isLiveNow
     ? parts.totalSeconds > 0
-      ? `Fin du live dans ${clock}`
-      : 'Live en cours'
+      ? `Live en cours · fin dans ${clock}`
+      : 'Culte en live'
     : daysHeadline ?? `Début dans ${clock}`;
 
   const startIso = context?.startIso ?? (isLiveNow ? null : targetIso);
@@ -235,11 +235,42 @@ export function buildLiveCountdownInfo(
     isLiveNow,
     hasTarget: true,
     tileHeadline,
-    tileContext,
+    tileContext: isLiveNow ? 'Rejoignez-nous en direct sur YouTube' : tileContext,
     modalHeadline,
-    modalDetail: formatDelayDetailed(parts, isLiveNow),
+    modalDetail: isLiveNow
+      ? 'Le culte est en cours. Regardez la diffusion ci-dessus ou ouvrez YouTube.'
+      : formatDelayDetailed(parts, isLiveNow),
     modalScheduledAt,
     clock,
     parts,
+  };
+}
+
+/**
+ * Libellés hero lorsque YouTube confirme un live en cours (contexte temps réel).
+ *
+ * @param youtubeLive Payload live YouTube.
+ * @returns Infos tuile + modale orientées « en direct ».
+ */
+export function buildYoutubeLiveHeroInfo(youtubeLive: YoutubeLivePayload): LiveCountdownInfo {
+  const title = youtubeLive.title.trim() !== '' ? youtubeLive.title.trim() : 'Culte en direct';
+  const emptyParts: LiveCountdownParts = {
+    days: 0,
+    hours: 0,
+    minutes: 0,
+    seconds: 0,
+    totalSeconds: 0,
+  };
+
+  return {
+    isLiveNow: true,
+    hasTarget: false,
+    tileHeadline: 'En direct',
+    tileContext: title,
+    modalHeadline: 'Culte en live',
+    modalDetail: 'Nous sommes en direct sur YouTube. Rejoignez le culte dès maintenant.',
+    modalScheduledAt: '',
+    clock: '00:00:00',
+    parts: emptyParts,
   };
 }
