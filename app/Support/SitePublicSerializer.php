@@ -224,6 +224,13 @@ final class SitePublicSerializer
 
         $youtubeEmbedUrl = self::youtubeEmbedUrlFromLink($post->link_url);
 
+        if ($youtubeEmbedUrl === '') {
+            $storedId = $post->youtube_video_id;
+            if (is_string($storedId) && trim($storedId) !== '') {
+                $youtubeEmbedUrl = 'https://www.youtube.com/embed/'.trim($storedId).'?rel=0&modestbranding=1';
+            }
+        }
+
         $thumb = self::imageUrl($post->image_url, $locale, $fallbackLocale);
         if ($thumb === '') {
             $speaker = $post->getSpeakerImageUrl();
@@ -536,6 +543,7 @@ final class SitePublicSerializer
 
         $patterns = [
             '/(?:youtube\.com\/watch\?v=)([A-Za-z0-9_-]{11})/i',
+            '/(?:youtube\.com\/live\/)([A-Za-z0-9_-]{11})/i',
             '/(?:youtube\.com\/shorts\/)([A-Za-z0-9_-]{11})/i',
             '/(?:youtube\.com\/embed\/)([A-Za-z0-9_-]{11})/i',
             '/(?:youtu\.be\/)([A-Za-z0-9_-]{11})/i',

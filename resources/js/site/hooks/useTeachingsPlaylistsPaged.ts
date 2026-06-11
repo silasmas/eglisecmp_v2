@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import type { PlaylistsPageMeta, TeachingsPlaylistGroup } from '../data/types';
 import { fetchTeachingsPlaylistsPage } from '../lib/siteApi';
+import { resolvePlaylistVideoCount } from '../lib/playlistGridLinks';
 
 const DEFAULT_PER_PAGE = 15;
 
@@ -14,10 +15,13 @@ function normalizeGroups(rows: unknown): TeachingsPlaylistGroup[] {
     return [];
   }
 
-  return rows.filter(
-    (group): group is TeachingsPlaylistGroup =>
-      group != null && typeof group === 'object' && (group.videoCount ?? 0) > 0,
-  );
+  return rows.filter((group): group is TeachingsPlaylistGroup => {
+    if (group == null || typeof group !== 'object') {
+      return false;
+    }
+
+    return resolvePlaylistVideoCount((group as TeachingsPlaylistGroup).videoCount) > 0;
+  });
 }
 
 /**

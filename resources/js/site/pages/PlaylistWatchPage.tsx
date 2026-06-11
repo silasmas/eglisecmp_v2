@@ -1,15 +1,44 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { ArrowLeft, ChevronRight, Youtube } from 'lucide-react';
+import { ArrowLeft, ChevronRight, Clock, Search, Youtube } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Sermon, TeachingsPlaylistGroup } from '../data/types';
-import { fetchSitePlaylistDetail, fetchSitePlaylistPosts } from '../lib/siteApi';
+import {
+  fetchSiteMeditationPostsByDay,
+  fetchSitePlaylistDetail,
+  fetchSitePlaylistPosts,
+} from '../lib/siteApi';
 import { readRememberedPlaylistOrigin } from '../lib/playlistOrigin';
+import { formatPreachRowDate } from '../lib/preachRowDate';
 import { sortSermonsNewestFirst } from '../lib/sermonSort';
 import { resolvePlaylistBackNavigation } from '../lib/teachingsNavigation';
+import { withEmbedPlaybackParams } from '../lib/youtubeEmbed';
 import CollapsibleRichText from '../components/ui/CollapsibleRichText';
 import ReactionBar from '../components/ui/ReactionBar';
 import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
 import PageHero from '../components/ui/PageHero';
+
+/**
+ * Filtre une liste de messages selon une requête texte (titre, orateur, date).
+ *
+ * @param items Messages triés.
+ * @param query Texte de recherche.
+ */
+function filterSermonsByQuery(items: Sermon[], query: string): Sermon[] {
+  const token = query.trim().toLowerCase();
+
+  if (token === '') {
+    return items;
+  }
+
+  return items.filter((item) => {
+    const haystack = [item.title, item.speaker, item.date, item.eventTitle ?? '']
+      .join(' ')
+      .toLowerCase();
+
+    return haystack.includes(token);
+  });
+}
+
 /**
  * Page de lecture d'une playlist sur le site (lecteur embed, texte du message, navigation).
  */
@@ -20,9 +49,12 @@ export default function PlaylistWatchPage() {
   const [playlistMeta, setPlaylistMeta] = useState<TeachingsPlaylistGroup | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [searchInput, setSearchInput] = useState('');
 
   const selectedPostId = searchParams.get('post') ?? '';
   const autoplayRequested = searchParams.get('autoplay') === '1';
+  const fromMeditations = searchParams.get('from') === 'meditations';
+  const weeklyDayParam = (searchParams.get('weeklyDay') ?? '').trim();
 
   useEffect(() => {
     if (!eventId) {
@@ -35,13 +67,24 @@ export default function PlaylistWatchPage() {
       try {
         setLoading(true);
         setError(null);
-        const [detail, data] = await Promise.all([
-          fetchSitePlaylistDetail(eventId),
-          fetchSitePlaylistPosts(eventId),
-        ]);
+
+        const [detail, data] = await (async () => {
+          const loadedDetail = await fetchSitePlaylistDetail(eventId);
+          const weeklyDay = weeklyDayParam || (loadedDetail.weeklyServiceDay ?? '').trim();
+          const loadedPosts =
+            fromMeditations && weeklyDay !== ''
+              ? await fetchSiteMeditationPostsByDay(weeklyDay)
+              : await fetchSitePlaylistPosts(eventId, {
+                  weeklyServiceDay: weeklyDay !== '' ? weeklyDay : undefined,
+                });
+
+          return [loadedDetail, loadedPosts] as const;
+        })();
+
         if (cancelled) {
           return;
         }
+
         setPlaylistMeta(detail);
         const merged = data.length > 0 ? data : detail.items ?? [];
         setItems(sortSermonsNewestFirst(merged));
@@ -62,37 +105,31 @@ export default function PlaylistWatchPage() {
     return () => {
       cancelled = true;
     };
-  }, [eventId]);
+  }, [eventId, fromMeditations, weeklyDayParam]);
+
+  const sidebarItems = useMemo(() => filterSermonsByQuery(items, searchInput), [items, searchInput]);
 
   const currentIndex = useMemo(() => {
-    if (items.length === 0) {
+    if (sidebarItems.length === 0) {
       return 0;
     }
+
     if (selectedPostId) {
-      const found = items.findIndex((item) => item.id === selectedPostId);
+      const found = sidebarItems.findIndex((item) => item.id === selectedPostId);
       if (found >= 0) {
         return found;
       }
     }
+
     return 0;
-  }, [items, selectedPostId]);
+  }, [sidebarItems, selectedPostId]);
 
-  const current = items[currentIndex] ?? null;
+  const current = sidebarItems[currentIndex] ?? items.find((item) => item.id === selectedPostId) ?? null;
 
-  const iframeSrc = useMemo(() => {
-    const url = current?.youtubeEmbedUrl;
-    if (!url) {
-      return '';
-    }
-
-    if (!autoplayRequested) {
-      return url;
-    }
-
-    const sep = url.includes('?') ? '&' : '?';
-
-    return `${url}${sep}autoplay=1&mute=1&playsinline=1`;
-  }, [current?.youtubeEmbedUrl, autoplayRequested]);
+  const iframeSrc = useMemo(
+    () => withEmbedPlaybackParams(current?.youtubeEmbedUrl, autoplayRequested),
+    [current?.youtubeEmbedUrl, autoplayRequested],
+  );
 
   const eventTitle = playlistMeta?.title?.trim() || items[0]?.eventTitle?.trim() || 'Playlist';
   const youtubePlaylistId = playlistMeta?.youtubePlaylistId ?? null;
@@ -107,12 +144,13 @@ export default function PlaylistWatchPage() {
   }, [searchParams]);
 
   useEffect(() => {
-    if (loading || items.length === 0) {
+    if (loading || sidebarItems.length === 0) {
       return;
     }
 
-    const firstId = items[0]?.id;
-    const shouldSetInitial = selectedPostId === '' && typeof firstId === 'string';
+    const firstId = sidebarItems[0]?.id;
+    const currentVisible = sidebarItems.some((item) => item.id === selectedPostId);
+    const shouldSetInitial = !currentVisible && typeof firstId === 'string';
 
     if (shouldSetInitial) {
       setSearchParams(
@@ -124,11 +162,11 @@ export default function PlaylistWatchPage() {
         { replace: true },
       );
     }
-  }, [items, loading, selectedPostId, setSearchParams]);
+  }, [sidebarItems, loading, selectedPostId, setSearchParams]);
 
   const selectItem = useCallback(
     (index: number) => {
-      const id = items[index]?.id;
+      const id = sidebarItems[index]?.id;
       if (typeof id === 'string') {
         setSearchParams(
           (previous) => {
@@ -140,16 +178,18 @@ export default function PlaylistWatchPage() {
         );
       }
     },
-    [items, setSearchParams],
+    [sidebarItems, setSearchParams],
   );
 
   const goNext = useCallback(() => {
-    if (items.length <= 1) {
+    if (sidebarItems.length <= 1) {
       return;
     }
-    const next = Math.min(items.length - 1, currentIndex + 1);
+    const next = Math.min(sidebarItems.length - 1, currentIndex + 1);
     selectItem(next);
-  }, [items.length, currentIndex, selectItem]);
+  }, [sidebarItems.length, currentIndex, selectItem]);
+
+  const sidebarHeading = fromMeditations ? 'Autres méditations' : 'Liste';
 
   return (
     <>
@@ -195,11 +235,12 @@ export default function PlaylistWatchPage() {
             <div className="overflow-hidden rounded-2xl bg-black shadow-xl ring-1 ring-black/15">
               <div className="aspect-video">
                 <iframe
+                  key={youtubePlaylistEmbed}
                   src={youtubePlaylistEmbed}
                   title={`Playlist YouTube : ${eventTitle}`}
                   className="h-full w-full border-0"
                   allowFullScreen
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 />
               </div>
             </div>
@@ -214,17 +255,18 @@ export default function PlaylistWatchPage() {
         ) : null}
 
         {!loading && current ? (
-          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-14">
+          <div className="grid gap-10 lg:grid-cols-[minmax(0,1fr)_minmax(280px,400px)] lg:gap-14">
             <div className="min-w-0 space-y-6">
               <div className="overflow-hidden rounded-2xl bg-black shadow-xl ring-1 ring-black/15">
-                {current.youtubeEmbedUrl ? (
+                {iframeSrc !== '' ? (
                   <div className="aspect-video">
                     <iframe
+                      key={current.id}
                       src={iframeSrc}
                       title={`Lecture vidéo : ${current.title}`}
                       className="h-full w-full border-0"
                       allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     />
                   </div>
                 ) : (
@@ -238,6 +280,16 @@ export default function PlaylistWatchPage() {
                       <p className="text-sm font-semibold text-white">
                         Vidéo indisponible en lecture intégrée pour ce message (aucun lien YouTube valide renseigné).
                       </p>
+                      {current.linkUrl ? (
+                        <a
+                          href={current.linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-surface-900 hover:bg-white"
+                        >
+                          Ouvrir sur YouTube
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 )}
@@ -248,8 +300,14 @@ export default function PlaylistWatchPage() {
                   <Youtube className="h-3.5 w-3.5 text-red-600" aria-hidden />
                   YouTube
                 </span>
+                {current.duration ? (
+                  <span className="inline-flex items-center gap-1 text-xs text-surface-500">
+                    <Clock className="h-3.5 w-3.5" aria-hidden />
+                    {current.duration}
+                  </span>
+                ) : null}
                 {current.date ? (
-                  <span className="text-xs text-surface-500">{new Date(current.date).toLocaleDateString('fr-FR')}</span>
+                  <span className="text-xs text-surface-500">{formatPreachRowDate(current.date)}</span>
                 ) : null}
               </div>
 
@@ -276,7 +334,7 @@ export default function PlaylistWatchPage() {
                 <button
                   type="button"
                   onClick={() => goNext()}
-                  disabled={currentIndex >= items.length - 1}
+                  disabled={currentIndex >= sidebarItems.length - 1}
                   className="inline-flex items-center gap-2 rounded-xl bg-burgundy-900 px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-burgundy-800 disabled:opacity-35"
                 >
                   Message suivant <ChevronRight className="h-4 w-4" aria-hidden />
@@ -293,11 +351,22 @@ export default function PlaylistWatchPage() {
               ) : null}
             </div>
 
-            <aside className="min-w-0 space-y-5">
-              <h2 className="font-heading text-sm font-bold uppercase tracking-wider text-surface-400">Liste</h2>
-              <ul className="max-h-[min(70vh,720px)] space-y-2 overflow-auto pr-2">
-                {items.map((item, index) => {
-                  const selected = index === currentIndex;
+            <aside className="min-w-0 space-y-4">
+              <div className="relative">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
+                <input
+                  type="search"
+                  value={searchInput}
+                  onChange={(event) => setSearchInput(event.target.value)}
+                  placeholder={fromMeditations ? 'Rechercher une méditation…' : 'Rechercher dans la playlist…'}
+                  className="w-full rounded-2xl border border-surface-200 bg-white py-3 pl-10 pr-3 text-sm text-surface-900 shadow-sm outline-none ring-burgundy-400/35 placeholder:text-surface-400 focus:border-burgundy-300 focus:ring-2 dark:border-surface-600 dark:bg-surface-950 dark:text-white"
+                  aria-label="Recherche dans la liste"
+                />
+              </div>
+              <h2 className="font-heading text-sm font-bold uppercase tracking-wider text-surface-400">{sidebarHeading}</h2>
+              <ul className="max-h-[min(70vh,820px)] space-y-2 overflow-auto pr-2">
+                {sidebarItems.map((item, index) => {
+                  const selected = item.id === current.id;
 
                   return (
                     <li key={item.id}>
@@ -306,8 +375,8 @@ export default function PlaylistWatchPage() {
                         onClick={() => selectItem(index)}
                         className={`flex w-full gap-3 rounded-2xl border p-3 text-left transition ${
                           selected
-                            ? 'border-burgundy-400 bg-burgundy-50/80 ring-1 ring-burgundy-400/35'
-                            : 'border-surface-200 bg-white hover:border-surface-300 hover:bg-surface-50'
+                            ? 'border-burgundy-400 bg-burgundy-50/80 ring-1 ring-burgundy-400/35 dark:bg-burgundy-950/30'
+                            : 'border-surface-200 bg-white hover:border-surface-300 hover:bg-surface-50 dark:border-surface-700 dark:bg-surface-900 dark:hover:bg-surface-800'
                         }`}
                       >
                         <span className="relative h-16 w-16 shrink-0 overflow-hidden rounded-xl">
@@ -317,16 +386,33 @@ export default function PlaylistWatchPage() {
                             className="absolute inset-0 h-full w-full object-cover"
                           />
                         </span>
-                        <div className="min-w-0">
-                          <p className="text-[10px] font-bold uppercase tracking-wide text-orange-700">Vidéo</p>
-                          <p className="line-clamp-2 text-sm font-semibold text-surface-900">{item.title}</p>
-                          <p className="truncate text-xs text-surface-500">{item.speaker}</p>
+                        <div className="min-w-0 flex-1">
+                          <div className="mb-1 flex items-center gap-2">
+                            <span className="inline-block h-1.5 w-1.5 rounded-full bg-gold-500" />
+                            <span className="text-[11px] font-semibold uppercase tracking-wide text-orange-700 dark:text-orange-400">
+                              {formatPreachRowDate(item.date)}
+                            </span>
+                          </div>
+                          <p className="line-clamp-2 text-sm font-semibold text-surface-900 dark:text-white">{item.title}</p>
+                          <div className="mt-1 flex flex-wrap items-center gap-2">
+                            <p className="truncate text-xs text-surface-500 dark:text-surface-400">{item.speaker}</p>
+                            {item.duration ? (
+                              <span className="inline-flex shrink-0 items-center gap-0.5 text-[10px] text-surface-500">
+                                <Clock className="h-3 w-3" aria-hidden /> {item.duration}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </button>
                     </li>
                   );
                 })}
               </ul>
+              {!loading && sidebarItems.length === 0 ? (
+                <p className="py-8 text-center text-sm text-surface-500 dark:text-surface-400">
+                  Aucun résultat. Essayez une autre requête.
+                </p>
+              ) : null}
             </aside>
           </div>
         ) : null}

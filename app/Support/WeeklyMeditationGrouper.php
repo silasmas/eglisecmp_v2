@@ -71,7 +71,8 @@ final class WeeklyMeditationGrouper
             }
 
             if ($event instanceof Event) {
-                $group['href'] = '/teachings/playlist/'.rawurlencode((string) $event->id).'?from=meditations';
+                $group['href'] = '/teachings/playlist/'.rawurlencode((string) $event->id)
+                    .'?from=meditations&weeklyDay='.rawurlencode($weeklyDay);
             } elseif ($latestPost instanceof Post) {
                 $group['href'] = '/teachings/message/'.rawurlencode((string) $latestPost->getKey());
             }

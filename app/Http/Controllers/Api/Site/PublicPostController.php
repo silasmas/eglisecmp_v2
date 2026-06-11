@@ -33,6 +33,7 @@ class PublicPostController extends Controller
         $page = max((int) $request->query('page', 1), 1);
         $eventIdFilter = null;
         $searchToken = $this->normalizeSearchToken($request);
+        $weeklyDayFilter = $this->normalizeWeeklyServiceDay($request);
 
         if ($tab === 'playlists') {
             $eventIdRaw = $request->query('event_id');
@@ -67,7 +68,11 @@ class PublicPostController extends Controller
             $this->applyPostsSearchFilter($query, $searchToken);
         }
 
-        if ($playlistEvent instanceof Event && $searchToken === null) {
+        if ($weeklyDayFilter !== null) {
+            $query->where('weekly_service_day', $weeklyDayFilter);
+        }
+
+        if ($playlistEvent instanceof Event && $searchToken === null && $weeklyDayFilter === null) {
             return $this->playlistPostsResponse($playlistEvent, $locale, $fallback, $tab, $perPage, $page, $searchToken);
         }
 
@@ -153,6 +158,30 @@ class PublicPostController extends Controller
                 'search' => $searchToken,
             ],
         ]);
+    }
+
+    /**
+     * Normalise le filtre jour de culte (`mercredi`, `jeudi`, `dimanche`).
+     *
+     * @param  Request  $request  Requête entrante.
+     * @return string|null Jour autorisé ou null si absent / invalide.
+     */
+    private function normalizeWeeklyServiceDay(Request $request): ?string
+    {
+        $raw = $request->query('weekly_service_day', $request->query('weeklyDay'));
+
+        if (! is_string($raw)) {
+            return null;
+        }
+
+        $day = strtolower(trim($raw));
+        $allowed = (array) config('site_public.weekly_service_days', ['mercredi', 'jeudi', 'dimanche']);
+
+        if (! in_array($day, $allowed, true)) {
+            return null;
+        }
+
+        return $day;
     }
 
     /**

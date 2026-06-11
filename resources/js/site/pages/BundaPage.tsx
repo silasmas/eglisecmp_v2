@@ -10,6 +10,7 @@ import YoutubePlaylistGrid from '../components/teachings/YoutubePlaylistGrid';
 import AlertSubscribeModal from '../components/alerts/AlertSubscribeModal';
 import BundaArchivesToolbar, { type BundaArchiveViewMode } from '../components/bunda/BundaArchivesToolbar';
 import BundaNotifyButton from '../components/bunda/BundaNotifyButton';
+import { safeTrimmedString } from '../lib/playlistGridLinks';
 import '../styles/youtube-playlist-grid.css';
 
 const FALLBACK_HERO =
@@ -22,17 +23,22 @@ const FALLBACK_HERO =
  * @returns Groupe compatible avec la grille playlists.
  */
 function editionToPlaylistGroup(edition: BundaEdition): TeachingsPlaylistGroup {
+  const contentHref = safeTrimmedString(edition.contentHref);
+  const editionId = safeTrimmedString(edition.id);
   const href =
-    edition.contentHref !== null && edition.contentHref.trim() !== ''
-      ? edition.contentHref
-      : `/teachings/playlist/${encodeURIComponent(edition.id)}`;
+    contentHref !== ''
+      ? contentHref
+      : editionId !== ''
+        ? `/teachings/playlist/${encodeURIComponent(editionId)}`
+        : '/teachings?tab=playlists';
+  const image = safeTrimmedString(edition.image);
 
   return {
-    eventId: edition.id,
-    title: edition.title,
-    description: edition.description,
-    thumbnail: edition.image.trim() !== '' ? edition.image : FALLBACK_HERO,
-    videoCount: edition.videoCount,
+    eventId: editionId,
+    title: safeTrimmedString(edition.title) || 'Bunda',
+    description: safeTrimmedString(edition.description),
+    thumbnail: image !== '' ? image : FALLBACK_HERO,
+    videoCount: typeof edition.videoCount === 'number' ? edition.videoCount : Number(edition.videoCount) || 0,
     visibility: edition.editionYear > 0 ? `Édition ${edition.editionYear}` : 'Conférence',
     items: [],
     href,

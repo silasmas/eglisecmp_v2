@@ -118,6 +118,16 @@ final class PublicTeachingsPlaylistController extends Controller
         $group = $this->eventToGroup($event, $locale, $fallback, listMode: false);
         unset($group['sortDate']);
 
+        $meditationLabel = YoutubePlaylistMatcher::meditationGroupForTitle(
+            SitePublicSerializer::text($event->designation, $locale, $fallback)
+        );
+        if ($meditationLabel !== null) {
+            $weeklyDay = YoutubePlaylistMatcher::weeklyServiceDayForGroup($meditationLabel);
+            if ($weeklyDay !== null) {
+                $group['weeklyServiceDay'] = $weeklyDay;
+            }
+        }
+
         return response()->json([
             'data' => array_merge($group, [
                 'youtubePlaylistId' => is_string($event->youtube_playlist_id) ? $event->youtube_playlist_id : null,

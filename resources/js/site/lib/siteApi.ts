@@ -304,20 +304,82 @@ export async function fetchSiteSermonById(postId: string): Promise<Sermon> {
  * Charge toutes les pages d'une playlist donnée (filtrage serveur par `event_id`).
  *
  * @param eventId Identifiant événement lié aux messages.
+ * @param options Options de filtrage (jour de culte, recherche).
  * @param perPage Taille de pagination (32–48 recommandé pour limiter les requêtes).
  */
-export async function fetchSitePlaylistPosts(eventId: string, perPage = 48): Promise<Sermon[]> {
+export async function fetchSitePlaylistPosts(
+  eventId: string,
+  options: { weeklyServiceDay?: string; search?: string } = {},
+  perPage = 48,
+): Promise<Sermon[]> {
   const aggregated: Sermon[] = [];
   let page = 1;
   const maxPages = 30;
+  const weeklyDay = (options.weeklyServiceDay ?? '').trim();
+  const search = (options.search ?? '').trim();
 
   while (page <= maxPages) {
     const query = new URLSearchParams({
-      tab: 'playlists',
+      tab: weeklyDay !== '' ? 'meditations' : 'playlists',
       page: String(page),
       per_page: String(perPage),
       event_id: eventId,
     });
+
+    if (weeklyDay !== '') {
+      query.set('weekly_service_day', weeklyDay);
+    }
+
+    if (search !== '') {
+      query.set('search', search);
+    }
+
+    const chunk = await fetchSiteJson<PostsPageResponse>(`/posts?${query.toString()}`);
+    aggregated.push(...chunk.data);
+
+    if (!chunk.meta?.has_more) {
+      break;
+    }
+    page += 1;
+  }
+
+  return aggregated;
+}
+
+/**
+ * Charge tous les messages d’un jour de culte hebdomadaire (méditations).
+ *
+ * @param weeklyServiceDay Jour (`mercredi`, `jeudi`, `dimanche`).
+ * @param search Filtre texte optionnel.
+ * @param perPage Taille de page API.
+ */
+export async function fetchSiteMeditationPostsByDay(
+  weeklyServiceDay: string,
+  search = '',
+  perPage = 48,
+): Promise<Sermon[]> {
+  const aggregated: Sermon[] = [];
+  let page = 1;
+  const maxPages = 30;
+  const day = weeklyServiceDay.trim();
+  const searchToken = search.trim();
+
+  if (day === '') {
+    return aggregated;
+  }
+
+  while (page <= maxPages) {
+    const query = new URLSearchParams({
+      tab: 'meditations',
+      page: String(page),
+      per_page: String(perPage),
+      weekly_service_day: day,
+    });
+
+    if (searchToken !== '') {
+      query.set('search', searchToken);
+    }
+
     const chunk = await fetchSiteJson<PostsPageResponse>(`/posts?${query.toString()}`);
     aggregated.push(...chunk.data);
 

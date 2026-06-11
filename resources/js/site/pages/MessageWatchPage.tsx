@@ -10,44 +10,8 @@ import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
 import PageHero from '../components/ui/PageHero';
 import InfiniteScrollFooter from '../components/teachings/InfiniteScrollFooter';
 import { useInfiniteSitePosts } from '../hooks/useInfiniteSitePosts';
-
-/**
- * Ajoute autoplay+mutes aux URLs d’iframe YouTube existantes renvoyées par l’API.
- *
- * @param embedUrl URL embed (avec query éventuelle).
- * @param autoplay Lance la lecture immédiate (navigateurs exigent souvent mute=1).
- * @returns URL prête pour l’iframe, ou chaîne vide.
- */
-function withEmbedPlaybackParams(embedUrl: string | null | undefined, autoplay: boolean): string {
-  if (!embedUrl) {
-    return '';
-  }
-
-  const sep = embedUrl.includes('?') ? '&' : '?';
-
-  return autoplay ? `${embedUrl}${sep}autoplay=1&mute=1&playsinline=1` : embedUrl;
-}
-
-/**
- * Formate une date de prédication (YYYY-MM-DD) pour une ligne de liste français.
- *
- * @param iso Chaîne courte date uniquement depuis l’API.
- */
-function formatPreachRowDate(iso: string): string {
-  if (!iso) {
-    return '—';
-  }
-
-  try {
-    return new Intl.DateTimeFormat('fr-FR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-    }).format(new Date(iso));
-  } catch {
-    return iso;
-  }
-}
+import { formatPreachRowDate } from '../lib/preachRowDate';
+import { withEmbedPlaybackParams } from '../lib/youtubeEmbed';
 
 /**
  * Page de lecture d’un message avec liste paginée infinie et recherche dans la colonne latérale.
@@ -194,11 +158,12 @@ export default function MessageWatchPage() {
                 {current.youtubeEmbedUrl ? (
                   <div className="aspect-video">
                     <iframe
+                      key={current.id}
                       src={withEmbedPlaybackParams(current.youtubeEmbedUrl, autoplayRequested)}
                       title={`Lecture vidéo : ${current.title}`}
                       className="h-full w-full border-0"
                       allowFullScreen
-                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                     />
                   </div>
                 ) : (
@@ -212,6 +177,16 @@ export default function MessageWatchPage() {
                       <p className="text-sm font-semibold text-white">
                         Vidéo indisponible en lecture intégrée pour ce message (aucun lien YouTube valide renseigné).
                       </p>
+                      {current.linkUrl ? (
+                        <a
+                          href={current.linkUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="mt-2 rounded-lg bg-white/90 px-4 py-2 text-sm font-semibold text-surface-900 hover:bg-white"
+                        >
+                          Ouvrir sur YouTube
+                        </a>
+                      ) : null}
                     </div>
                   </div>
                 )}

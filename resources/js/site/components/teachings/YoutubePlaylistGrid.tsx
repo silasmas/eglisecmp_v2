@@ -1,7 +1,14 @@
+import { type ReactNode } from 'react';
 import { Link } from 'react-router-dom';
 import { ListVideo } from 'lucide-react';
 import type { TeachingsPlaylistGroup } from '../../data/types';
 import { rememberPlaylistOrigin } from '../../lib/playlistOrigin';
+import {
+  isExternalHref,
+  resolvePlaylistGroupHref,
+  resolvePlaylistVideoCount,
+  safeTrimmedString,
+} from '../../lib/playlistGridLinks';
 import { sortSermonsNewestFirst } from '../../lib/sermonSort';
 import { appendPlaylistFromParam, type PlaylistOriginTab } from '../../lib/teachingsNavigation';
 import ImageWithSkeleton from '../ui/ImageWithSkeleton';
@@ -13,6 +20,40 @@ type YoutubePlaylistGridProps = {
   /** Onglet ou page d’origine (bouton retour dynamique sur la lecture playlist). */
   fromTab?: PlaylistOriginTab;
 };
+
+type PlaylistGridLinkProps = {
+  href: string;
+  className: string;
+  ariaLabel?: string;
+  onNavigate: () => void;
+  children: ReactNode;
+};
+
+/**
+ * Lien interne (React Router) ou externe selon l’URL cible.
+ */
+function PlaylistGridLink({ href, className, ariaLabel, onNavigate, children }: PlaylistGridLinkProps) {
+  if (isExternalHref(href)) {
+    return (
+      <a
+        href={href}
+        className={className}
+        aria-label={ariaLabel}
+        onClick={onNavigate}
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+        {children}
+      </a>
+    );
+  }
+
+  return (
+    <Link to={href} className={className} aria-label={ariaLabel} onClick={onNavigate}>
+      {children}
+    </Link>
+  );
+}
 
 /**
  * Grille de playlists style YouTube (vignettes empilées du plus récent au plus ancien).
@@ -35,18 +76,13 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
           return null;
         }
 
-        const eventId = typeof group.eventId === 'string' ? group.eventId : '';
-        const groupTitle = typeof group.title === 'string' ? group.title : 'Playlist';
-        const videoCount = typeof group.videoCount === 'number' ? group.videoCount : 0;
-        const description = typeof group.description === 'string' ? group.description : '';
-        const thumbnail = typeof group.thumbnail === 'string' ? group.thumbnail : '';
+        const eventId = safeTrimmedString(group.eventId);
+        const groupTitle = safeTrimmedString(group.title) || 'Playlist';
+        const videoCount = resolvePlaylistVideoCount(group.videoCount);
+        const description = safeTrimmedString(group.description);
+        const thumbnail = safeTrimmedString(group.thumbnail);
 
-        const baseHref =
-          group.href !== undefined && group.href.trim() !== ''
-            ? group.href
-            : eventId !== ''
-              ? `/teachings/playlist/${encodeURIComponent(eventId)}`
-              : '/teachings?tab=playlists';
+        const baseHref = resolvePlaylistGroupHref(group.href, eventId);
         const href = appendPlaylistFromParam(baseHref, fromTab);
         const previewSource =
           group.latestItem != null
@@ -57,19 +93,19 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
         const sortedItems = sortSermonsNewestFirst(previewSource);
         const newest = sortedItems[0];
         const stackDepth = Math.min(Math.max(videoCount, sortedItems.length), 3);
-        const previewThumbnail =
-          newest?.thumbnail?.trim() !== '' ? newest.thumbnail : thumbnail;
+        const newestThumbnail = safeTrimmedString(newest?.thumbnail);
+        const previewThumbnail = newestThumbnail !== '' ? newestThumbnail : thumbnail;
 
         return (
           <article key={eventId !== '' ? eventId : `${groupTitle}-${String(index)}`} className="yt-playlist-card">
             <p className="yt-playlist-count-above">
               {videoCount} vidéo{videoCount > 1 ? 's' : ''}
             </p>
-            <Link
-              to={href}
-              onClick={handleNavigate}
+            <PlaylistGridLink
+              href={href}
+              onNavigate={handleNavigate}
               className="yt-playlist-thumb-link"
-              aria-label={`Voir la playlist ${groupTitle}`}
+              ariaLabel={`Voir la playlist ${groupTitle}`}
             >
               <div
                 className="yt-playlist-stack"
@@ -89,11 +125,11 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
                   </span>
                 </div>
               </div>
-            </Link>
+            </PlaylistGridLink>
             <div className="yt-playlist-meta">
-              <Link to={href} onClick={handleNavigate} className="yt-playlist-title line-clamp-2">
+              <PlaylistGridLink href={href} onNavigate={handleNavigate} className="yt-playlist-title line-clamp-2">
                 {groupTitle}
-              </Link>
+              </PlaylistGridLink>
               <p className="yt-playlist-visibility">{group.visibility ?? 'Publique'}</p>
               {newest?.title ? (
                 <p className="yt-playlist-latest line-clamp-2">
@@ -103,9 +139,9 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: Y
               {description !== '' ? (
                 <p className="yt-playlist-desc line-clamp-2">{description}</p>
               ) : null}
-              <Link to={href} onClick={handleNavigate} className="yt-playlist-action">
+              <PlaylistGridLink href={href} onNavigate={handleNavigate} className="yt-playlist-action">
                 Afficher la playlist complète
-              </Link>
+              </PlaylistGridLink>
             </div>
           </article>
         );
