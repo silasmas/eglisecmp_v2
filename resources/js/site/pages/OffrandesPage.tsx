@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { ChevronLeft, Loader2, CreditCard, Heart, Smartphone, ShieldCheck } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
+import SiteToast from '../components/ui/SiteToast';
 import { cn } from '../lib/utils';
 import {
   fetchOffrandesList,
@@ -32,6 +33,21 @@ type MobileTreatmentStep =
   | 'done'
   | 'error'
   | 'verification_exhausted';
+
+type OffrandeFieldErrors = {
+  offrande?: string;
+  montant?: string;
+  channel?: string;
+  provider?: string;
+  phone?: string;
+  step1?: string;
+  step2?: string;
+};
+
+/** Bordure rouge pour un champ en erreur de validation. */
+function fieldErrorRing(hasError: boolean): string {
+  return hasError ? 'border-burgundy-500 ring-1 ring-burgundy-400 dark:border-burgundy-500' : '';
+}
 
 /** Normalise un numéro RD Congo en MSISDN 243XXXXXXXXX. */
 function normalizeMsisdn(input: string): string | null {
@@ -125,7 +141,8 @@ export default function OffrandesPage() {
   const [reference, setReference] = useState<string | null>(null);
   const [channel, setChannel] = useState<'mobile_money' | 'card' | ''>('');
   const [busy, setBusy] = useState(false);
-  const [errorBanner, setErrorBanner] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<OffrandeFieldErrors>({});
+  const [toast, setToast] = useState<{ message: string; variant: 'error' | 'success' } | null>(null);
   const [successBanner, setSuccessBanner] = useState<string | null>(null);
   const [mobileTreatment, setMobileTreatment] = useState<MobileTreatmentStep>('idle');
   const [verificationPhase, setVerificationPhase] = useState(0);
@@ -134,24 +151,40 @@ export default function OffrandesPage() {
   const pollRef = useRef<number | null>(null);
   const verificationPhaseRef = useRef(0);
   const phaseStartedAtRef = useRef(0);
-  const errorBannerRef = useRef<HTMLParagraphElement | null>(null);
+  const toastTimerRef = useRef<number | null>(null);
   const stepsContainerRef = useRef<HTMLDivElement | null>(null);
   const step1Ref = useRef<HTMLElement | null>(null);
   const step2Ref = useRef<HTMLElement | null>(null);
   const step3Ref = useRef<HTMLElement | null>(null);
 
-  /** Affiche un message d’échec visible (bandeau + étape 3 si Mobile money). */
-  const reportPaymentError = useCallback((rawMessage: string | undefined | null, step3Fallback?: string) => {
-    const label = formatPaymentErrorMessage(rawMessage);
-    setErrorBanner(label);
-    setSuccessBanner(null);
-    setStep3Notice(step3Fallback !== undefined ? formatPaymentErrorMessage(step3Fallback) : label);
-    setMobileTreatment('error');
-    setBusy(false);
-    window.requestAnimationFrame(() => {
-      errorBannerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
-    });
+  /** Affiche un toast éphémère (erreur ou succès). */
+  const showToast = useCallback((message: string, variant: 'error' | 'success' = 'error') => {
+    if (toastTimerRef.current !== null) {
+      window.clearTimeout(toastTimerRef.current);
+    }
+    setToast({ message, variant });
+    toastTimerRef.current = window.setTimeout(() => {
+      setToast(null);
+    }, 5500);
   }, []);
+
+  const clearFieldErrors = useCallback(() => {
+    setFieldErrors({});
+  }, []);
+
+  /** Affiche un échec paiement : toast + message localisé étape 2/3. */
+  const reportPaymentError = useCallback(
+    (rawMessage: string | undefined | null, step3Fallback?: string) => {
+      const label = formatPaymentErrorMessage(rawMessage);
+      setSuccessBanner(null);
+      setFieldErrors({ step2: label });
+      setStep3Notice(step3Fallback !== undefined ? formatPaymentErrorMessage(step3Fallback) : label);
+      setMobileTreatment('error');
+      setBusy(false);
+      showToast(label);
+    },
+    [showToast],
+  );
 
   const stopPolling = useCallback(() => {
     if (pollRef.current !== null) {
@@ -171,7 +204,7 @@ export default function OffrandesPage() {
     setReference(null);
     setChannel('');
     setBusy(false);
-    setErrorBanner(null);
+    clearFieldErrors();
     setMobileTreatment('idle');
     setVerificationPhase(0);
     setStep3Notice(null);
@@ -184,7 +217,7 @@ export default function OffrandesPage() {
       const firstId = offrandes[0]?.id;
       return firstId !== undefined ? firstId : '';
     });
-  }, [mobileProviders, offrandes, stopPolling]);
+  }, [clearFieldErrors, mobileProviders, offrandes, stopPolling]);
 
   const startMobilePaymentPolling = useCallback(
     (paymentReference: string) => {
@@ -306,16 +339,19 @@ export default function OffrandesPage() {
       resetAfterSuccessfulPayment();
       clearCarteQuery();
     } else if (carte === 'cancel') {
-      setErrorBanner('Paiement carte annulé par l\'opérateur.');
+      showToast('Paiement carte annulé par l\'opérateur.');
+      setFieldErrors({ step2: 'Paiement carte annulé par l\'opérateur.' });
       clearCarteQuery();
     } else if (carte === 'decline') {
-      setErrorBanner('Paiement carte refusé par l\'opérateur.');
+      showToast('Paiement carte refusé par l\'opérateur.');
+      setFieldErrors({ step2: 'Paiement carte refusé par l\'opérateur.' });
       clearCarteQuery();
     } else if (searchParams.has('erreur')) {
-      setErrorBanner('Impossible de finaliser cette offrande. Contactez-nous avec votre reçu si besoin.');
+      showToast('Impossible de finaliser cette offrande. Contactez-nous avec votre reçu si besoin.');
+      setFieldErrors({ step2: 'Impossible de finaliser cette offrande.' });
       clearCarteQuery();
     }
-  }, [clearCarteQuery, resetAfterSuccessfulPayment, searchParams]);
+  }, [clearCarteQuery, resetAfterSuccessfulPayment, searchParams, showToast]);
 
   const selectedOffrande = useMemo(
     () => offrandes.find((row) => row.id === Number(offrandeId)),
@@ -380,12 +416,12 @@ export default function OffrandesPage() {
     if (reference === null || reference === '') {
       return;
     }
-    setErrorBanner(null);
+    clearFieldErrors();
     setStep3Notice(null);
     setBusy(true);
     setMobileTreatment('await_device');
     startMobilePaymentPolling(reference);
-  }, [reference, startMobilePaymentPolling]);
+  }, [clearFieldErrors, reference, startMobilePaymentPolling]);
 
   /** Retour étape 1 : déverrouille le formulaire don (nouvelle référence à la prochaine validation). */
   const handleBackToStep1 = useCallback(() => {
@@ -395,39 +431,45 @@ export default function OffrandesPage() {
     setPaymentPhone('');
     setProviderCode(mobileProviders[0]?.code ?? '');
     setBusy(false);
-    setErrorBanner(null);
+    clearFieldErrors();
     setSuccessBanner(null);
     setMobileTreatment('idle');
     setVerificationPhase(0);
     setStep3Notice(null);
     verificationPhaseRef.current = 0;
     phaseStartedAtRef.current = 0;
-  }, [mobileProviders, stopPolling]);
+  }, [clearFieldErrors, mobileProviders, stopPolling]);
 
   /** Retour étape 2 : annule le suivi en cours et permet de changer le mode de paiement. */
   const handleBackToStep2 = useCallback(() => {
     stopPolling();
     setBusy(false);
-    setErrorBanner(null);
+    clearFieldErrors();
     setMobileTreatment('idle');
     setVerificationPhase(0);
     setStep3Notice(null);
     verificationPhaseRef.current = 0;
     phaseStartedAtRef.current = 0;
-  }, [stopPolling]);
+  }, [clearFieldErrors, stopPolling]);
 
   const step1InputsLocked = step1Done;
 
   const handlePrepare = useCallback(async () => {
-    setErrorBanner(null);
+    clearFieldErrors();
     setSuccessBanner(null);
     const value = Number(montant);
+    const nextErrors: OffrandeFieldErrors = {};
+
     if (offrandeId === '') {
-      setErrorBanner('Choisissez un type d\'offrande.');
-      return;
+      nextErrors.offrande = 'Choisissez un type d\'offrande.';
     }
     if (!Number.isFinite(value) || value < 1) {
-      setErrorBanner('Montant invalide.');
+      nextErrors.montant = 'Montant invalide (minimum 1).';
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      showToast('Corrigez les champs indiqués avant de continuer.');
       return;
     }
 
@@ -447,47 +489,49 @@ export default function OffrandesPage() {
       setMobileTreatment('idle');
     } catch (err) {
       setReference(null);
-      setErrorBanner(formatPaymentErrorMessage(err instanceof Error ? err.message : null));
+      const message = formatPaymentErrorMessage(err instanceof Error ? err.message : null);
+      setFieldErrors({ step1: message });
+      showToast(message);
     } finally {
       setBusy(false);
     }
-  }, [currency, fullname, message, mobileProviders, montant, offrandeId]);
+  }, [clearFieldErrors, currency, fullname, message, mobileProviders, montant, offrandeId, showToast]);
 
   /** Paiement : mobile (polling avec bouton chargé jusqu’à fin) ou carte (redirection). */
   const handlePay = useCallback(async () => {
-    setErrorBanner(null);
+    clearFieldErrors();
     setSuccessBanner(null);
+    const nextErrors: OffrandeFieldErrors = {};
+
     if (reference === null || reference === '') {
-      setErrorBanner('Référence introuvable : validez d\'abord l\'étape 1.');
-      return;
+      nextErrors.step1 = 'Validez d\'abord l\'étape 1.';
     }
     if (channel === '') {
-      setErrorBanner('Choisissez Mobile money ou Carte bancaire.');
-      return;
+      nextErrors.channel = 'Choisissez Mobile money ou Carte bancaire.';
     }
 
     if (channel === 'mobile_money') {
       if (providerCode === '') {
-        setErrorBanner('Choisissez votre opérateur Mobile money.');
-        return;
+        nextErrors.provider = 'Choisissez votre opérateur Mobile money.';
       }
 
       const selectedProvider = mobileProviders.find((row) => row.code === providerCode);
       const normalized = normalizeMsisdn(paymentPhone);
 
       if (normalized === null) {
-        setErrorBanner(`Numéro invalide : ${PHONE_HELPER}`);
-        return;
-      }
-
-      if (selectedProvider === undefined || !msisdnMatchesProvider(selectedProvider, normalized)) {
-        setErrorBanner(
+        nextErrors.phone = `Numéro invalide. ${PHONE_HELPER}`;
+      } else if (selectedProvider === undefined || !msisdnMatchesProvider(selectedProvider, normalized)) {
+        nextErrors.phone =
           selectedProvider !== undefined
             ? `Le numéro ne correspond pas au réseau ${selectedProvider.label}.`
-            : 'Opérateur Mobile money non reconnu.',
-        );
-        return;
+            : 'Opérateur Mobile money non reconnu.';
       }
+    }
+
+    if (Object.keys(nextErrors).length > 0) {
+      setFieldErrors(nextErrors);
+      showToast('Corrigez les champs indiqués avant de payer.');
+      return;
     }
 
     setBusy(true);
@@ -508,7 +552,9 @@ export default function OffrandesPage() {
           window.location.assign(result.redirect_url);
           return;
         }
-        setErrorBanner('Redirection carte indisponible. Réessayez plus tard.');
+        const cardMessage = 'Redirection carte indisponible. Réessayez plus tard.';
+        setFieldErrors({ step2: cardMessage });
+        showToast(cardMessage);
         setBusy(false);
         return;
       }
@@ -519,7 +565,7 @@ export default function OffrandesPage() {
           return;
         }
 
-        setErrorBanner(null);
+        clearFieldErrors();
         setStep3Notice(null);
         setMobileTreatment('await_device');
         startMobilePaymentPolling(reference);
@@ -529,14 +575,21 @@ export default function OffrandesPage() {
         reportPaymentError(err instanceof Error ? err.message : null, 'Erreur lors du paiement Mobile money.');
       } else {
         setMobileTreatment('idle');
-        setErrorBanner(formatPaymentErrorMessage(err instanceof Error ? err.message : null));
+        const message = formatPaymentErrorMessage(err instanceof Error ? err.message : null);
+        setFieldErrors({ step2: message });
+        showToast(message);
         setBusy(false);
       }
     }
-  }, [channel, mobileProviders, paymentPhone, providerCode, reference, reportPaymentError, startMobilePaymentPolling, stopPolling]);
+  }, [channel, clearFieldErrors, mobileProviders, paymentPhone, providerCode, reference, reportPaymentError, showToast, startMobilePaymentPolling, stopPolling]);
 
   useEffect(() => {
-    return () => stopPolling();
+    return () => {
+      stopPolling();
+      if (toastTimerRef.current !== null) {
+        window.clearTimeout(toastTimerRef.current);
+      }
+    };
   }, [stopPolling]);
 
   const processingSubsteps = [
@@ -581,17 +634,6 @@ export default function OffrandesPage() {
         </div>
 
         {loadingList ? <p className="mb-6 text-sm text-surface-500 dark:text-surface-400">Chargement...</p> : null}
-
-        {errorBanner !== null ? (
-          <p
-            ref={errorBannerRef}
-            role="alert"
-            aria-live="assertive"
-            className="mb-6 rounded-xl border border-burgundy-300 bg-burgundy-50 px-4 py-3 text-sm font-medium text-burgundy-900 dark:bg-burgundy-950/30 dark:text-burgundy-100"
-          >
-            {errorBanner}
-          </p>
-        ) : null}
 
         {successBanner !== null ? (
           <p className="mb-6 rounded-xl border border-emerald-300 bg-emerald-50 px-4 py-3 text-sm text-emerald-900 dark:bg-emerald-950/35 dark:text-emerald-100">
@@ -662,7 +704,10 @@ export default function OffrandesPage() {
                     value={offrandeId === '' ? '' : String(offrandeId)}
                     onChange={(event) => setOffrandeId(event.target.value === '' ? '' : Number(event.target.value))}
                     disabled={busy || step1InputsLocked}
-                    className="mt-1 w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white"
+                    className={cn(
+                      'mt-1 w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white',
+                      fieldErrorRing(Boolean(fieldErrors.offrande)),
+                    )}
                   >
                     <option value="" disabled>
                       Choisir…
@@ -673,6 +718,11 @@ export default function OffrandesPage() {
                       </option>
                     ))}
                   </select>
+                  {fieldErrors.offrande ? (
+                    <p className="mt-1 text-[11px] font-medium text-burgundy-700 dark:text-burgundy-300" role="alert">
+                      {fieldErrors.offrande}
+                    </p>
+                  ) : null}
                   {selectedOffrande?.description ? (
                     <p className="mt-1 text-[11px] text-surface-500">{selectedOffrande.description}</p>
                   ) : null}
@@ -692,8 +742,16 @@ export default function OffrandesPage() {
                       value={montant}
                       onChange={(event) => setMontant(event.target.value)}
                       disabled={busy || step1InputsLocked}
-                      className="mt-1 w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white"
+                      className={cn(
+                        'mt-1 w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white',
+                        fieldErrorRing(Boolean(fieldErrors.montant)),
+                      )}
                     />
+                    {fieldErrors.montant ? (
+                      <p className="mt-1 text-[11px] font-medium text-burgundy-700 dark:text-burgundy-300" role="alert">
+                        {fieldErrors.montant}
+                      </p>
+                    ) : null}
                   </div>
                   <div>
                     <label className="text-[10px] font-semibold uppercase tracking-wide text-surface-500" htmlFor="currency">
@@ -740,6 +798,12 @@ export default function OffrandesPage() {
                     className="mt-1 w-full rounded-xl border border-surface-200 px-3 py-2.5 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white"
                   />
                 </div>
+
+                {fieldErrors.step1 ? (
+                  <p className="rounded-xl border border-burgundy-200 bg-burgundy-50 px-3 py-2 text-xs font-medium text-burgundy-900 dark:border-burgundy-800 dark:bg-burgundy-950/30 dark:text-burgundy-100" role="alert">
+                    {fieldErrors.step1}
+                  </p>
+                ) : null}
 
                 <button
                   type="button"
@@ -809,13 +873,19 @@ export default function OffrandesPage() {
                 </div>
               ) : (
                 <>
-                  <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  <div
+                    className={cn(
+                      'grid grid-cols-1 gap-3 sm:grid-cols-2',
+                      fieldErrors.channel ? 'rounded-xl ring-1 ring-burgundy-400 p-1' : '',
+                    )}
+                  >
                     <button
                       type="button"
                       aria-pressed={channel === 'mobile_money'}
                       onClick={() => {
                         setChannel('mobile_money');
                         setSuccessBanner(null);
+                        setFieldErrors((current) => ({ ...current, channel: undefined }));
                       }}
                       disabled={busy && mobileTreatment !== 'idle'}
                       className={cn(
@@ -836,6 +906,7 @@ export default function OffrandesPage() {
                       onClick={() => {
                         setChannel('card');
                         setSuccessBanner(null);
+                        setFieldErrors((current) => ({ ...current, channel: undefined }));
                       }}
                       disabled={busy && mobileTreatment !== 'idle'}
                       className={cn(
@@ -851,9 +922,19 @@ export default function OffrandesPage() {
                       </div>
                     </button>
                   </div>
+                  {fieldErrors.channel ? (
+                    <p className="mt-2 text-[11px] font-medium text-burgundy-700 dark:text-burgundy-300" role="alert">
+                      {fieldErrors.channel}
+                    </p>
+                  ) : null}
 
                   {channel === 'mobile_money' ? (
-                    <div className="mt-5 overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20">
+                    <div
+                      className={cn(
+                        'mt-5 overflow-hidden rounded-2xl border border-emerald-200/70 bg-emerald-50/50 p-4 dark:border-emerald-900/60 dark:bg-emerald-950/20',
+                        (fieldErrors.provider || fieldErrors.phone) ? 'ring-1 ring-burgundy-400' : '',
+                      )}
+                    >
                       <p className="text-[10px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200">
                         Opérateur Mobile money *
                       </p>
@@ -882,6 +963,11 @@ export default function OffrandesPage() {
                           ))}
                         </div>
                       )}
+                      {fieldErrors.provider ? (
+                        <p className="mt-2 text-[11px] font-medium text-burgundy-700 dark:text-burgundy-300" role="alert">
+                          {fieldErrors.provider}
+                        </p>
+                      ) : null}
 
                       <label className="mt-4 block text-[10px] font-semibold uppercase tracking-wide text-emerald-900 dark:text-emerald-200" htmlFor="pay-phone">
                         Numéro Mobile money *
@@ -895,9 +981,18 @@ export default function OffrandesPage() {
                         value={paymentPhone}
                         onChange={(event) => setPaymentPhone(event.target.value)}
                         disabled={busy && mobileTreatment !== 'idle'}
-                        className="mt-2 w-full rounded-xl border border-emerald-300/70 bg-white px-3 py-2.5 text-sm font-mono dark:border-emerald-800 dark:bg-surface-900 dark:text-white"
+                        className={cn(
+                          'mt-2 w-full rounded-xl border border-emerald-300/70 bg-white px-3 py-2.5 text-sm font-mono dark:border-emerald-800 dark:bg-surface-900 dark:text-white',
+                          fieldErrorRing(Boolean(fieldErrors.phone)),
+                        )}
                       />
-                      <p className="mt-2 text-[11px] leading-relaxed text-emerald-900/85 dark:text-emerald-300/95">{PHONE_HELPER}</p>
+                      {fieldErrors.phone ? (
+                        <p className="mt-2 text-[11px] font-medium text-burgundy-700 dark:text-burgundy-300" role="alert">
+                          {fieldErrors.phone}
+                        </p>
+                      ) : (
+                        <p className="mt-2 text-[11px] leading-relaxed text-emerald-900/85 dark:text-emerald-300/95">{PHONE_HELPER}</p>
+                      )}
                     </div>
                   ) : null}
 
@@ -908,12 +1003,12 @@ export default function OffrandesPage() {
                     </div>
                   ) : null}
 
-                  {channel === 'mobile_money' && mobileTreatment === 'error' && errorBanner !== null ? (
+                  {fieldErrors.step2 ? (
                     <p
                       role="alert"
                       className="mt-4 rounded-xl border border-burgundy-300 bg-burgundy-50 px-3 py-2.5 text-xs leading-relaxed text-burgundy-900 dark:border-burgundy-700 dark:bg-burgundy-950/40 dark:text-burgundy-100"
                     >
-                      {errorBanner}
+                      {fieldErrors.step2}
                     </p>
                   ) : null}
 
@@ -1020,12 +1115,12 @@ export default function OffrandesPage() {
                 </p>
               ) : null}
 
-              {focusStep === 3 && mobileTreatment === 'error' && errorBanner !== null ? (
+              {focusStep === 3 && fieldErrors.step2 ? (
                 <p
                   role="alert"
                   className="mt-6 rounded-xl border border-burgundy-300 bg-burgundy-50 px-4 py-3 text-xs font-medium leading-relaxed text-burgundy-900 dark:border-burgundy-700 dark:bg-burgundy-950/40 dark:text-burgundy-100"
                 >
-                  {errorBanner}
+                  {fieldErrors.step2}
                 </p>
               ) : null}
 
@@ -1098,6 +1193,12 @@ export default function OffrandesPage() {
           </>
         ) : null}
       </section>
+
+      <SiteToast
+        message={toast?.message ?? ''}
+        visible={toast !== null}
+        variant={toast?.variant ?? 'error'}
+      />
     </>
   );
 }

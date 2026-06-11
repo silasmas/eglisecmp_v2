@@ -1,8 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { ArrowLeft, ChevronRight, Youtube } from 'lucide-react';
-import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Sermon, TeachingsPlaylistGroup } from '../data/types';
 import { fetchSitePlaylistDetail, fetchSitePlaylistPosts } from '../lib/siteApi';
+import { resolvePlaylistBackNavigation } from '../lib/teachingsNavigation';
 import CollapsibleRichText from '../components/ui/CollapsibleRichText';
 import ReactionBar from '../components/ui/ReactionBar';
 import ImageWithSkeleton from '../components/ui/ImageWithSkeleton';
@@ -12,7 +13,6 @@ import PageHero from '../components/ui/PageHero';
  */
 export default function PlaylistWatchPage() {
   const { eventId } = useParams<{ eventId: string }>();
-  const location = useLocation();
   const [searchParams, setSearchParams] = useSearchParams();
   const [items, setItems] = useState<Sermon[]>([]);
   const [playlistMeta, setPlaylistMeta] = useState<TeachingsPlaylistGroup | null>(null);
@@ -97,7 +97,10 @@ export default function PlaylistWatchPage() {
     youtubePlaylistId !== null && youtubePlaylistId.trim() !== ''
       ? `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(youtubePlaylistId)}`
       : '';
-  const playlistBackHref = '/teachings?tab=playlists';
+  const playlistBack = useMemo(
+    () => resolvePlaylistBackNavigation(searchParams.get('from')),
+    [searchParams],
+  );
 
   useEffect(() => {
     if (loading || items.length === 0) {
@@ -141,10 +144,10 @@ export default function PlaylistWatchPage() {
 
       <section className="mx-auto max-w-7xl px-4 pb-24 pt-12 sm:px-6 lg:px-8">
         <Link
-          to={playlistBackHref}
+          to={playlistBack.href}
           className="mb-10 inline-flex items-center gap-2 rounded-full border border-surface-200 bg-white px-4 py-2 text-sm font-semibold text-surface-800 shadow-sm transition hover:border-burgundy-200 hover:bg-burgundy-50 hover:text-burgundy-900"
         >
-          <ArrowLeft className="h-4 w-4" aria-hidden /> Retour aux playlists
+          <ArrowLeft className="h-4 w-4" aria-hidden /> {playlistBack.label}
         </Link>
 
         {loading ? (

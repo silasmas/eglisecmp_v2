@@ -19,6 +19,7 @@ export default function PlaylistsStackedView() {
   return (
     <YoutubePlaylistGrid
       groups={groups}
+      fromTab="playlists"
       emptyMessage="Aucune playlist synchronisée. La synchronisation YouTube crée automatiquement les playlists comme événements."
     />
   );

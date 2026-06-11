@@ -6,6 +6,7 @@ namespace App\Services\Youtube;
 
 use App\Models\Event;
 use App\Models\Post;
+use App\Support\EventPostQuery;
 use App\Support\YoutubeEventDateResolver;
 use App\Support\YoutubePlaylistMatcher;
 use App\Support\YoutubeSyncState;
@@ -122,6 +123,7 @@ final class YoutubeChannelSyncService
         if (! $dryRun) {
             $this->importPlaylistVideos($playlists, $locale, $importShorts, $full, $stopAfterExisting);
             $this->linkPlaylistMemberships($channelId, $playlists, $full);
+            $this->refreshPlaylistEventThumbnails($locale);
             $this->persistSyncState($playlists);
         }
 
@@ -160,6 +162,39 @@ final class YoutubeChannelSyncService
         }
 
         YoutubeSyncState::save($counts);
+    }
+
+    /**
+     * Met à jour la vignette des événements-playlist avec la dernière vidéo synchronisée.
+     */
+    private function refreshPlaylistEventThumbnails(string $locale): void
+    {
+        $events = Event::query()
+            ->whereNotNull('youtube_playlist_id')
+            ->get();
+
+        foreach ($events as $event) {
+            $latest = EventPostQuery::latestPostForEvent($event);
+            if ($latest === null) {
+                continue;
+            }
+
+            $thumb = is_array($latest->image_url)
+                ? (string) ($latest->image_url[$locale] ?? reset($latest->image_url) ?: '')
+                : '';
+
+            if ($thumb === '') {
+                continue;
+            }
+
+            $imageUrl = is_array($event->image_url) ? $event->image_url : [];
+            if (($imageUrl[$locale] ?? '') === $thumb) {
+                continue;
+            }
+
+            $imageUrl[$locale] = $thumb;
+            $event->update(['image_url' => $imageUrl]);
+        }
     }
 
     private function buildResultMessage(

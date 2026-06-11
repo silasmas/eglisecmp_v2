@@ -258,7 +258,7 @@ export default function BundaPage() {
                   {filteredGroups.length === 0 ? (
                     <p className="text-center text-surface-500">Aucune archive pour cette année.</p>
                   ) : viewMode === 'grid' ? (
-                    <YoutubePlaylistGrid groups={filteredGroups} emptyMessage="" />
+                    <YoutubePlaylistGrid groups={filteredGroups} fromTab="bunda" emptyMessage="" />
                   ) : (
                     <div className="space-y-12">
                       {filteredEditions.map((edition) => (
@@ -280,7 +280,7 @@ export default function BundaPage() {
                               </a>
                             ) : null}
                           </div>
-                          <YoutubePlaylistGrid groups={[editionToPlaylistGroup(edition)]} emptyMessage="" />
+                          <YoutubePlaylistGrid groups={[editionToPlaylistGroup(edition)]} fromTab="bunda" emptyMessage="" />
                         </article>
                       ))}
                     </div>

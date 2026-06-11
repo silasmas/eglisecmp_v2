@@ -154,11 +154,22 @@ final class PublicTeachingsPlaylistController extends Controller
             static fn (Post $post): array => SitePublicSerializer::postToSermonArray($post, $locale, $fallback)
         )->values()->all();
 
+        $latestPost = $posts->first();
+        if ($latestPost instanceof Post) {
+            $latestThumb = SitePublicSerializer::imageUrl($latestPost->image_url, $locale, $fallback);
+            if ($latestThumb !== '') {
+                $thumb = $latestThumb;
+            }
+        }
+
         $syncedCount = count($items);
         $youtubeCount = (int) ($event->youtube_playlist_item_count ?? 0);
         $videoCount = max($youtubeCount, $syncedCount);
 
         $sortDate = YoutubeEventDateResolver::sortTimestamp($event);
+        if ($latestPost?->date_publication !== null) {
+            $sortDate = $latestPost->date_publication->toIso8601String();
+        }
 
         return [
             'eventId' => (string) $event->id,

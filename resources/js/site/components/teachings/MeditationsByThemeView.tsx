@@ -19,6 +19,7 @@ export default function MeditationsByThemeView() {
   return (
     <YoutubePlaylistGrid
       groups={groups}
+      fromTab="meditations"
       emptyMessage="Aucun culte hebdomadaire synchronisé. Lancez la synchronisation YouTube et vérifiez que les playlists « Culte d'enseignement », « Culte de jeudi etoko » et « Cultes dominicaux » existent sur la chaîne."
     />
   );

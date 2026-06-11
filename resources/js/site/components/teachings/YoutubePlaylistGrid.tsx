@@ -1,18 +1,21 @@
 import { Link } from 'react-router-dom';
 import { ListVideo } from 'lucide-react';
 import type { TeachingsPlaylistGroup } from '../../data/types';
+import { appendPlaylistFromParam, type PlaylistOriginTab } from '../../lib/teachingsNavigation';
 import ImageWithSkeleton from '../ui/ImageWithSkeleton';
 import '../../styles/youtube-playlist-grid.css';
 
 type YoutubePlaylistGridProps = {
   groups: TeachingsPlaylistGroup[];
   emptyMessage: string;
+  /** Onglet ou page d’origine (bouton retour dynamique sur la lecture playlist). */
+  fromTab?: PlaylistOriginTab;
 };
 
 /**
  * Grille de playlists style YouTube (vignette empilée, compteur, titre).
  */
-export default function YoutubePlaylistGrid({ groups, emptyMessage }: YoutubePlaylistGridProps) {
+export default function YoutubePlaylistGrid({ groups, emptyMessage, fromTab }: YoutubePlaylistGridProps) {
   if (groups.length === 0) {
     return <p className="text-center text-surface-500">{emptyMessage}</p>;
   }
@@ -20,12 +23,17 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage }: YoutubePla
   return (
     <div className="yt-playlist-grid">
       {groups.map((group) => {
-        const href =
+        const baseHref =
           group.href !== undefined && group.href.trim() !== ''
             ? group.href
             : group.eventId !== ''
               ? `/teachings/playlist/${encodeURIComponent(group.eventId)}`
               : '/teachings?tab=playlists';
+        const href = appendPlaylistFromParam(baseHref, fromTab);
+        const previewThumbnail =
+          group.items.length > 0 && group.items[0]?.thumbnail?.trim() !== ''
+            ? group.items[0].thumbnail
+            : group.thumbnail;
 
         return (
           <article key={group.eventId || group.title} className="yt-playlist-card">
@@ -38,7 +46,7 @@ export default function YoutubePlaylistGrid({ groups, emptyMessage }: YoutubePla
                 <span className="yt-playlist-stack-layer yt-playlist-stack-layer--1" aria-hidden />
                 <div className="yt-playlist-stack-front">
                   <ImageWithSkeleton
-                    src={group.thumbnail}
+                    src={previewThumbnail}
                     alt=""
                     className="absolute inset-0 h-full w-full object-cover"
                   />
