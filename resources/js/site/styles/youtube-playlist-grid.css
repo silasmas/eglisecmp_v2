@@ -48,21 +48,34 @@
   position: absolute;
   left: 8%;
   right: 8%;
-  height: 6px;
-  border-radius: 6px 6px 0 0;
-  background: rgba(0, 0, 0, 0.12);
+  border-radius: 10px 10px 0 0;
+  background: #606060;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.18);
+  pointer-events: none;
 }
 
 .yt-playlist-stack-layer--2 {
   top: 0;
   left: 12%;
   right: 12%;
+  height: 10px;
+  opacity: 0.45;
 }
 
 .yt-playlist-stack-layer--1 {
-  top: 4px;
+  top: 5px;
   left: 10%;
   right: 10%;
+  height: 14px;
+  opacity: 0.65;
+}
+
+.yt-playlist-stack:not([data-stack-depth]) .yt-playlist-stack-layer {
+  display: none;
+}
+
+.yt-playlist-stack[data-stack-depth='2'] .yt-playlist-stack-layer--2 {
+  display: none;
 }
 
 .yt-playlist-stack-front {
@@ -109,6 +122,13 @@
 .yt-playlist-visibility {
   margin-top: 0.2rem;
   font-size: 0.75rem;
+  color: #606060;
+}
+
+.yt-playlist-latest {
+  margin-top: 0.35rem;
+  font-size: 0.75rem;
+  line-height: 1.4;
   color: #606060;
 }
 

@@ -4,6 +4,13 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="description" content="Centre Missionnaire Philadelphie — L'amour fraternel au service des nations">
+    @php
+        $spaBasePath = parse_url((string) config('app.url'), PHP_URL_PATH);
+        $spaBase = is_string($spaBasePath) ? rtrim($spaBasePath, '/') : '';
+    @endphp
+    @if ($spaBase !== '')
+        <meta name="spa-base" content="{{ $spaBase }}">
+    @endif
     <title>Église CMP — Centre Missionnaire Philadelphie</title>
     <link rel="icon" href="/favicon.ico">
     @php($googleAnalyticsId = config('services.google_analytics.measurement_id'))

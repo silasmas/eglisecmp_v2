@@ -146,6 +146,7 @@ final class PublicTeachingsPlaylistController extends Controller
                 EventPostQuery::applyForEvent($query, $event);
             })
             ->orderByDesc('date_publication')
+            ->orderByDesc('youtube_synced_at')
             ->orderByDesc('id')
             ->with(['minister', 'event'])
             ->get();

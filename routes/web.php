@@ -48,3 +48,14 @@ Route::view('/', 'site')->name('site.spa.home');
 Route::view('/{path}', 'site')
     ->where('path', $spaPathPattern)
     ->name('site.spa.page');
+
+/*
+|--------------------------------------------------------------------------
+| SPA sous préfixe /public (hébergements où l’URL publique inclut ce segment)
+|--------------------------------------------------------------------------
+*/
+Route::view('/public', 'site')->name('site.spa.public.home');
+
+Route::view('/public/{path}', 'site')
+    ->where('path', $spaPathPattern)
+    ->name('site.spa.public.page');

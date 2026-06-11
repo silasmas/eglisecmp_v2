@@ -13,7 +13,7 @@ const ORIGIN_HREFS: Record<PlaylistOriginTab, string> = {
   meditations: '/teachings?tab=meditations',
   playlists: '/teachings?tab=playlists',
   sermons: '/teachings?tab=sermons',
-  bunda: '/bunda',
+  bunda: '/events/bunda',
 };
 
 /**
@@ -39,9 +39,9 @@ export function appendPlaylistFromParam(href: string, fromTab?: PlaylistOriginTa
 /**
  * Résout le libellé et l’URL du bouton retour depuis la page playlist.
  *
- * @param fromParam Valeur du query `from`.
+ * @param fromParam Valeur du query `from` ou origine mémorisée.
  */
-export function resolvePlaylistBackNavigation(fromParam: string | null): { href: string; label: string } {
+export function resolvePlaylistBackNavigation(fromParam: string | null | undefined): { href: string; label: string } {
   const normalized = (fromParam ?? '').trim().toLowerCase();
 
   if (normalized === 'meditations' || normalized === 'playlists' || normalized === 'sermons' || normalized === 'bunda') {

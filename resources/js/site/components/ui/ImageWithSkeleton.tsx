@@ -1,7 +1,16 @@
 import clsx from 'clsx';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { DEFAULT_PLACEHOLDER_IMAGE, resolvePublicImage } from '../../lib/placeholderImage';
 import { Skeleton } from './Skeleton';
+
+/**
+ * Indique si l’image est déjà disponible (cache navigateur ou chargement synchrone).
+ *
+ * @param image Élément img à inspecter.
+ */
+function isImageAlreadyLoaded(image: HTMLImageElement | null): boolean {
+  return image !== null && image.complete && image.naturalWidth > 0;
+}
 
 /**
  * Image avec skeleton en overlay jusqu'au premier chargement réussi (ou erreur puis placeholder).
@@ -31,12 +40,22 @@ export default function ImageWithSkeleton({
     setLoaded(!(src ?? '').trim());
   }, [src]);
 
+  const markLoadedIfReady = useCallback(
+    (image: HTMLImageElement | null) => {
+      if (isImageAlreadyLoaded(image)) {
+        setLoaded(true);
+      }
+    },
+    [currentSrc],
+  );
+
   return (
     <>
       {tracksNetwork && !loaded ? (
         <Skeleton className="pointer-events-none absolute inset-0 z-10 animate-pulse rounded-[inherit]" aria-hidden />
       ) : null}
       <img
+        ref={markLoadedIfReady}
         src={currentSrc}
         alt={alt}
         loading="lazy"

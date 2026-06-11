@@ -3,6 +3,8 @@ import { ArrowLeft, ChevronRight, Youtube } from 'lucide-react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { Sermon, TeachingsPlaylistGroup } from '../data/types';
 import { fetchSitePlaylistDetail, fetchSitePlaylistPosts } from '../lib/siteApi';
+import { readRememberedPlaylistOrigin } from '../lib/playlistOrigin';
+import { sortSermonsNewestFirst } from '../lib/sermonSort';
 import { resolvePlaylistBackNavigation } from '../lib/teachingsNavigation';
 import CollapsibleRichText from '../components/ui/CollapsibleRichText';
 import ReactionBar from '../components/ui/ReactionBar';
@@ -41,7 +43,8 @@ export default function PlaylistWatchPage() {
           return;
         }
         setPlaylistMeta(detail);
-        setItems(data.length > 0 ? data : detail.items ?? []);
+        const merged = data.length > 0 ? data : detail.items ?? [];
+        setItems(sortSermonsNewestFirst(merged));
       } catch (err) {
         if (!cancelled) {
           setItems([]);
@@ -97,10 +100,11 @@ export default function PlaylistWatchPage() {
     youtubePlaylistId !== null && youtubePlaylistId.trim() !== ''
       ? `https://www.youtube.com/embed/videoseries?list=${encodeURIComponent(youtubePlaylistId)}`
       : '';
-  const playlistBack = useMemo(
-    () => resolvePlaylistBackNavigation(searchParams.get('from')),
-    [searchParams],
-  );
+  const playlistBack = useMemo(() => {
+    const fromQuery = searchParams.get('from');
+    const fromStored = readRememberedPlaylistOrigin();
+    return resolvePlaylistBackNavigation(fromQuery ?? fromStored);
+  }, [searchParams]);
 
   useEffect(() => {
     if (loading || items.length === 0) {
@@ -111,7 +115,14 @@ export default function PlaylistWatchPage() {
     const shouldSetInitial = selectedPostId === '' && typeof firstId === 'string';
 
     if (shouldSetInitial) {
-      setSearchParams({ post: firstId }, { replace: true });
+      setSearchParams(
+        (previous) => {
+          const next = new URLSearchParams(previous);
+          next.set('post', firstId);
+          return next;
+        },
+        { replace: true },
+      );
     }
   }, [items, loading, selectedPostId, setSearchParams]);
 
@@ -119,7 +130,14 @@ export default function PlaylistWatchPage() {
     (index: number) => {
       const id = items[index]?.id;
       if (typeof id === 'string') {
-        setSearchParams({ post: id }, { replace: false });
+        setSearchParams(
+          (previous) => {
+            const next = new URLSearchParams(previous);
+            next.set('post', id);
+            return next;
+          },
+          { replace: false },
+        );
       }
     },
     [items, setSearchParams],

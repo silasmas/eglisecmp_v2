@@ -1,5 +1,7 @@
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import Layout from '../components/layout/Layout';
+import { detectSpaBasename } from '../lib/routerBasename';
+import SiteErrorPage from '../pages/SiteErrorPage';
 import HomePage from '../pages/HomePage';
 import DiscoverPage from '../pages/DiscoverPage';
 import AboutPage from '../pages/AboutPage';
@@ -18,9 +20,11 @@ import AppointmentPage from '../pages/AppointmentPage';
 import TestimonyWallPage from '../pages/TestimonyWallPage';
 import AlertUnsubscribePage from '../pages/AlertUnsubscribePage';
 
-export const router = createBrowserRouter([
+export const router = createBrowserRouter(
+  [
   {
     element: <Layout />,
+    errorElement: <SiteErrorPage />,
     children: [
       { index: true, element: <HomePage /> },
       { path: 'discover', element: <DiscoverPage /> },
@@ -40,6 +44,9 @@ export const router = createBrowserRouter([
       { path: 'rendez-vous', element: <AppointmentPage /> },
       { path: 'temoignages', element: <TestimonyWallPage /> },
       { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },
+      { path: '*', element: <SiteErrorPage statusCode={404} /> },
     ],
   },
-]);
+  ],
+  { basename: detectSpaBasename() },
+);
