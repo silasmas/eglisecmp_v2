@@ -77,47 +77,67 @@
         <i class="bi bi-people"></i>
       </div>
 
-      <div class="studio-people-toolbar studio-framed-box">
-        <label class="field" style="margin:0;">
-          <span class="field-label">Département</span>
-          <select id="departmentFilter" class="field-input" aria-label="Filtrer par département">
-            <option value="">Tous les départements</option>
-            @foreach(($studioBootstrap['departments'] ?? []) as $department)
-              <option value="{{ $department['id'] }}">{{ $department['name'] }}</option>
-            @endforeach
-          </select>
-        </label>
-        <label class="field" style="margin:0;">
-          <span class="field-label">Source</span>
-          <select id="workersSourceFilter" class="field-input" aria-label="Filtrer par source">
-            <option value="all">Tous</option>
-            <option value="validated">Validés (BDD)</option>
-            <option value="local">Brouillons locaux</option>
-          </select>
-        </label>
-        <label class="field" style="margin:0;">
-          <span class="field-label">Rechercher</span>
-          <input
-            type="search"
-            id="workerSearchInput"
-            class="field-input"
-            placeholder="Nom ou prénom…"
-            autocomplete="off"
-            aria-label="Rechercher un ouvrier par nom"
-          >
-        </label>
-        <p id="studioDirectoryStatus" class="field-hint studio-directory-status">
-          {{ count($studioBootstrap['departments'] ?? []) }} département(s) · {{ count($studioBootstrap['workers'] ?? []) }} ouvrier(s) validé(s)
-        </p>
-        <button type="button" class="studio-action-btn ghost" id="refreshValidatedWorkersBtn" title="Recharger les ouvriers validés">
-          <i class="bi bi-arrow-clockwise"></i>
-          <span>Actualiser validés</span>
+      <section class="studio-fold studio-framed-box is-collapsed" data-studio-fold="filters" aria-label="Filtres">
+        <button type="button" class="studio-fold-toggle" data-studio-fold-toggle aria-expanded="false">
+          <span class="studio-fold-toggle-main">
+            <i class="bi bi-funnel" aria-hidden></i>
+            <strong>Filtres</strong>
+            <small id="studioFiltersSummary">Tous · Recherche</small>
+          </span>
+          <i class="bi bi-chevron-down studio-fold-chevron" aria-hidden></i>
         </button>
-      </div>
+        <div class="studio-fold-body studio-people-toolbar" data-studio-fold-body hidden>
+          <label class="field" style="margin:0;">
+            <span class="field-label">Département</span>
+            <select id="departmentFilter" class="field-input" aria-label="Filtrer par département">
+              <option value="">Tous les départements</option>
+              @foreach(($studioBootstrap['departments'] ?? []) as $department)
+                <option value="{{ $department['id'] }}">{{ $department['name'] }}</option>
+              @endforeach
+            </select>
+          </label>
+          <label class="field" style="margin:0;">
+            <span class="field-label">Source</span>
+            <select id="workersSourceFilter" class="field-input" aria-label="Filtrer par source">
+              <option value="all">Tous</option>
+              <option value="validated">Validés (BDD)</option>
+              <option value="local">Brouillons locaux</option>
+            </select>
+          </label>
+          <label class="field" style="margin:0;">
+            <span class="field-label">Rechercher</span>
+            <input
+              type="search"
+              id="workerSearchInput"
+              class="field-input"
+              placeholder="Nom ou prénom…"
+              autocomplete="off"
+              aria-label="Rechercher un ouvrier par nom"
+            >
+          </label>
+          <p id="studioDirectoryStatus" class="field-hint studio-directory-status">
+            {{ count($studioBootstrap['departments'] ?? []) }} département(s) · {{ count($studioBootstrap['workers'] ?? []) }} ouvrier(s) validé(s)
+          </p>
+          <button type="button" class="studio-action-btn ghost" id="refreshValidatedWorkersBtn" title="Recharger les ouvriers validés">
+            <i class="bi bi-arrow-clockwise"></i>
+            <span>Actualiser validés</span>
+          </button>
+        </div>
+      </section>
 
-      <div class="studio-people-list-wrap studio-framed-box">
-        <div class="admin-list studio-scroll" id="participantsList"></div>
-      </div>
+      <section class="studio-fold studio-framed-box studio-people-list-fold is-expanded" data-studio-fold="list" aria-label="Liste des ouvriers">
+        <button type="button" class="studio-fold-toggle" data-studio-fold-toggle aria-expanded="true">
+          <span class="studio-fold-toggle-main">
+            <i class="bi bi-people" aria-hidden></i>
+            <strong>Liste</strong>
+            <small id="studioListSummary">Ouvriers</small>
+          </span>
+          <i class="bi bi-chevron-down studio-fold-chevron" aria-hidden></i>
+        </button>
+        <div class="studio-fold-body studio-people-list-wrap" data-studio-fold-body>
+          <div class="admin-list studio-scroll" id="participantsList"></div>
+        </div>
+      </section>
     </aside>
 
     <section class="studio-stage" aria-label="Aperçu du badge">

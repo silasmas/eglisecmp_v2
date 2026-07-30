@@ -235,6 +235,8 @@ function renderParticipantsList() {
         <span>Aucun ouvrier pour ce filtre. Modifiez la recherche, le département ou actualisez les validés.</span>
       </div>
     `;
+    updateStudioListSummary();
+    updateStudioFiltersSummary();
     return;
   }
 
@@ -262,6 +264,8 @@ function renderParticipantsList() {
       </div>
     `;
   }).join('');
+  updateStudioListSummary();
+  updateStudioFiltersSummary();
 }
 
 function getBlankAdminParticipant() {
@@ -836,8 +840,95 @@ function initStudioTabs() {
   setInspectorContext(tabs.find((tab) => tab.classList.contains('active'))?.dataset.studioTab || 'identity');
 }
 
+/**
+ * Met à jour le résumé compact des filtres (bandeau replié).
+ */
+function updateStudioFiltersSummary() {
+  const summary = getAdminEl('studioFiltersSummary');
+  if (!summary) return;
+  const deptSelect = getAdminEl('departmentFilter');
+  const sourceSelect = getAdminEl('workersSourceFilter');
+  const search = String(Admin.searchQuery || '').trim();
+  const deptLabel = deptSelect?.selectedOptions?.[0]?.textContent?.trim() || 'Tous';
+  const sourceLabel = sourceSelect?.selectedOptions?.[0]?.textContent?.trim() || 'Tous';
+  const parts = [
+    deptLabel === 'Tous les départements' ? 'Tous dép.' : deptLabel,
+    sourceLabel,
+  ];
+  if (search !== '') {
+    parts.push(`« ${search} »`);
+  }
+  summary.textContent = parts.join(' · ');
+}
+
+/**
+ * Met à jour le compteur de la section Liste.
+ */
+function updateStudioListSummary() {
+  const summary = getAdminEl('studioListSummary');
+  if (!summary) return;
+  const count = getVisibleParticipants().length;
+  summary.textContent = `${count} ouvrier${count > 1 ? 's' : ''}`;
+}
+
+/**
+ * Initialise les panneaux pliables (filtres / liste).
+ */
+function initStudioFolds() {
+  const folds = Array.from(document.querySelectorAll('[data-studio-fold]'));
+  if (!folds.length) return;
+
+  const storageKey = 'cmp_studio_folds_v1';
+  let saved = {};
+  try {
+    saved = JSON.parse(sessionStorage.getItem(storageKey) || '{}') || {};
+  } catch (e) {
+    saved = {};
+  }
+
+  const applyFold = (fold, expanded) => {
+    const toggle = fold.querySelector('[data-studio-fold-toggle]');
+    const body = fold.querySelector('[data-studio-fold-body]');
+    fold.classList.toggle('is-expanded', expanded);
+    fold.classList.toggle('is-collapsed', !expanded);
+    if (toggle) {
+      toggle.setAttribute('aria-expanded', expanded ? 'true' : 'false');
+    }
+    if (body) {
+      body.hidden = !expanded;
+    }
+    const key = fold.dataset.studioFold;
+    if (key) {
+      saved[key] = expanded ? 'open' : 'closed';
+      try {
+        sessionStorage.setItem(storageKey, JSON.stringify(saved));
+      } catch (e) { /* ignore */ }
+    }
+  };
+
+  folds.forEach((fold) => {
+    const key = fold.dataset.studioFold;
+    const preferred = key && saved[key]
+      ? saved[key] === 'open'
+      : key !== 'filters';
+    applyFold(fold, preferred);
+
+    const toggle = fold.querySelector('[data-studio-fold-toggle]');
+    if (!toggle || toggle.dataset.foldBound === '1') return;
+    toggle.dataset.foldBound = '1';
+    toggle.addEventListener('click', () => {
+      const willExpand = fold.classList.contains('is-collapsed');
+      applyFold(fold, willExpand);
+    });
+  });
+
+  updateStudioFiltersSummary();
+  updateStudioListSummary();
+}
+
 function initAdmin() {
   initStudioTabs();
+  initStudioFolds();
   refreshAdminCategorySelect('participant');
   renderCategoryList();
 
@@ -870,6 +961,7 @@ function initAdmin() {
     departmentFilter.addEventListener('change', () => {
       Admin.departmentFilter = departmentFilter.value || '';
       renderParticipantsList();
+      updateStudioFiltersSummary();
     });
   }
 
@@ -878,6 +970,7 @@ function initAdmin() {
     sourceFilter.addEventListener('change', () => {
       Admin.sourceFilter = sourceFilter.value || 'all';
       renderParticipantsList();
+      updateStudioFiltersSummary();
     });
   }
 
@@ -886,6 +979,7 @@ function initAdmin() {
     searchInput.addEventListener('input', () => {
       Admin.searchQuery = searchInput.value || '';
       renderParticipantsList();
+      updateStudioFiltersSummary();
     });
   }
 
