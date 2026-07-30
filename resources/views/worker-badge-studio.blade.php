@@ -85,8 +85,8 @@
         </label>
         <label class="studio-chip-toggle" for="adminShowRoom">
           <input type="checkbox" id="adminShowRoom" checked>
-          <i class="bi bi-door-open"></i>
-          <span>Chambre</span>
+          <i class="bi bi-person-gear"></i>
+          <span>Rôle</span>
         </label>
       </div>
 
@@ -163,8 +163,8 @@
               <input type="text" id="adminAtelier" class="field-input" placeholder="00" maxlength="2">
             </div>
             <div class="field">
-              <label class="field-label" for="adminChambre">Chambre</label>
-              <input type="text" id="adminChambre" class="field-input" placeholder="AA" maxlength="2">
+              <label class="field-label" for="adminChambre">Rôle (sous-branche)</label>
+              <input type="text" id="adminChambre" class="field-input" placeholder="Ex. Chef d’équipe" maxlength="24">
             </div>
             <div class="field full">
               <label class="field-label" for="adminPhoto">Photo</label>

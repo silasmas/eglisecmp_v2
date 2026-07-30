@@ -160,6 +160,27 @@
 .retreat-badge-single-assignment .retreat-badge-assignment {
   left: 50%;
 }
+.retreat-badge-assignment-caption {
+  position: absolute;
+  left: 14%;
+  right: 14%;
+  top: 7%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 16%;
+  padding: 0.1em 0.2em;
+  border-radius: 0.35em;
+  background: #f4efe6;
+  color: #44403c;
+  font-size: clamp(0.42rem, 1.55vw, 0.58rem);
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+  pointer-events: none;
+}
 .retreat-badge-assignment strong {
   position: absolute;
   left: 17%;
@@ -171,8 +192,8 @@
   justify-content: center;
   min-height: 30%;
   color: #373737;
-  font-size: clamp(0.98rem, 3.9vw, 1.48rem);
-  line-height: 1;
+  font-size: clamp(0.72rem, 2.8vw, 1.15rem);
+  line-height: 1.05;
   font-weight: 900;
   letter-spacing: 0;
   white-space: nowrap;

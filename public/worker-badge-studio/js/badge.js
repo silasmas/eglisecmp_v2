@@ -391,7 +391,10 @@ async function renderBadgeToCanvas(participant, options = {}) {
   const fullName = getParticipantBadgeName(participant) || 'Nom du participant';
   const categoryLabel = getParticipantBadgeCategoryLabel(participant);
   const atelier = showWorkshop && participant.atelier ? participant.atelier : '';
-  const chambre = showChambre && participant.chambre ? participant.chambre : '';
+  const roleValue = showChambre
+    ? String(participant.departmentRole || participant.chambre || '').trim()
+    : '';
+  const chambre = roleValue;
 
   const badgeWidth = 2480;
   const badgeHeight = 3508;
@@ -507,9 +510,20 @@ async function renderBadgeToCanvas(participant, options = {}) {
       const chambreCenter = singleAssignment ? 0.5 : 0.6125;
       const chambreX = x0 + badgeWidth * chambreCenter - assignmentW / 2;
       ctx.drawImage(chambreBanner, chambreX, assignmentY, assignmentW, assignmentH);
+      // Remplace le libellé « Chambre » du PNG par « Rôle »
+      const captionY = assignmentY + assignmentH * 0.07;
+      const captionH = assignmentH * 0.16;
+      ctx.fillStyle = '#f4efe6';
+      ctx.fillRect(chambreX + assignmentW * 0.14, captionY, assignmentW * 0.72, captionH);
+      drawFittedText(ctx, 'Rôle', chambreX + assignmentW * 0.18, captionY, assignmentW * 0.64, captionH, {
+        maxSize: 52,
+        minSize: 28,
+        weight: 800,
+        color: '#44403c',
+      });
       drawFittedText(ctx, chambre, chambreX + assignmentW * 0.17, assignmentY + assignmentH * 0.384, assignmentW * 0.66, assignmentH * 0.3, {
-        maxSize: 126,
-        minSize: 54,
+        maxSize: 96,
+        minSize: 36,
         weight: 900,
         color: '#373737',
       });
@@ -572,7 +586,10 @@ function renderRetreatBadge(target, participant, options = {}) {
   const fullName = getParticipantBadgeName(participant) || 'Nom du participant';
   const categoryLabel = getParticipantBadgeCategoryLabel(participant);
   const atelier = showWorkshop && participant.atelier ? participant.atelier : '';
-  const chambre = showChambre && participant.chambre ? participant.chambre : '';
+  const roleValue = showChambre
+    ? String(participant.departmentRole || participant.chambre || '').trim()
+    : '';
+  const chambre = roleValue;
 
   root.style.setProperty('--badge-category-color', category.color);
   root.__badgeParticipant = { ...participant };
@@ -600,8 +617,9 @@ function renderRetreatBadge(target, participant, options = {}) {
           </div>
         ` : ''}
         ${showChambre ? `
-          <div class="retreat-badge-assignment retreat-badge-chambre">
+          <div class="retreat-badge-assignment retreat-badge-chambre" data-assignment-label="Rôle">
             <img src="assets/bagde-composants/Chambre.png" alt="">
+            <span class="retreat-badge-assignment-caption" aria-hidden="true">Rôle</span>
             <strong>${badgeEscapeHtml(chambre)}</strong>
           </div>
         ` : ''}

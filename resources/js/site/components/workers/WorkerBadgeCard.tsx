@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import fondBadge from '../../assets/worker-badge/fond-badge.png';
 import nomBadge from '../../assets/worker-badge/nom-badge.png';
+import logoCmp from '../../assets/Logo-CMP-2023-new.png';
 import type { WorkerBadgeData } from '../../lib/siteApi';
 import { cn } from '../../lib/utils';
 
@@ -12,6 +13,70 @@ type WorkerBadgeCardProps = {
 };
 
 /**
+ * Charge une image pour dessin canvas.
+ */
+function loadImage(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => resolve(img);
+    img.onerror = () => reject(new Error('image_load_failed'));
+    img.src = src;
+  });
+}
+
+/**
+ * Génère un QR code avec le logo CMP au centre (niveau de correction H).
+ *
+ * @param content URL / payload du QR
+ * @returns Data URL PNG
+ */
+async function buildQrWithLogo(content: string): Promise<string> {
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  await QRCode.toCanvas(canvas, content, {
+    errorCorrectionLevel: 'H',
+    margin: 1,
+    width: size,
+    color: { dark: '#18181b', light: '#ffffff' },
+  });
+
+  const ctx = canvas.getContext('2d');
+  if (ctx === null) {
+    return canvas.toDataURL('image/png');
+  }
+
+  try {
+    const logo = await loadImage(logoCmp);
+    const logoSize = size * 0.22;
+    const x = (size - logoSize) / 2;
+    const y = (size - logoSize) / 2;
+    const pad = logoSize * 0.12;
+
+    ctx.fillStyle = '#ffffff';
+    ctx.beginPath();
+    const r = 10;
+    const bx = x - pad;
+    const by = y - pad;
+    const bw = logoSize + pad * 2;
+    const bh = logoSize + pad * 2;
+    ctx.moveTo(bx + r, by);
+    ctx.arcTo(bx + bw, by, bx + bw, by + bh, r);
+    ctx.arcTo(bx + bw, by + bh, bx, by + bh, r);
+    ctx.arcTo(bx, by + bh, bx, by, r);
+    ctx.arcTo(bx, by, bx + bw, by, r);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.drawImage(logo, x, y, logoSize, logoSize);
+  } catch {
+    // Logo indisponible : QR sans logo.
+  }
+
+  return canvas.toDataURL('image/png');
+}
+
+/**
  * Carte badge ouvrier (visuel adapté du studio badge retraite).
  */
 export default function WorkerBadgeCard({ data, badgeUrl, className }: WorkerBadgeCardProps) {
@@ -20,11 +85,7 @@ export default function WorkerBadgeCard({ data, badgeUrl, className }: WorkerBad
 
   useEffect(() => {
     let cancelled = false;
-    QRCode.toDataURL(badgeUrl, {
-      margin: 1,
-      width: 256,
-      color: { dark: '#18181b', light: '#ffffff' },
-    })
+    buildQrWithLogo(badgeUrl)
       .then((url) => {
         if (!cancelled) {
           setQrDataUrl(url);

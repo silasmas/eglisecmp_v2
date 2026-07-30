@@ -37,8 +37,9 @@ function getAdminFormParticipant() {
     sexe: getAdminEl('adminSexe').value,
     category: categoryKey,
     atelier: getAdminEl('adminAtelier').value.trim().slice(0, 2),
-    chambre: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 2),
-    role: getBadgeCategory(categoryKey).label,
+    // « chambre » conservé en clé technique = rôle / sous-branche du département
+    chambre: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 24),
+    departmentRole: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 24),
     photo: Admin.photo,
     showPhoto,
     showWorkshop,
@@ -56,7 +57,7 @@ function updateAdminCategoryState(options = {}) {
   const encadrant = isAdminEncadrant();
   chambre.disabled = encadrant;
   chambre.classList.toggle('field-input-disabled', encadrant);
-  chambre.placeholder = encadrant ? 'Réservée' : 'AA';
+  chambre.placeholder = encadrant ? 'Réservé' : 'Ex. Chef d’équipe';
   if (showRoom) {
     showRoom.disabled = encadrant;
     showRoom.closest('.studio-chip-toggle')?.classList.toggle('is-disabled', encadrant);
@@ -77,7 +78,9 @@ function fillAdminForm(participant) {
   getAdminEl('adminSexe').value = participant.sexe || 'M';
   getAdminEl('adminCategory').value = categoryKey;
   getAdminEl('adminAtelier').value = participant.atelier || '';
-  getAdminEl('adminChambre').value = categoryKey === 'encadrants' ? '' : (participant.chambre || '');
+  getAdminEl('adminChambre').value = categoryKey === 'encadrants'
+    ? ''
+    : (participant.departmentRole || participant.chambre || '');
   getAdminEl('adminPhoto').value = '';
   if (getAdminEl('adminShowPhoto')) getAdminEl('adminShowPhoto').checked = participant.showPhoto !== false;
   if (getAdminEl('adminShowWorkshop')) {
@@ -114,7 +117,7 @@ function getParticipantMeta(participant) {
     parts.push(`Atelier ${participant.atelier || '—'}`);
   }
   if (showRoom && (participant.category || '') !== 'encadrants') {
-    parts.push(`Chambre ${participant.chambre || '—'}`);
+    parts.push(`Rôle ${participant.departmentRole || participant.chambre || '—'}`);
   }
   return parts.join(' · ');
 }
@@ -196,7 +199,7 @@ function isDemoParticipant(participant) {
       && participant.nom === 'Makelela'
       && participant.category === 'participant'
       && participant.atelier === '00'
-      && participant.chambre === 'AA'
+      && (participant.chambre === 'Équipe A' || participant.chambre === 'AA')
     );
 }
 
@@ -235,7 +238,8 @@ function seedDemoParticipant() {
     sexe: 'M',
     category: 'participant',
     atelier: '00',
-    chambre: 'AA',
+    chambre: 'Équipe A',
+    departmentRole: 'Équipe A',
     role: 'Participant',
     photo: null,
     showPhoto: true,
