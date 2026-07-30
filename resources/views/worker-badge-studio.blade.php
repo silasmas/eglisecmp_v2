@@ -13,6 +13,7 @@
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.css">
   <script src="https://cdn.jsdelivr.net/npm/cropperjs@1.6.2/dist/cropper.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js" defer></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/qrcode@1.5.4/build/qrcode.min.js"></script>
   <script>
     window.CMP_BADGE_PUBLIC_BASE = @json(url('/ouvriers/badge'));
@@ -60,9 +61,9 @@
         <i class="bi bi-save"></i>
         <span>Enregistrer</span>
       </button>
-      <button type="button" class="studio-action-btn primary" id="downloadAdminBadgeBtn" title="Télécharger">
+      <button type="button" class="studio-action-btn primary" id="downloadAdminBadgeBtn" title="Exporter le badge actuel, ou tous les ouvriers cochés">
         <i class="bi bi-download"></i>
-        <span>Exporter</span>
+        <span id="downloadAdminBadgeLabel">Exporter</span>
       </button>
     </div>
   </header>
@@ -135,6 +136,19 @@
           <i class="bi bi-chevron-down studio-fold-chevron" aria-hidden></i>
         </button>
         <div class="studio-fold-body studio-people-list-wrap" data-studio-fold-body>
+          <div class="studio-selection-bar" id="studioSelectionBar" aria-label="Sélection multiple">
+            <div class="studio-selection-actions">
+              <button type="button" class="studio-selection-btn" id="selectAllVisibleWorkersBtn" title="Sélectionne tous les ouvriers affichés (filtre département inclus)">
+                <i class="bi bi-check2-all"></i>
+                <span>Tout</span>
+              </button>
+              <button type="button" class="studio-selection-btn" id="clearWorkerSelectionBtn" title="Effacer la sélection">
+                <i class="bi bi-x-square"></i>
+                <span>Aucun</span>
+              </button>
+            </div>
+            <span class="studio-selection-count" id="studioSelectionCount">0 sélectionné</span>
+          </div>
           <div class="admin-list studio-scroll" id="participantsList"></div>
         </div>
       </section>

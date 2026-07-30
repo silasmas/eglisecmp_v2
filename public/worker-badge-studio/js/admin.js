@@ -11,6 +11,7 @@ const Admin = {
   sourceFilter: 'all',
   searchQuery: '',
   selectedId: null,
+  checkedIds: new Set(),
   photo: null,
 };
 
@@ -237,6 +238,7 @@ function renderParticipantsList() {
     `;
     updateStudioListSummary();
     updateStudioFiltersSummary();
+    updateStudioSelectionUi();
     return;
   }
 
@@ -244,8 +246,12 @@ function renderParticipantsList() {
     const category = getBadgeCategory(participant.category);
     const color = participant.departmentColor || category.color;
     const canDelete = participant.source !== 'validated' && !String(participant.id || '').startsWith('WORKER-');
+    const checked = Admin.checkedIds.has(String(participant.id));
     return `
-      <div class="admin-person ${participant.id === Admin.selectedId ? 'active' : ''}" data-id="${participant.id}">
+      <div class="admin-person ${participant.id === Admin.selectedId ? 'active' : ''} ${checked ? 'is-checked' : ''}" data-id="${participant.id}">
+        <label class="admin-person-check" title="Sélectionner pour export">
+          <input type="checkbox" data-action="check" ${checked ? 'checked' : ''} aria-label="Sélectionner ${badgeEscapeHtml(getParticipantFullName(participant) || 'ouvrier')}">
+        </label>
         <span class="admin-person-color" style="background:${color}"></span>
         ${renderParticipantAvatar(participant, color)}
         <button type="button" class="admin-person-main" data-action="select">
@@ -266,6 +272,7 @@ function renderParticipantsList() {
   }).join('');
   updateStudioListSummary();
   updateStudioFiltersSummary();
+  updateStudioSelectionUi();
 }
 
 function getBlankAdminParticipant() {
@@ -287,9 +294,10 @@ function getBlankAdminParticipant() {
 }
 
 function findParticipantById(id) {
-  if (!id) return null;
-  return Admin.validatedWorkers.find((item) => item.id === id)
-    || Admin.participants.find((item) => item.id === id)
+  if (id === null || id === undefined || id === '') return null;
+  const key = String(id);
+  return Admin.validatedWorkers.find((item) => String(item.id) === key)
+    || Admin.participants.find((item) => String(item.id) === key)
     || null;
 }
 
@@ -298,6 +306,7 @@ function deleteAdminParticipant(id) {
     return;
   }
   Admin.participants = Admin.participants.filter((participant) => participant.id !== id);
+  Admin.checkedIds.delete(String(id));
   writeParticipants(Admin.participants);
   if (Admin.selectedId === id) {
     fillAdminForm(getVisibleParticipants()[0] || getBlankAdminParticipant());
@@ -472,21 +481,198 @@ function isDemoParticipant(participant) {
     );
 }
 
-async function downloadAdminBadge() {
-  const badgeEl = getAdminEl('adminBadgePreview');
+/**
+ * Options d’export badge (toggles de la scène).
+ * @param {object} participant
+ * @returns {{showPhoto:boolean,showWorkshop:boolean,showRoom:boolean}}
+ */
+function getStudioExportOptions(participant) {
+  const showPhoto = getAdminEl('adminShowPhoto')
+    ? getAdminEl('adminShowPhoto').checked
+    : participant?.showPhoto !== false;
+  const showWorkshop = getAdminEl('adminShowWorkshop')
+    ? getAdminEl('adminShowWorkshop').checked
+    : participant?.showWorkshop !== false;
+  const showRoom = getAdminEl('adminShowRoom')
+    ? getAdminEl('adminShowRoom').checked
+    : participant?.showRoom !== false;
+  return { showPhoto, showWorkshop, showRoom };
+}
+
+/**
+ * Convertit un canvas en Blob JPEG.
+ * @param {HTMLCanvasElement} canvas
+ * @returns {Promise<Blob|null>}
+ */
+function canvasToJpegBlob(canvas) {
+  return new Promise((resolve) => {
+    canvas.toBlob((blob) => resolve(blob || null), 'image/jpeg', 0.95);
+  });
+}
+
+/**
+ * Retourne les ouvriers cochés encore présents en mémoire.
+ * @returns {object[]}
+ */
+function getCheckedParticipants() {
+  return Array.from(Admin.checkedIds)
+    .map((id) => findParticipantById(id))
+    .filter(Boolean);
+}
+
+/**
+ * Met à jour le compteur de sélection et le libellé du bouton Exporter.
+ */
+function updateStudioSelectionUi() {
+  const count = Admin.checkedIds.size;
+  const countEl = getAdminEl('studioSelectionCount');
+  if (countEl) {
+    countEl.textContent = count <= 1
+      ? `${count} sélectionné`
+      : `${count} sélectionnés`;
+  }
+  const label = getAdminEl('downloadAdminBadgeLabel');
+  if (label) {
+    label.textContent = count > 0 ? `Exporter (${count})` : 'Exporter';
+  }
   const btn = getAdminEl('downloadAdminBadgeBtn');
-  const originalText = btn.innerHTML;
-  btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Génération...';
+  if (btn) {
+    btn.title = count > 1
+      ? `Exporter ${count} badges en ZIP`
+      : (count === 1 ? 'Exporter le badge sélectionné' : 'Exporter le badge actuel');
+  }
+}
+
+/**
+ * Coche tous les ouvriers actuellement visibles (filtre département / recherche inclus).
+ */
+function selectAllVisibleWorkers() {
+  getVisibleParticipants().forEach((item) => {
+    if (item?.id) {
+      Admin.checkedIds.add(String(item.id));
+    }
+  });
+  renderParticipantsList();
+}
+
+/**
+ * Efface toute la sélection multiple.
+ */
+function clearWorkerSelection() {
+  Admin.checkedIds.clear();
+  renderParticipantsList();
+}
+
+/**
+ * Alterne la case à cocher d’un ouvrier pour l’export groupé.
+ * @param {string} id
+ * @param {boolean} checked
+ */
+function setWorkerChecked(id, checked) {
+  const key = String(id || '');
+  if (!key) return;
+  if (checked) {
+    Admin.checkedIds.add(key);
+  } else {
+    Admin.checkedIds.delete(key);
+  }
+  updateStudioSelectionUi();
+}
+
+/**
+ * Exporte un badge unique via le moteur canvas.
+ * @param {object} participant
+ * @param {string} [fileName]
+ * @returns {Promise<void>}
+ */
+async function exportSingleParticipantBadge(participant, fileName) {
+  if (typeof renderBadgeToCanvas !== 'function') {
+    throw new Error('Moteur de rendu indisponible');
+  }
+  const options = getStudioExportOptions(participant);
+  const canvas = await renderBadgeToCanvas(participant, options);
+  const blob = await canvasToJpegBlob(canvas);
+  if (!blob) {
+    throw new Error('Échec de génération JPEG');
+  }
+  const name = fileName || `badge_retraite_${getBadgeExportName(getParticipantFullName(participant))}.jpg`;
+  const link = document.createElement('a');
+  link.download = name;
+  link.href = URL.createObjectURL(blob);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 800);
+}
+
+/**
+ * Génère un ZIP de badges pour la sélection.
+ * @param {object[]} participants
+ * @returns {Promise<void>}
+ */
+async function exportBadgesAsZip(participants) {
+  if (typeof JSZip === 'undefined') {
+    throw new Error('JSZip non chargé');
+  }
+  const zip = new JSZip();
+  const usedNames = new Map();
+  let index = 0;
+  for (const participant of participants) {
+    index += 1;
+    const options = getStudioExportOptions(participant);
+    const canvas = await renderBadgeToCanvas(participant, options);
+    const blob = await canvasToJpegBlob(canvas);
+    if (!blob) {
+      continue;
+    }
+    let base = getBadgeExportName(getParticipantFullName(participant) || `ouvrier_${index}`);
+    const count = (usedNames.get(base) || 0) + 1;
+    usedNames.set(base, count);
+    const fileName = count > 1
+      ? `badge_retraite_${base}_${count}.jpg`
+      : `badge_retraite_${base}.jpg`;
+    zip.file(fileName, blob);
+  }
+  const zipBlob = await zip.generateAsync({ type: 'blob' });
+  const dept = String(Admin.departmentFilter || '');
+  const deptLabel = dept
+    ? getBadgeExportName(getAdminEl('departmentFilter')?.selectedOptions?.[0]?.textContent || 'departement')
+    : 'tous';
+  const link = document.createElement('a');
+  link.download = `badges_ouvriers_${deptLabel}_${participants.length}.zip`;
+  link.href = URL.createObjectURL(zipBlob);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1500);
+}
+
+async function downloadAdminBadge() {
+  const btn = getAdminEl('downloadAdminBadgeBtn');
+  const selected = getCheckedParticipants();
   btn.disabled = true;
 
   try {
+    if (selected.length > 1) {
+      btn.innerHTML = `<i class="bi bi-hourglass-split"></i> ZIP ${selected.length}…`;
+      await exportBadgesAsZip(selected);
+      return;
+    }
+
+    btn.innerHTML = '<i class="bi bi-hourglass-split"></i> Génération...';
+    if (selected.length === 1) {
+      await exportSingleParticipantBadge(selected[0]);
+      return;
+    }
+
+    const badgeEl = getAdminEl('adminBadgePreview');
     const participant = getAdminFormParticipant();
     const name = getBadgeExportName(getParticipantFullName(participant));
     await downloadRetreatBadge(badgeEl, `badge_retraite_${name}.jpg`);
   } catch (err) {
-    alert('Erreur lors de la génération du badge.');
+    console.error(err);
+    alert(selected.length > 1
+      ? 'Erreur lors de l’export ZIP des badges sélectionnés.'
+      : 'Erreur lors de la génération du badge.');
   } finally {
-    btn.innerHTML = originalText;
+    btn.innerHTML = '<i class="bi bi-download"></i><span id="downloadAdminBadgeLabel">Exporter</span>';
+    updateStudioSelectionUi();
     btn.disabled = false;
   }
 }
@@ -868,7 +1054,9 @@ function updateStudioListSummary() {
   const summary = getAdminEl('studioListSummary');
   if (!summary) return;
   const count = getVisibleParticipants().length;
-  summary.textContent = `${count} ouvrier${count > 1 ? 's' : ''}`;
+  const checked = Admin.checkedIds.size;
+  const base = `${count} ouvrier${count > 1 ? 's' : ''}`;
+  summary.textContent = checked > 0 ? `${base} · ${checked} sel.` : base;
 }
 
 /**
@@ -947,6 +1135,9 @@ function initAdmin() {
   getAdminEl('participantsList').addEventListener('click', (event) => {
     const row = event.target.closest('.admin-person');
     if (!row) return;
+    if (event.target.closest('[data-action="check"]') || event.target.closest('.admin-person-check')) {
+      return;
+    }
     if (event.target.closest('[data-action="delete"]')) {
       deleteAdminParticipant(row.dataset.id);
       return;
@@ -955,6 +1146,24 @@ function initAdmin() {
     if (participant) fillAdminForm(participant);
     renderParticipantsList();
   });
+
+  getAdminEl('participantsList').addEventListener('change', (event) => {
+    const input = event.target.closest('input[data-action="check"]');
+    if (!input) return;
+    const row = input.closest('.admin-person');
+    if (!row) return;
+    setWorkerChecked(row.dataset.id, input.checked);
+    row.classList.toggle('is-checked', input.checked);
+  });
+
+  const selectAllBtn = getAdminEl('selectAllVisibleWorkersBtn');
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener('click', selectAllVisibleWorkers);
+  }
+  const clearSelectionBtn = getAdminEl('clearWorkerSelectionBtn');
+  if (clearSelectionBtn) {
+    clearSelectionBtn.addEventListener('click', clearWorkerSelection);
+  }
 
   const departmentFilter = getAdminEl('departmentFilter');
   if (departmentFilter) {
@@ -1052,6 +1261,7 @@ function initAdmin() {
 
   getAdminEl('seedDemoBtn').addEventListener('click', seedDemoParticipant);
   getAdminEl('downloadAdminBadgeBtn').addEventListener('click', downloadAdminBadge);
+  updateStudioSelectionUi();
 }
 
 document.addEventListener('DOMContentLoaded', initAdmin);

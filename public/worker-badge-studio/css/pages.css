@@ -657,8 +657,8 @@
 .admin-person {
   width: 100%;
   display: grid;
-  grid-template-columns: 8px 40px 1fr 34px;
-  gap: 0.65rem;
+  grid-template-columns: 22px 8px 40px 1fr 34px;
+  gap: 0.55rem;
   align-items: center;
   padding: 0.65rem 0.7rem;
   background: var(--surface-alt);
@@ -666,6 +666,24 @@
   border-radius: 12px;
   color: var(--text);
   text-align: left;
+}
+.admin-person-check {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  cursor: pointer;
+}
+.admin-person-check input {
+  width: 1rem;
+  height: 1rem;
+  margin: 0;
+  accent-color: var(--primary, #ea7e2d);
+  cursor: pointer;
+}
+.admin-person.is-checked {
+  border-color: rgba(234, 126, 45, 0.45);
+  background: rgba(234, 126, 45, 0.08);
 }
 .admin-person-main {
   min-width: 0;
@@ -1259,6 +1277,43 @@
   padding: 0 0.65rem 0.65rem;
   overflow: hidden;
   border-top: 1px solid rgba(255,255,255,0.06);
+  gap: 0.45rem;
+}
+.studio-selection-bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  padding: 0.35rem 0.15rem 0.15rem;
+}
+.studio-selection-actions {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  min-width: 0;
+}
+.studio-selection-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.28rem 0.5rem;
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  color: #d7dee9;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+.studio-selection-btn:hover {
+  background: rgba(255,255,255,0.08);
+  border-color: rgba(234,126,45,0.45);
+}
+.studio-selection-count {
+  color: #93a0b4;
+  font-size: 0.7rem;
+  white-space: nowrap;
 }
 .studio-people-list-fold.is-expanded {
   min-height: 180px;
