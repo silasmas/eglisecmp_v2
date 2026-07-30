@@ -1,12 +1,44 @@
-/* Badge ouvrier CMP — adapté du studio badge retraite-jcmp */
-.worker-badge-shell {
-  width: min(100%, 360px);
-  padding: clamp(10px, 1.75vw, 20px);
-  margin-inline: auto;
+/* Badge ouvrier CMP — aligné sur le studio retraite (dimensions stables) */
+
+.worker-badge-module-shell {
+  min-height: 100vh;
+  background: #f6f4f1;
 }
 
+.worker-badge-module-page {
+  width: 100%;
+}
+
+/* Scène pleine largeur (évite le collapse flex + width:100%) */
+.worker-badge-module-page .badge-scene,
+.worker-badge-module-page .tpl-stage .badge-scene {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+.worker-badge-module-page .badge-zoom-wrap {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  transform-origin: top center;
+}
+
+.retreat-badge-shell,
+.worker-badge-shell {
+  width: min(100%, 360px);
+  max-width: 360px;
+  padding: clamp(10px, 1.75vw, 20px);
+  margin-inline: auto;
+  flex: 0 0 auto;
+  box-sizing: border-box;
+}
+
+.retreat-badge,
 .worker-badge {
   --badge-category-color: #7b1d3e;
+  display: block;
   width: 100%;
   aspect-ratio: 2480 / 3508;
   position: relative;
@@ -16,14 +48,33 @@
   box-shadow: 0 18px 50px rgba(26, 16, 24, 0.18);
 }
 
+/* Contre le reset img { max-width:100%; height:auto } qui casse le fond */
+.retreat-badge-bg,
+.worker-badge-bg,
+.retreat-badge-name-banner img,
+.worker-badge-name-banner img,
+.retreat-badge-assignment img,
+.worker-badge-role-box img,
+.retreat-badge-qr img,
+.worker-badge-qr img,
+.retreat-badge-photo img,
+.worker-badge-photo img {
+  max-width: none !important;
+  max-height: none !important;
+}
+
+.retreat-badge-bg,
 .worker-badge-bg {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: cover;
+  display: block;
+  z-index: 0;
 }
 
+.retreat-badge-filter,
 .worker-badge-filter {
   position: absolute;
   inset: 0;
@@ -34,6 +85,7 @@
   pointer-events: none;
 }
 
+.retreat-badge-border,
 .worker-badge-border {
   position: absolute;
   inset: 2.85% 3.65%;
@@ -44,6 +96,7 @@
   pointer-events: none;
 }
 
+.retreat-badge-photo,
 .worker-badge-photo {
   position: absolute;
   left: 50%;
@@ -61,30 +114,40 @@
   z-index: 2;
 }
 
+.retreat-badge-photo img,
 .worker-badge-photo img {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: cover;
   filter: contrast(1.08);
 }
 
+.retreat-badge-photo i,
+.worker-badge-photo i {
+  font-size: clamp(3rem, 8vw, 5.8rem);
+  color: rgba(255, 255, 255, 0.45);
+}
+
+.retreat-badge-name-banner,
 .worker-badge-name-banner {
   position: absolute;
   left: 14.9%;
   right: 14.9%;
-  top: 56%;
+  top: 58.2%;
   min-height: 8.1%;
   z-index: 2;
 }
 
+.retreat-badge-name-banner img,
 .worker-badge-name-banner img {
   position: absolute;
   inset: 0;
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: fill;
 }
 
+.retreat-badge-name-banner span,
 .worker-badge-name-banner span {
   position: absolute;
   inset: 18% 8.5% 22%;
@@ -102,11 +165,12 @@
   text-overflow: ellipsis;
 }
 
+.retreat-badge-category-banner,
 .worker-badge-category-banner {
   position: absolute;
-  left: 26%;
-  right: 26%;
-  top: 63.8%;
+  left: 30.2%;
+  right: 30.2%;
+  top: 65.95%;
   min-height: 3.8%;
   z-index: 2;
   display: flex;
@@ -120,38 +184,16 @@
   font-weight: 800;
   line-height: 1.1;
   padding: 0.15em 0.85em 0.25em;
+  overflow-wrap: anywhere;
 }
 
-.worker-badge-role {
-  position: absolute;
-  left: 18%;
-  right: 18%;
-  top: 69%;
-  z-index: 2;
-  text-align: center;
-  color: #2f2f2f;
-  font-size: clamp(0.65rem, 2vw, 0.85rem);
-  font-weight: 700;
-}
-
-.worker-badge-validated {
-  position: absolute;
-  left: 50%;
-  bottom: 8%;
+.worker-badge-role-box {
+  left: 50% !important;
   transform: translateX(-50%);
-  z-index: 3;
-  display: inline-flex;
-  align-items: center;
-  gap: 0.35rem;
-  border-radius: 999px;
-  background: #16a34a;
-  color: #fff;
-  font-size: clamp(0.6rem, 1.8vw, 0.75rem);
-  font-weight: 800;
-  padding: 0.35em 0.9em;
-  box-shadow: 0 6px 16px rgba(22, 163, 74, 0.35);
+  top: 72.75%;
 }
 
+.retreat-badge-qr,
 .worker-badge-qr {
   position: absolute;
   right: 10%;
@@ -163,218 +205,44 @@
   border-radius: 8px;
   padding: 4%;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-sizing: border-box;
 }
 
+.retreat-badge-qr img,
 .worker-badge-qr img {
-  width: 100%;
-  height: 100%;
+  width: 100% !important;
+  height: 100% !important;
   object-fit: contain;
+  display: block;
 }
 
-/* Isoler le module badge du chrome éventuel du site */
 html.worker-badge-module-root body.worker-badge-module {
   margin: 0;
   background: #f6f4f1 !important;
   font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
 }
 
-.worker-badge-module-shell {
-  min-height: 100vh;
-  background: #f6f4f1;
-}
-
-.worker-badge-role-box {
-  left: 50% !important;
-  transform: translateX(-50%);
-  top: 72.75%;
-}
-
-
-/* Page publique badge — design module (hors site) */
-.worker-badge-standalone {
-  font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
-  padding-bottom: 3rem;
-}
-
-.worker-badge-standalone__hero {
-  background: #1a1018;
-  color: #fff;
-  padding: 2.5rem 1.25rem 2rem;
-  text-align: center;
-}
-
-.worker-badge-standalone__hero-inner {
-  max-width: 40rem;
-  margin-inline: auto;
-}
-
-.worker-badge-standalone__pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 255, 255, 0.08);
-  border-radius: 999px;
-  padding: 0.35rem 0.85rem;
-  font-size: 0.7rem;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.worker-badge-standalone__title {
-  margin-top: 1rem;
-  font-size: clamp(1.75rem, 4vw, 2.75rem);
-  font-weight: 800;
-  line-height: 1.15;
-}
-
-.worker-badge-standalone__title span {
-  color: #e8b86d;
-}
-
-.worker-badge-standalone__sub {
-  margin-top: 0.75rem;
-  color: rgba(255, 255, 255, 0.78);
-  font-size: 0.95rem;
-}
-
-.worker-badge-standalone__divider {
-  margin: 1.25rem auto 0;
-  width: 4rem;
-  height: 3px;
-  border-radius: 999px;
-  background: #7b1d3e;
-}
-
-.worker-badge-standalone__banner {
-  max-width: 44rem;
-  margin: 1.25rem auto 0;
-  padding: 0.85rem 1.1rem;
-  border-radius: 0.85rem;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  color: #9a3412;
-  font-size: 0.875rem;
-  text-align: center;
-}
-
-.worker-badge-standalone__status {
-  display: flex;
-  justify-content: center;
-  margin-top: 1.25rem;
-}
-
-.worker-badge-standalone__chip {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.4rem;
-  border-radius: 999px;
-  padding: 0.45rem 0.95rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-}
-
-.worker-badge-standalone__chip--ok {
-  background: #dcfce7;
-  color: #166534;
-}
-
-.worker-badge-standalone__chip--warn {
-  background: #fef3c7;
-  color: #92400e;
-}
-
-.worker-badge-standalone__actions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.65rem;
-  margin-top: 1.25rem;
-}
-
-.worker-badge-standalone__btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  border-radius: 0.75rem;
-  border: 1px solid #e4e4e7;
-  background: #fff;
-  padding: 0.65rem 1.1rem;
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-}
-
-.worker-badge-standalone__btn--primary {
-  background: #7b1d3e;
-  border-color: #7b1d3e;
-  color: #fff;
-}
-
-.worker-badge-standalone__btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
-}
-
-.worker-badge-standalone__zoom {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  margin-top: 1rem;
-  font-size: 0.85rem;
-  font-weight: 600;
-  color: #52525b;
-}
-
-.worker-badge-standalone__zoom-btn {
-  width: 2rem;
-  height: 2rem;
-  border-radius: 999px;
-  border: 1px solid #d4d4d8;
-  background: #fff;
-  font-size: 1.1rem;
-  line-height: 1;
-  cursor: pointer;
-}
-
-.worker-badge-standalone__stage {
-  display: flex;
-  justify-content: center;
-  margin-top: 1.5rem;
-  padding: 0 1rem 2rem;
-  overflow: auto;
-}
-
-.worker-badge-standalone__meta {
-  max-width: 28rem;
-  margin: 0 auto;
-  padding: 1rem 1.25rem;
-  border-radius: 1rem;
-  background: #fff;
-  border: 1px solid #e4e4e7;
-  font-size: 0.875rem;
-  color: #3f3f46;
-  line-height: 1.6;
-}
-
 @media print {
-  .worker-badge-standalone__hero,
-  .worker-badge-standalone__banner,
-  .worker-badge-standalone__status,
-  .worker-badge-standalone__actions,
-  .worker-badge-standalone__zoom,
-  .worker-badge-standalone__meta {
+  .worker-badge-module-page .hero,
+  .worker-badge-module-page .tpl-banner,
+  .worker-badge-module-page .tpl-actions,
+  .worker-badge-module-page .badge-zoom-controls {
     display: none !important;
   }
 
-  .worker-badge-page,
-  .worker-badge-standalone,
-  .worker-badge-standalone__stage {
-    background: #fff !important;
-    margin: 0 !important;
+  .worker-badge-module-page .tpl-stage,
+  .worker-badge-module-page .badge-scene,
+  .worker-badge-module-page .badge-zoom-wrap {
     padding: 0 !important;
+    margin: 0 !important;
+    transform: none !important;
+  }
+
+  .retreat-badge-shell,
+  .worker-badge-shell {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    box-shadow: none;
   }
 }
-

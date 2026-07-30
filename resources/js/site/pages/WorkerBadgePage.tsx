@@ -164,11 +164,14 @@ export function WorkerBadgeView({ token }: WorkerBadgeViewProps) {
           </div>
 
           <div className="tpl-stage">
-            <div
-              ref={badgeRef}
-              style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
-            >
-              <WorkerBadgeCard data={data} badgeUrl={badgeUrl} />
+            <div className="badge-scene">
+              <div
+                ref={badgeRef}
+                className="badge-zoom-wrap"
+                style={{ transform: `scale(${zoom / 100})` }}
+              >
+                <WorkerBadgeCard data={data} badgeUrl={badgeUrl} />
+              </div>
             </div>
           </div>
         </>

@@ -6,12 +6,22 @@
   flex-direction: column;
   align-items: center;
 }
-.badge-scene {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-  margin-bottom: 2rem;
-}
+  /* Contre le reset global img { max-width:100%; height:auto } sur le fond badge */
+  .retreat-badge-bg,
+  .retreat-badge-name-banner img,
+  .retreat-badge-assignment img,
+  .retreat-badge-photo img,
+  .retreat-badge-qr img {
+    max-width: none !important;
+    max-height: none !important;
+  }
+
+  .badge-scene {
+    width: 100%;
+    display: flex;
+    justify-content: center;
+    margin-bottom: 2rem;
+  }
 .badge-card,
 .retreat-badge-shell {
   width: min(100%, 360px);

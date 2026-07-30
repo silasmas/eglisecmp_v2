@@ -137,9 +137,9 @@ export default function WorkerBadgeCard({ data, badgeUrl, className }: WorkerBad
         )}
         style={{ ['--badge-category-color' as string]: color }}
       >
-        <img className="retreat-badge-bg worker-badge-bg" src={fondBadge} alt="" />
-        <div className="retreat-badge-filter worker-badge-filter" />
-        <div className="retreat-badge-border worker-badge-border" />
+        <img className="retreat-badge-bg worker-badge-bg" src={fondBadge} alt="" draggable={false} />
+        <div className="retreat-badge-filter worker-badge-filter" aria-hidden />
+        <div className="retreat-badge-border worker-badge-border" aria-hidden />
         <div className="retreat-badge-photo worker-badge-photo" aria-label="Photo de l’ouvrier">
           {data.photoUrl !== '' ? (
             <img src={data.photoUrl} alt={data.fullName} />
@@ -148,15 +148,18 @@ export default function WorkerBadgeCard({ data, badgeUrl, className }: WorkerBad
           )}
         </div>
         <div className="retreat-badge-name-banner worker-badge-name-banner">
-          <img src={nomBadge} alt="" />
+          <img src={nomBadge} alt="" draggable={false} />
           <span ref={nameRef}>{data.fullName}</span>
         </div>
         <div className="retreat-badge-category-banner worker-badge-category-banner">
           {data.department || 'Ouvrier CMP'}
         </div>
         {role !== '' ? (
-          <div className="retreat-badge-assignment retreat-badge-chambre worker-badge-role-box" data-assignment-label="Rôle">
-            <img src={chambreBadge} alt="" />
+          <div
+            className="retreat-badge-assignment retreat-badge-chambre worker-badge-role-box"
+            data-assignment-label="Rôle"
+          >
+            <img src={chambreBadge} alt="" draggable={false} />
             <span className="retreat-badge-assignment-caption">Rôle</span>
             <strong>{role}</strong>
           </div>

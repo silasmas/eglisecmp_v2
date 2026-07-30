@@ -1,9 +1,13 @@
 {
-  "_WorkerBadgeLayout-3Q_47qbH.js": {
-    "file": "assets/WorkerBadgeLayout-3Q_47qbH.js",
+  "_WorkerBadgeLayout-Duc2n7nh.css": {
+    "file": "assets/WorkerBadgeLayout-Duc2n7nh.css",
+    "src": "_WorkerBadgeLayout-Duc2n7nh.css"
+  },
+  "_WorkerBadgeLayout-q_0FvR9Y.js": {
+    "file": "assets/WorkerBadgeLayout-q_0FvR9Y.js",
     "name": "WorkerBadgeLayout",
     "css": [
-      "assets/WorkerBadgeLayout-DP5hfE23.css"
+      "assets/WorkerBadgeLayout-Duc2n7nh.css"
     ],
     "assets": [
       "assets/Logo-CMP-2023-new-BaryjCFu.png",
@@ -11,10 +15,6 @@
       "assets/nom-badge-DUU25ZnV.png",
       "assets/Chambre-CfWZX87R.png"
     ]
-  },
-  "_WorkerBadgeLayout-DP5hfE23.css": {
-    "file": "assets/WorkerBadgeLayout-DP5hfE23.css",
-    "src": "_WorkerBadgeLayout-DP5hfE23.css"
   },
   "node_modules/leaflet/dist/images/layers-2x.png": {
     "file": "assets/layers-2x-Bpkbi35X.png",
@@ -61,12 +61,12 @@
     "src": "resources/js/site/assets/worker-badge/nom-badge.png"
   },
   "resources/js/site/main.tsx": {
-    "file": "assets/main-CY8KlJFT.js",
+    "file": "assets/main-_2d0V1ba.js",
     "name": "main",
     "src": "resources/js/site/main.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-3Q_47qbH.js"
+      "_WorkerBadgeLayout-q_0FvR9Y.js"
     ],
     "css": [
       "assets/main-0xqN3_oo.css"
@@ -78,12 +78,12 @@
     ]
   },
   "resources/js/site/worker-badge-entry.tsx": {
-    "file": "assets/worker-badge-entry-oJyR1y6e.js",
+    "file": "assets/worker-badge-entry-DsgsLmZR.js",
     "name": "worker-badge-entry",
     "src": "resources/js/site/worker-badge-entry.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-3Q_47qbH.js"
+      "_WorkerBadgeLayout-q_0FvR9Y.js"
     ]
   }
 }
