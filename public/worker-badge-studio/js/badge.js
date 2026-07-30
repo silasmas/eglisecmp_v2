@@ -104,6 +104,99 @@ function getBadgeCategory(key) {
   return BADGE_CATEGORIES[key] || BADGE_CATEGORIES.participant;
 }
 
+/**
+ * Garantit un jeton badge (UUID) pour le QR public.
+ *
+ * @param {object} participant
+ * @returns {string}
+ */
+function ensureBadgeToken(participant) {
+  if (!participant || typeof participant !== 'object') {
+    return '';
+  }
+  if (participant.badgeToken && String(participant.badgeToken).trim() !== '') {
+    return String(participant.badgeToken).trim();
+  }
+  const token = (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+    ? crypto.randomUUID()
+    : `tok-${Date.now()}-${Math.random().toString(16).slice(2, 10)}`;
+  participant.badgeToken = token;
+  return token;
+}
+
+/**
+ * URL publique scannable du badge ouvrier.
+ *
+ * @param {string} token
+ * @returns {string}
+ */
+function getBadgePublicUrl(token) {
+  const base = String(window.CMP_BADGE_PUBLIC_BASE || `${window.location.origin}/ouvriers/badge`).replace(/\/$/, '');
+  return `${base}/${token}`;
+}
+
+/**
+ * QR data URL avec logo CMP au centre.
+ *
+ * @param {string} content
+ * @returns {Promise<string>}
+ */
+async function buildStudioQrDataUrl(content) {
+  if (typeof QRCode === 'undefined') {
+    return '';
+  }
+
+  const size = 512;
+  const canvas = document.createElement('canvas');
+  await QRCode.toCanvas(canvas, content, {
+    errorCorrectionLevel: 'H',
+    margin: 1,
+    width: size,
+    color: { dark: '#18181b', light: '#ffffff' },
+  });
+
+  const ctx = canvas.getContext('2d');
+  if (!ctx) {
+    return canvas.toDataURL('image/png');
+  }
+
+  try {
+    const logoUrl = window.CMP_BADGE_LOGO_URL || 'assets/logo-cmp.png';
+    const logo = await loadBadgeImage(logoUrl);
+    const logoSize = size * 0.22;
+    const x = (size - logoSize) / 2;
+    const y = (size - logoSize) / 2;
+    const pad = logoSize * 0.12;
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(x - pad, y - pad, logoSize + pad * 2, logoSize + pad * 2);
+    ctx.drawImage(logo, x, y, logoSize, logoSize);
+  } catch (e) { /* logo optionnel */ }
+
+  return canvas.toDataURL('image/png');
+}
+
+/**
+ * Remplit le QR en bas à droite du badge DOM.
+ *
+ * @param {HTMLElement} root
+ * @param {object} participant
+ */
+async function fillBadgeQr(root, participant) {
+  const img = root.querySelector('[data-badge-qr]');
+  if (!img || !participant) {
+    return;
+  }
+  const token = ensureBadgeToken(participant);
+  const url = getBadgePublicUrl(token);
+  try {
+    const dataUrl = await buildStudioQrDataUrl(url);
+    if (dataUrl) {
+      img.src = dataUrl;
+      img.alt = 'QR code badge ouvrier';
+    }
+  } catch (e) { /* ignore */ }
+}
+
 function getDefaultBadgeCategory(key) {
   return BADGE_CATEGORY_DEFAULTS[key] || null;
 }
@@ -530,6 +623,23 @@ async function renderBadgeToCanvas(participant, options = {}) {
     }
   }
 
+  // QR code bas droite (scannable → page badge ouvrier)
+  try {
+    const token = ensureBadgeToken(participant);
+    const qrUrl = getBadgePublicUrl(token);
+    const qrDataUrl = await buildStudioQrDataUrl(qrUrl);
+    if (qrDataUrl) {
+      const qrImg = await loadBadgeImage(qrDataUrl);
+      const qrSize = badgeWidth * 0.16;
+      const qrX = x0 + badgeWidth * 0.90 - qrSize;
+      const qrY = y0 + badgeHeight * 0.86 - qrSize * 0.15;
+      const pad = qrSize * 0.08;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(qrX - pad, qrY - pad, qrSize + pad * 2, qrSize + pad * 2);
+      ctx.drawImage(qrImg, qrX, qrY, qrSize, qrSize);
+    }
+  } catch (e) { /* QR optionnel à l’export */ }
+
   return canvas;
 }
 
@@ -592,6 +702,7 @@ function renderRetreatBadge(target, participant, options = {}) {
   const chambre = roleValue;
 
   root.style.setProperty('--badge-category-color', category.color);
+  ensureBadgeToken(participant);
   root.__badgeParticipant = { ...participant };
   root.__badgeOptions = { ...options };
   root.innerHTML = `
@@ -624,11 +735,18 @@ function renderRetreatBadge(target, participant, options = {}) {
           </div>
         ` : ''}
       ` : ''}
+      <div class="retreat-badge-qr" title="Scanner pour ouvrir le badge">
+        <img data-badge-qr alt="QR code badge ouvrier" width="128" height="128">
+      </div>
     </div>
   `;
   const badge = root.querySelector('.retreat-badge');
   if (badge) badge.style.setProperty('--badge-category-color', category.color);
+  ensureBadgeToken(participant);
+  root.__badgeParticipant = { ...participant };
+  root.__badgeOptions = { ...options };
   requestAnimationFrame(() => fitBadgeName(root));
+  void fillBadgeQr(root, participant);
 }
 
 function submitForm() {

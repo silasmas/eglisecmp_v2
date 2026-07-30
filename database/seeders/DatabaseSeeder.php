@@ -19,6 +19,7 @@ class DatabaseSeeder extends Seeder
             ChurchDepartmentSeeder::class,
             ChurchCellSeeder::class,
             ChurchExtensionSeeder::class,
+            ChurchWorkerPendingSeeder::class,
         ]);
     }
 }

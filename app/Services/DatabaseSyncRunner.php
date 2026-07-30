@@ -30,6 +30,7 @@ final class DatabaseSyncRunner
         \Database\Seeders\ChurchDepartmentSeeder::class,
         \Database\Seeders\ChurchCellSeeder::class,
         \Database\Seeders\ChurchExtensionSeeder::class,
+        \Database\Seeders\ChurchWorkerPendingSeeder::class,
         \Database\Seeders\SiteStatisticSeeder::class,
     ];
 

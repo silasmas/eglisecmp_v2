@@ -153,9 +153,23 @@
   left: 38.75%;
   transform: translateX(-50%);
 }
-.retreat-badge-chambre {
-  left: 61.25%;
-  transform: translateX(-50%);
+.retreat-badge-qr {
+  position: absolute;
+  right: 10%;
+  bottom: 14%;
+  width: 16%;
+  aspect-ratio: 1;
+  z-index: 3;
+  background: #fff;
+  border-radius: 8px;
+  padding: 4%;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+.retreat-badge-qr img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
 }
 .retreat-badge-single-assignment .retreat-badge-assignment {
   left: 50%;

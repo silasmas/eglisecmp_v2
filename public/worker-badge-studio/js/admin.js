@@ -29,7 +29,7 @@ function getAdminFormParticipant() {
   const showWorkshop = getAdminEl('adminShowWorkshop') ? getAdminEl('adminShowWorkshop').checked : true;
   const showRoom = getAdminEl('adminShowRoom') ? getAdminEl('adminShowRoom').checked : true;
 
-  return {
+  const participant = {
     id: getAdminEl('adminId').value || `ADMIN-${Date.now()}`,
     prenom: getAdminEl('adminPrenom').value.trim(),
     nom: getAdminEl('adminNom').value.trim(),
@@ -40,6 +40,7 @@ function getAdminFormParticipant() {
     // « chambre » conservé en clé technique = rôle / sous-branche du département
     chambre: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 24),
     departmentRole: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 24),
+    badgeToken: getAdminEl('adminId')?.dataset?.badgeToken || '',
     photo: Admin.photo,
     showPhoto,
     showWorkshop,
@@ -47,6 +48,15 @@ function getAdminFormParticipant() {
     showAssignments: showWorkshop || (!encadrant && showRoom),
     createdAt: new Date().toISOString(),
   };
+
+  if (typeof ensureBadgeToken === 'function') {
+    ensureBadgeToken(participant);
+    if (getAdminEl('adminId')) {
+      getAdminEl('adminId').dataset.badgeToken = participant.badgeToken;
+    }
+  }
+
+  return participant;
 }
 
 function updateAdminCategoryState(options = {}) {
@@ -72,6 +82,10 @@ function fillAdminForm(participant) {
   const categoryKey = BADGE_CATEGORIES[participant.category] ? participant.category : 'participant';
 
   getAdminEl('adminId').value = participant.id || '';
+  if (typeof ensureBadgeToken === 'function') {
+    ensureBadgeToken(participant);
+  }
+  getAdminEl('adminId').dataset.badgeToken = participant.badgeToken || '';
   getAdminEl('adminPrenom').value = participant.prenom || '';
   getAdminEl('adminNom').value = participant.nom || '';
   getAdminEl('adminPostnom').value = participant.postnom || '';
@@ -240,6 +254,9 @@ function seedDemoParticipant() {
     atelier: '00',
     chambre: 'Équipe A',
     departmentRole: 'Équipe A',
+    badgeToken: (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function')
+      ? crypto.randomUUID()
+      : `demo-${Date.now()}`,
     role: 'Participant',
     photo: null,
     showPhoto: true,
