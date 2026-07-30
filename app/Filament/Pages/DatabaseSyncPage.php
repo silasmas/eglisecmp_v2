@@ -70,7 +70,7 @@ class DatabaseSyncPage extends Page
                 ->color('success')
                 ->requiresConfirmation()
                 ->modalHeading('Lancer php artisan migrate --force')
-                ->modalDescription('Applique les migrations en attente (ajouts / modifications de tables). Action irréversible sur la structure.')
+                ->modalDescription('Applique les migrations une par une. En cas d’erreur (table déjà présente, migration legacy, etc.), elle est ignorée et la sync continue.')
                 ->action(function (): void {
                     $result = DatabaseSyncRunner::migrate('filament');
                     $this->lastOutput = $result['output'];

@@ -14,8 +14,8 @@ use Throwable;
 /**
  * Exécute et suit les migrations / synchronisations de schéma depuis l’admin.
  *
- * Si une table/colonne existe déjà (base partiellement synchronisée), la migration
- * concernée est marquée comme appliquée et la suite continue au lieu de bloquer.
+ * Toute migration individuelle en échec (schéma déjà présent, incohérence legacy,
+ * etc.) est marquée comme appliquée et la suite continue — sauf erreur de connexion.
  */
 final class DatabaseSyncRunner
 {
@@ -150,27 +150,31 @@ final class DatabaseSyncRunner
                 continue;
             }
 
-            if (self::isAlreadyAppliedSchemaError($output)) {
-                self::markMigrationAsRan($migration);
-                $skipped[] = $migration;
-                $log[] = "[déjà présent — marqué comme appliqué] {$migration}\n{$output}";
-                continue;
+            // Ne jamais bloquer la sync : une migration déjà appliquée / incohérente
+            // est marquée comme faite et on passe à la suivante.
+            if (self::isFatalConnectionError($output)) {
+                $log[] = "[connexion] {$migration}\n{$output}";
+
+                return self::storeResult([
+                    'success' => false,
+                    'output' => implode("\n\n", $log),
+                    'error' => 'Erreur de connexion à la base. Vérifiez MySQL / .env.',
+                    'ran_at' => $ranAt,
+                    'source' => $source,
+                    'command' => 'migrate',
+                ]);
             }
 
-            $log[] = "[échec] {$migration}\n{$output}";
-
-            return self::storeResult([
-                'success' => false,
-                'output' => implode("\n\n", $log),
-                'error' => "Échec sur {$migration}. Les migrations précédentes ont été traitées.",
-                'ran_at' => $ranAt,
-                'source' => $source,
-                'command' => 'migrate',
-            ]);
+            self::markMigrationAsRan($migration);
+            $skipped[] = $migration;
+            $reason = self::isAlreadyAppliedSchemaError($output)
+                ? 'déjà présent'
+                : 'ignoré pour continuer';
+            $log[] = "[{$reason} — marqué comme appliqué] {$migration}\n{$output}";
         }
 
         $summary = sprintf(
-            "Synchronisation terminée.\nAppliquées : %d\nDéjà présentes (ignorées) : %d\nRestantes : %d",
+            "Synchronisation terminée.\nAppliquées : %d\nIgnorées / déjà présentes : %d\nRestantes : %d",
             count($applied),
             count($skipped),
             count(self::pendingMigrations()),
@@ -221,11 +225,36 @@ final class DatabaseSyncRunner
             || str_contains($haystack, 'duplicate column')
             || str_contains($haystack, 'duplicate key')
             || str_contains($haystack, 'duplicate entry')
+            || str_contains($haystack, "doesn't exist")
+            || str_contains($haystack, 'does not exist')
+            || str_contains($haystack, 'unknown column')
+            || str_contains($haystack, 'cannot add')
+            || str_contains($haystack, 'can\'t drop')
+            || str_contains($haystack, 'check that column/key exists')
             || str_contains($output, '42S01')
+            || str_contains($output, '42S02')
             || str_contains($output, '42S21')
+            || str_contains($output, '42S22')
             || str_contains($output, '1050')
+            || str_contains($output, '1054')
             || str_contains($output, '1060')
-            || str_contains($output, '1061');
+            || str_contains($output, '1061')
+            || str_contains($output, '1091');
+    }
+
+    /**
+     * Erreurs fatales (connexion) : on arrête vraiment la sync.
+     */
+    private static function isFatalConnectionError(string $output): bool
+    {
+        $haystack = strtolower($output);
+
+        return str_contains($haystack, 'connection refused')
+            || str_contains($haystack, 'access denied for user')
+            || str_contains($haystack, 'could not find driver')
+            || str_contains($haystack, 'no connection could be made')
+            || str_contains($haystack, 'sqlstate[hy000] [2002]')
+            || str_contains($haystack, 'sqlstate[hy000] [1045]');
     }
 
     /**

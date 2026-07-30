@@ -49,7 +49,7 @@
       <x-filament::section>
         <x-slot name="heading">Actions rapides</x-slot>
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
-          Applique les migrations une par une. Si une table/colonne existe déjà, elle est ignorée et la sync continue.
+          Applique les migrations une par une. Toute erreur ponctuelle (déjà présent, legacy, etc.) est ignorée et la sync continue.
         </p>
         <x-filament::button
           wire:click="runMigrations"
