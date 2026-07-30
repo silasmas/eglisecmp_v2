@@ -194,7 +194,7 @@ function renderParticipantsList() {
     list.innerHTML = `
       <div class="admin-empty">
         <i class="bi bi-inbox"></i>
-        <span>Aucun ouvrier pour ce filtre. Validez des dossiers ou créez un exemple.</span>
+        <span>Aucun ouvrier pour ce filtre. Les départements viennent de la BDD (actifs). Les ouvriers listés ici sont ceux au statut « validé ».</span>
       </div>
     `;
     return;
@@ -310,45 +310,102 @@ function renderDepartmentFilter() {
   const select = getAdminEl('departmentFilter');
   if (!select) return;
   const current = Admin.departmentFilter || '';
+  const options = (Admin.departments || [])
+    .slice()
+    .sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), 'fr'));
+
   select.innerHTML = `<option value="">Tous les départements</option>${
-    (Admin.departments || []).map((department) => `
+    options.map((department) => `
       <option value="${badgeEscapeHtml(String(department.id))}" ${String(department.id) === String(current) ? 'selected' : ''}>
-        ${badgeEscapeHtml(department.name)}
+        ${badgeEscapeHtml(department.name || `Département #${department.id}`)}
       </option>
     `).join('')
   }`;
 }
 
 /**
+ * Affiche un statut sous les filtres.
+ */
+function setStudioDirectoryStatus(message, isError = false) {
+  const el = getAdminEl('studioDirectoryStatus');
+  if (!el) return;
+  el.textContent = message || '';
+  el.style.color = isError ? '#fca5a5' : '';
+}
+
+/**
+ * Applique un payload départements + ouvriers validés.
+ */
+function applyStudioDirectoryPayload(payload, sourceLabel = '') {
+  Admin.departments = Array.isArray(payload?.departments) ? payload.departments : [];
+  Admin.validatedWorkers = (Array.isArray(payload?.workers) ? payload.workers : []).map((worker) => ({
+    ...worker,
+    source: 'validated',
+    departmentSlug: worker.category,
+  }));
+  syncDepartmentsAsCategories(Admin.departments);
+  renderDepartmentFilter();
+  renderParticipantsList();
+
+  const deptCount = Admin.departments.length;
+  const workerCount = Admin.validatedWorkers.length;
+  setStudioDirectoryStatus(
+    `${deptCount} département${deptCount > 1 ? 's' : ''} · ${workerCount} ouvrier${workerCount > 1 ? 's' : ''} validé${workerCount > 1 ? 's' : ''}${sourceLabel ? ` (${sourceLabel})` : ''}`,
+  );
+}
+
+/**
+ * Résout l’URL API studio (évite le <base href> assets).
+ */
+function resolveStudioWorkersApiUrl() {
+  if (typeof window.CMP_STUDIO_WORKERS_API_PATH === 'string' && window.CMP_STUDIO_WORKERS_API_PATH.startsWith('/')) {
+    return window.CMP_STUDIO_WORKERS_API_PATH;
+  }
+  if (typeof window.CMP_STUDIO_WORKERS_API === 'string' && window.CMP_STUDIO_WORKERS_API !== '') {
+    return window.CMP_STUDIO_WORKERS_API;
+  }
+  const prefix = window.location.pathname.startsWith('/public/') ? '/public' : '';
+  return `${prefix}/admin/worker-badge-studio/workers`;
+}
+
+/**
  * Charge les ouvriers validés depuis l’API admin du studio.
  */
 async function loadValidatedWorkers() {
-  const apiUrl = window.CMP_STUDIO_WORKERS_API;
-  if (!apiUrl) {
-    return;
-  }
+  const apiUrl = resolveStudioWorkersApiUrl();
+  setStudioDirectoryStatus('Chargement des départements…');
 
   try {
     const response = await fetch(apiUrl, {
-      headers: { Accept: 'application/json' },
+      headers: { Accept: 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
       credentials: 'same-origin',
+      cache: 'no-store',
     });
     if (!response.ok) {
       throw new Error(`HTTP ${response.status}`);
     }
     const payload = await response.json();
-    Admin.departments = Array.isArray(payload.departments) ? payload.departments : [];
-    Admin.validatedWorkers = (Array.isArray(payload.workers) ? payload.workers : []).map((worker) => ({
-      ...worker,
-      source: 'validated',
-      departmentSlug: worker.category,
-    }));
-    syncDepartmentsAsCategories(Admin.departments);
-    renderDepartmentFilter();
-    renderParticipantsList();
+    applyStudioDirectoryPayload(payload, 'API');
   } catch (error) {
     console.warn('Impossible de charger les ouvriers validés', error);
+    if (Admin.departments.length === 0 && window.CMP_STUDIO_BOOTSTRAP) {
+      applyStudioDirectoryPayload(window.CMP_STUDIO_BOOTSTRAP, 'cache page');
+    }
+    setStudioDirectoryStatus(
+      `API indisponible (${error instanceof Error ? error.message : 'erreur'}). Départements: ${Admin.departments.length}.`,
+      true,
+    );
   }
+}
+
+/**
+ * Initialise la liste depuis le bootstrap serveur (immédiat, sans attendre l’API).
+ */
+function applyStudioBootstrap() {
+  if (!window.CMP_STUDIO_BOOTSTRAP || typeof window.CMP_STUDIO_BOOTSTRAP !== 'object') {
+    return;
+  }
+  applyStudioDirectoryPayload(window.CMP_STUDIO_BOOTSTRAP, 'page');
 }
 
 function isDemoParticipant(participant) {
@@ -738,11 +795,12 @@ function initAdmin() {
   renderCategoryList();
 
   Admin.participants = readParticipants().map((item) => ({ ...item, source: item.source || 'local' }));
+  applyStudioBootstrap();
   renderParticipantsList();
-  fillAdminForm(Admin.participants[0] || getBlankAdminParticipant());
+  fillAdminForm(getVisibleParticipants()[0] || Admin.participants[0] || getBlankAdminParticipant());
   void loadValidatedWorkers().then(() => {
     const visible = getVisibleParticipants();
-    if (visible.length && !Admin.selectedId) {
+    if (visible.length && !findParticipantById(Admin.selectedId)) {
       fillAdminForm(visible[0]);
       renderParticipantsList();
     }

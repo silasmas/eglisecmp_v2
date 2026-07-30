@@ -54,6 +54,14 @@ Route::get('/admin/worker-badge-studio/workers', WorkerBadgeStudioWorkersControl
     ->middleware(['web', 'auth'])
     ->name('admin.worker-badge-studio.workers');
 
+Route::get('/public/admin/worker-badge-studio', WorkerBadgeStudioController::class)
+    ->middleware(['web', 'auth'])
+    ->name('admin.worker-badge-studio.public');
+
+Route::get('/public/admin/worker-badge-studio/workers', WorkerBadgeStudioWorkersController::class)
+    ->middleware(['web', 'auth'])
+    ->name('admin.worker-badge-studio.workers.public');
+
 /*
 |--------------------------------------------------------------------------
 | Badge ouvrier public — page module (hors SPA / navbar / FAB)

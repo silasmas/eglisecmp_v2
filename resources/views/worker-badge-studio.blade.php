@@ -18,6 +18,8 @@
     window.CMP_BADGE_PUBLIC_BASE = @json(url('/ouvriers/badge'));
     window.CMP_BADGE_LOGO_URL = @json(url('/worker-badge-studio/assets/logo-cmp.png'));
     window.CMP_STUDIO_WORKERS_API = @json($workersApiUrl);
+    window.CMP_STUDIO_WORKERS_API_PATH = @json($workersApiPath);
+    window.CMP_STUDIO_BOOTSTRAP = @json($studioBootstrap);
   </script>
 
   <link rel="stylesheet" href="css/tokens.css">
@@ -77,18 +79,19 @@
       <div class="studio-list-filters" style="display:grid;gap:.55rem;padding:.75rem 1rem 0;">
         <label class="field" style="margin:0;">
           <span class="field-label">Département</span>
-          <select id="departmentFilter" class="field-input">
+          <select id="departmentFilter" class="field-input" aria-label="Filtrer par département">
             <option value="">Tous les départements</option>
           </select>
         </label>
         <label class="field" style="margin:0;">
           <span class="field-label">Source</span>
-          <select id="workersSourceFilter" class="field-input">
+          <select id="workersSourceFilter" class="field-input" aria-label="Filtrer par source">
             <option value="all">Tous</option>
             <option value="validated">Validés (BDD)</option>
             <option value="local">Brouillons locaux</option>
           </select>
         </label>
+        <p id="studioDirectoryStatus" class="field-hint" style="margin:0;font-size:.75rem;opacity:.8;"></p>
         <button type="button" class="studio-action-btn ghost" id="refreshValidatedWorkersBtn" title="Recharger les ouvriers validés">
           <i class="bi bi-arrow-clockwise"></i>
           <span>Actualiser validés</span>
