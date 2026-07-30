@@ -22,6 +22,7 @@
         "mradder/filament-logger": "^1.2",
         "notebrainslab/filament-menu-manager": "^1.0",
         "oliwol/filament-rich-editor-heroicons": "^1.1",
+        "phpoffice/phpspreadsheet": "^5.9",
         "rawand201/filament-connection-badge": "^1.0",
         "slimani/filament-media-manager": "^0.11.0",
         "tinusg/filament-hover-image-column": "^1.0",

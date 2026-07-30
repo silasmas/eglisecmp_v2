@@ -8,19 +8,19 @@ use App\Models\ChurchExtension;
 use Illuminate\Database\Seeder;
 
 /**
- * Importe les extensions CMP initiales (siège + diaspora).
+ * Extensions CMP (siège + diaspora) — données locales de référence.
+ *
+ * Idempotent : updateOrCreate sur le nom.
  */
 class ChurchExtensionSeeder extends Seeder
 {
     /**
-     * Remplit church_extensions si la table est vide.
+     * Insère ou met à jour les extensions de référence.
+     *
+     * @return void
      */
     public function run(): void
     {
-        if (ChurchExtension::query()->exists()) {
-            return;
-        }
-
         $rows = [
             ['name' => 'CMP Siège', 'city' => 'Kinshasa', 'country' => 'RD Congo', 'address' => '4524, Avenue des Forces Armées, Gombe', 'lat' => -4.30545, 'lng' => 15.28672, 'description' => 'Maison mère du Centre Missionnaire Philadelphie.', 'leader_name' => 'Pasteur Ken Luamba', 'sort_order' => 1],
             ['name' => 'CMP Lubumbashi', 'city' => 'Lubumbashi', 'country' => 'RD Congo', 'address' => 'Lubumbashi, Haut-Katanga', 'lat' => -11.6876, 'lng' => 27.5026, 'description' => 'Extension missionnaire au Katanga.', 'sort_order' => 2],
@@ -35,10 +35,20 @@ class ChurchExtensionSeeder extends Seeder
         ];
 
         foreach ($rows as $row) {
-            ChurchExtension::query()->create([
-                ...$row,
-                'is_active' => true,
-            ]);
+            ChurchExtension::query()->updateOrCreate(
+                ['name' => $row['name']],
+                [
+                    'city' => $row['city'],
+                    'country' => $row['country'],
+                    'address' => $row['address'],
+                    'lat' => $row['lat'],
+                    'lng' => $row['lng'],
+                    'description' => $row['description'],
+                    'leader_name' => $row['leader_name'] ?? null,
+                    'is_active' => true,
+                    'sort_order' => $row['sort_order'],
+                ]
+            );
         }
     }
 }

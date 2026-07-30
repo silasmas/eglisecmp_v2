@@ -16,6 +16,9 @@ class DatabaseSeeder extends Seeder
             FactoryDataSeeder::class,
             SiteStatisticSeeder::class,
             MinisterReceptionScheduleSeeder::class,
+            ChurchDepartmentSeeder::class,
+            ChurchCellSeeder::class,
+            ChurchExtensionSeeder::class,
         ]);
     }
 }

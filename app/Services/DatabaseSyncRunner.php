@@ -12,7 +12,7 @@ use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
- * Exécute et suit les migrations / synchronisations de schéma depuis l’admin.
+ * Exécute et suit les migrations / seeders / synchronisations depuis l’admin.
  *
  * Toute migration individuelle en échec (schéma déjà présent, incohérence legacy,
  * etc.) est marquée comme appliquée et la suite continue — sauf erreur de connexion.
@@ -20,6 +20,18 @@ use Throwable;
 final class DatabaseSyncRunner
 {
     private const CACHE_KEY_LAST_RUN = 'cmp.database_sync.last_run';
+
+    /**
+     * Seeders sûrs / idempotents pour la sync admin (pas de factories ni import SQL).
+     *
+     * @var list<class-string>
+     */
+    private const SAFE_SEEDERS = [
+        \Database\Seeders\ChurchDepartmentSeeder::class,
+        \Database\Seeders\ChurchCellSeeder::class,
+        \Database\Seeders\ChurchExtensionSeeder::class,
+        \Database\Seeders\SiteStatisticSeeder::class,
+    ];
 
     /**
      * Liste les migrations en attente (fichiers non encore exécutés).
@@ -212,6 +224,74 @@ final class DatabaseSyncRunner
             '--panel' => 'admin',
             '--no-interaction' => true,
         ], $source, 'shield:generate');
+    }
+
+    /**
+     * Liste des seeders exécutables depuis l’admin.
+     *
+     * @return list<string>
+     */
+    public static function safeSeederLabels(): array
+    {
+        return array_map(
+            static fn (string $class): string => class_basename($class),
+            self::SAFE_SEEDERS,
+        );
+    }
+
+    /**
+     * Exécute les seeders sûrs un par un (départements, extensions, stats…).
+     * Un seeder en échec n’empêche pas les suivants.
+     *
+     * @param  string  $source  Origine de l’appel (filament, http-deploy…)
+     * @return array{success: bool, output: string, error: string|null, ran_at: string, source?: string, command?: string}
+     */
+    public static function seed(string $source = 'filament'): array
+    {
+        $ranAt = now()->toIso8601String();
+        $log = [];
+        $ok = 0;
+        $failed = 0;
+
+        foreach (self::SAFE_SEEDERS as $seederClass) {
+            $label = class_basename($seederClass);
+
+            try {
+                $exitCode = Artisan::call('db:seed', [
+                    '--class' => $seederClass,
+                    '--force' => true,
+                    '--no-interaction' => true,
+                ]);
+                $output = trim(Artisan::output());
+
+                if ($exitCode === 0) {
+                    $ok++;
+                    $log[] = "[ok] {$label}".($output !== '' ? "\n{$output}" : '');
+                } else {
+                    $failed++;
+                    $log[] = "[échec] {$label}\n".($output !== '' ? $output : "Code {$exitCode}");
+                }
+            } catch (Throwable $throwable) {
+                $failed++;
+                $log[] = "[échec] {$label}\n".$throwable->getMessage();
+            }
+        }
+
+        $summary = sprintf(
+            "Seeders terminés.\nOK : %d\nÉchecs : %d\nClasses : %s",
+            $ok,
+            $failed,
+            implode(', ', self::safeSeederLabels()),
+        );
+
+        return self::storeResult([
+            'success' => $failed === 0,
+            'output' => $summary."\n\n".implode("\n\n", $log),
+            'error' => $failed > 0 ? "{$failed} seeder(s) en échec (voir sortie)." : null,
+            'ran_at' => $ranAt,
+            'source' => $source,
+            'command' => 'db:seed',
+        ]);
     }
 
     /**

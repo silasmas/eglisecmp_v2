@@ -1008,6 +1008,26 @@ export async function fetchChurchExtensions(): Promise<PublicChurchExtension[]> 
   return fetchSiteList<PublicChurchExtension>('extensions');
 }
 
+export type PublicChurchCell = {
+  id: string;
+  name: string;
+  commune: string;
+  day: string;
+  time: string;
+  host: string;
+  description: string;
+  address: string;
+  lat: number | null;
+  lng: number | null;
+};
+
+/**
+ * Liste des cellules de maison actives.
+ */
+export async function fetchChurchCells(): Promise<PublicChurchCell[]> {
+  return fetchSiteList<PublicChurchCell>('cells');
+}
+
 export type WorshipServiceTypeOption = {
   value: string;
   label: string;

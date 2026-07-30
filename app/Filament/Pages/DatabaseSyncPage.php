@@ -13,7 +13,7 @@ use Filament\Pages\Page;
 use UnitEnum;
 
 /**
- * Page admin Système : exécution des migrations et synchronisation de la base.
+ * Page admin Système : exécution des migrations / seeders et sync de la base.
  */
 class DatabaseSyncPage extends Page
 {
@@ -50,11 +50,16 @@ class DatabaseSyncPage extends Page
         $migrateUrl = $token !== ''
             ? url('/deploy/migrate/'.$token)
             : null;
+        $seedUrl = $token !== ''
+            ? url('/deploy/seed/'.$token)
+            : null;
 
         return [
             'status' => DatabaseSyncRunner::status(),
             'lastOutput' => $this->lastOutput,
             'migrateHttpUrl' => $migrateUrl,
+            'seedHttpUrl' => $seedUrl,
+            'safeSeeders' => DatabaseSyncRunner::safeSeederLabels(),
         ];
     }
 
@@ -89,6 +94,36 @@ class DatabaseSyncPage extends Page
                         ->title('Échec des migrations')
                         ->body($result['error'] ?? $result['output'])
                         ->danger()
+                        ->send();
+                }),
+            Action::make('runSeed')
+                ->label('Exécuter les seeders')
+                ->icon('heroicon-o-circle-stack')
+                ->color('info')
+                ->requiresConfirmation()
+                ->modalHeading('Lancer les seeders de référence')
+                ->modalDescription(
+                    'Exécute : '.implode(', ', DatabaseSyncRunner::safeSeederLabels()).'. '
+                    .'Idempotent (updateOrCreate / skip si déjà rempli). Pas de factories ni import SQL.'
+                )
+                ->action(function (): void {
+                    $result = DatabaseSyncRunner::seed('filament');
+                    $this->lastOutput = $result['output'];
+
+                    if ($result['success']) {
+                        Notification::make()
+                            ->title('Seeders exécutés')
+                            ->body('Départements, extensions et stats de référence synchronisés.')
+                            ->success()
+                            ->send();
+
+                        return;
+                    }
+
+                    Notification::make()
+                        ->title('Seeders partiels')
+                        ->body($result['error'] ?? $result['output'])
+                        ->warning()
                         ->send();
                 }),
             Action::make('refreshStatus')
@@ -156,6 +191,30 @@ class DatabaseSyncPage extends Page
             ->title('Échec des migrations')
             ->body($result['error'] ?? $result['output'])
             ->danger()
+            ->send();
+    }
+
+    /**
+     * Relance les seeders sûrs (bouton dans la vue).
+     */
+    public function runSeeders(): void
+    {
+        $result = DatabaseSyncRunner::seed('filament');
+        $this->lastOutput = $result['output'];
+
+        if ($result['success']) {
+            Notification::make()
+                ->title('Seeders exécutés')
+                ->success()
+                ->send();
+
+            return;
+        }
+
+        Notification::make()
+            ->title('Seeders partiels')
+            ->body($result['error'] ?? $result['output'])
+            ->warning()
             ->send();
     }
 }

@@ -1,12 +1,58 @@
+import { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Clock, Home, MapPin, Users } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
-import { cellGroups } from '../data/locations';
+import { cellGroups as fallbackCells } from '../data/locations';
+import { fetchChurchCells, type PublicChurchCell } from '../lib/siteApi';
 
 /**
- * Page publique listant les cellules de maison CMP.
+ * Convertit les cellules statiques au format API.
+ */
+function mapFallback(): PublicChurchCell[] {
+  return fallbackCells.map((cell) => ({
+    id: cell.id,
+    name: cell.name,
+    commune: cell.commune,
+    day: cell.day,
+    time: cell.time,
+    host: cell.host,
+    description: cell.description,
+    address: '',
+    lat: null,
+    lng: null,
+  }));
+}
+
+/**
+ * Page publique listant les cellules de maison CMP (API + fallback).
  */
 export default function CellsPage() {
+  const [cells, setCells] = useState<PublicChurchCell[]>(mapFallback());
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    fetchChurchCells()
+      .then((rows) => {
+        if (!cancelled && rows.length > 0) {
+          setCells(rows);
+        }
+      })
+      .catch(() => {
+        // Conserve le fallback local.
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   return (
     <>
       <PageHero
@@ -23,11 +69,12 @@ export default function CellsPage() {
             <p className="mt-2 text-sm leading-relaxed text-surface-600">
               Les cellules sont le cœur de la vie fraternelle à CMP. Contactez l’accueil pour être orienté
               vers la cellule la plus proche de chez vous.
+              {loading ? ' Chargement…' : ''}
             </p>
           </div>
 
           <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {cellGroups.map((cell, index) => (
+            {cells.map((cell, index) => (
               <motion.article
                 key={cell.id}
                 initial={{ opacity: 0, y: 16 }}

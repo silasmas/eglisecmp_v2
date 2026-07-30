@@ -5,6 +5,7 @@
     $filesCount = (int) ($status['migration_files_count'] ?? 0);
     $pending = is_array($status['pending'] ?? null) ? $status['pending'] : [];
     $lastRun = is_array($status['last_run'] ?? null) ? $status['last_run'] : null;
+    $safeSeeders = is_array($safeSeeders ?? null) ? $safeSeeders : [];
     $displayOutput = $lastOutput !== ''
       ? $lastOutput
       : (is_string($lastRun['output'] ?? null) ? $lastRun['output'] : '');
@@ -49,16 +50,26 @@
       <x-filament::section>
         <x-slot name="heading">Actions rapides</x-slot>
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
-          Applique les migrations une par une. Toute erreur ponctuelle (déjà présent, legacy, etc.) est ignorée et la sync continue.
+          Migrations une par une, puis seeders de référence (départements, etc.).
         </p>
-        <x-filament::button
-          wire:click="runMigrations"
-          wire:confirm="Confirmer l’exécution des migrations en attente ?"
-          color="success"
-          size="sm"
-        >
-          Synchroniser maintenant
-        </x-filament::button>
+        <div class="flex flex-wrap gap-2">
+          <x-filament::button
+            wire:click="runMigrations"
+            wire:confirm="Confirmer l’exécution des migrations en attente ?"
+            color="success"
+            size="sm"
+          >
+            Synchroniser migrations
+          </x-filament::button>
+          <x-filament::button
+            wire:click="runSeeders"
+            wire:confirm="Confirmer l’exécution des seeders (départements, extensions, stats) ?"
+            color="info"
+            size="sm"
+          >
+            Lancer les seeders
+          </x-filament::button>
+        </div>
       </x-filament::section>
     </div>
 
@@ -81,6 +92,24 @@
       @endif
     </x-filament::section>
 
+    <x-filament::section>
+      <x-slot name="heading">Seeders de référence</x-slot>
+      <x-slot name="description">
+        Classes idempotentes exécutées par « Lancer les seeders » (pas de factories / import SQL).
+      </x-slot>
+      @if (count($safeSeeders) === 0)
+        <p class="text-sm text-gray-600 dark:text-gray-400">Aucun seeder configuré.</p>
+      @else
+        <ul class="space-y-2">
+          @foreach ($safeSeeders as $seeder)
+            <li class="rounded-lg bg-gray-50 px-3 py-2 text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
+              <code>{{ $seeder }}</code>
+            </li>
+          @endforeach
+        </ul>
+      @endif
+    </x-filament::section>
+
     @if ($displayOutput !== '')
       <x-filament::section>
         <x-slot name="heading">Sortie console</x-slot>
@@ -89,20 +118,29 @@
     @endif
 
     <x-filament::section>
-      <x-slot name="heading">Lien HTTP (déploiement)</x-slot>
+      <x-slot name="heading">Liens HTTP (déploiement)</x-slot>
       <x-slot name="description">
-        Même principe que Shield / storage-link : appel GET sécurisé par <code>DEPLOY_TOKEN</code>.
+        Appels GET sécurisés par <code>DEPLOY_TOKEN</code>.
       </x-slot>
       @if (!empty($migrateHttpUrl))
-        <p class="break-all rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+        <p class="mb-1 text-xs font-semibold text-gray-700 dark:text-gray-300">Migrations</p>
+        <p class="mb-3 break-all rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
           {{ $migrateHttpUrl }}
         </p>
-        <p class="mt-2 text-xs text-gray-500">
-          Ouvrez cette URL après un déploiement pour appliquer les migrations sans SSH.
+      @endif
+      @if (!empty($seedHttpUrl))
+        <p class="mb-1 text-xs font-semibold text-gray-700 dark:text-gray-300">Seeders</p>
+        <p class="mb-3 break-all rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+          {{ $seedHttpUrl }}
+        </p>
+      @endif
+      @if (empty($migrateHttpUrl) && empty($seedHttpUrl))
+        <p class="text-sm text-warning-600 dark:text-warning-400">
+          Définissez <code>DEPLOY_TOKEN</code> dans le <code>.env</code> pour activer les liens.
         </p>
       @else
-        <p class="text-sm text-warning-600 dark:text-warning-400">
-          Définissez <code>DEPLOY_TOKEN</code> dans le <code>.env</code> pour activer le lien.
+        <p class="text-xs text-gray-500">
+          Après un déploiement : migrations d’abord, puis seeders si besoin (départements, etc.).
         </p>
       @endif
     </x-filament::section>
@@ -111,8 +149,8 @@
       <x-slot name="heading">Bonnes pratiques</x-slot>
       <div class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-400">
         <ol>
-          <li>Déployez d’abord le code (nouveaux fichiers dans <code>database/migrations</code>).</li>
-          <li>Cliquez sur <strong>Exécuter les migrations</strong> ou appelez le lien HTTP ci-dessus.</li>
+          <li>Déployez d’abord le code (nouveaux fichiers dans <code>database/migrations</code> et <code>database/seeders</code>).</li>
+          <li>Exécutez les <strong>migrations</strong>, puis les <strong>seeders</strong> (départements ouvriers, etc.).</li>
           <li>Si de nouveaux modules Filament ont été ajoutés, lancez aussi <strong>Sync permissions Shield</strong>.</li>
           <li>Évitez <code>migrate:fresh</code> en production : cela effacerait les données.</li>
         </ol>

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Site\PublicAlertSubscriptionController;
 use App\Http\Controllers\Api\Site\PublicAppointmentController;
 use App\Http\Controllers\Api\Site\PublicBundaController;
 use App\Http\Controllers\Api\Site\PublicChildPresentationController;
+use App\Http\Controllers\Api\Site\PublicChurchCellController;
 use App\Http\Controllers\Api\Site\PublicChurchExtensionController;
 use App\Http\Controllers\Api\Site\PublicChurchWorkerController;
 use App\Http\Controllers\Api\Site\PublicContentReactionController;
@@ -99,6 +100,7 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
         ->middleware('throttle:10,1');
 
     Route::get('extensions', [PublicChurchExtensionController::class, 'index']);
+    Route::get('cells', [PublicChurchCellController::class, 'index']);
 
     Route::get('worship-reports/meta', [PublicWorshipServiceReportController::class, 'meta']);
     Route::post('worship-reports/lookup-phone', [PublicWorshipServiceReportController::class, 'lookupPhone'])

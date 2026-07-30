@@ -10,8 +10,10 @@ use App\Models\User;
 use App\Notifications\ChurchWorkerApprovedNotification;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Spatie\Permission\Models\Role as SpatieRole;
+use Throwable;
 
 /**
  * Validation d'un ouvrier : crée le user « ouvrier » et notifie.
@@ -24,10 +26,17 @@ final class ChurchWorkerApprovalService
 
     /**
      * Approuve le dossier, crée/lie le compte user et notifie l'ouvrier.
+     *
+     * L’approbation en base est toujours commitée ; un échec SMTP
+     * n’annule pas la validation (l’e-mail est best-effort).
+     *
+     * @param  ChurchWorker  $worker  Dossier à valider
+     * @param  User  $reviewer  Responsable qui valide
+     * @return ChurchWorker  Dossier rafraîchi (status approved)
      */
     public function approve(ChurchWorker $worker, User $reviewer): ChurchWorker
     {
-        return DB::transaction(function () use ($worker, $reviewer): ChurchWorker {
+        $approved = DB::transaction(function () use ($worker, $reviewer): ChurchWorker {
             $this->ensureOuvrierRole();
 
             $user = $worker->user;
@@ -67,18 +76,21 @@ final class ChurchWorkerApprovalService
                 'reviewed_at' => now(),
             ]);
 
-            $worker->refresh();
-
-            if (filled($worker->email) && filter_var($worker->email, FILTER_VALIDATE_EMAIL)) {
-                $user->notify(new ChurchWorkerApprovedNotification($worker));
-            }
-
-            return $worker;
+            return $worker->refresh();
         });
+
+        $this->notifyApproved($approved);
+
+        return $approved;
     }
 
     /**
      * Refuse une inscription.
+     *
+     * @param  ChurchWorker  $worker  Dossier à refuser
+     * @param  User  $reviewer  Responsable qui refuse
+     * @param  string|null  $reason  Motif optionnel
+     * @return ChurchWorker  Dossier rafraîchi
      */
     public function reject(ChurchWorker $worker, User $reviewer, ?string $reason = null): ChurchWorker
     {
@@ -94,6 +106,9 @@ final class ChurchWorkerApprovalService
 
     /**
      * Marque le badge comme généré / validé.
+     *
+     * @param  ChurchWorker  $worker  Ouvrier approuvé
+     * @return ChurchWorker  Dossier rafraîchi
      */
     public function generateBadge(ChurchWorker $worker): ChurchWorker
     {
@@ -108,6 +123,33 @@ final class ChurchWorkerApprovalService
         ]);
 
         return $worker->refresh();
+    }
+
+    /**
+     * Envoie l’e-mail de validation sans faire échouer l’approbation.
+     *
+     * @param  ChurchWorker  $worker  Ouvrier déjà approuvé
+     */
+    private function notifyApproved(ChurchWorker $worker): void
+    {
+        if (! filled($worker->email) || ! filter_var($worker->email, FILTER_VALIDATE_EMAIL)) {
+            return;
+        }
+
+        $user = $worker->user;
+        if ($user === null) {
+            return;
+        }
+
+        try {
+            $user->notify(new ChurchWorkerApprovedNotification($worker));
+        } catch (Throwable $throwable) {
+            Log::warning('Échec envoi e-mail validation ouvrier (approbation conservée).', [
+                'worker_id' => $worker->id,
+                'email' => $worker->email,
+                'error' => $throwable->getMessage(),
+            ]);
+        }
     }
 
     /**
