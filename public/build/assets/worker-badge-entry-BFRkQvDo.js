@@ -1,0 +1,1 @@
+import{ah as o,j as e,a,af as n,ai as s}from"./WorkerBadgeLayout-cI7iktzm.js";const r=document.getElementById("worker-badge-root");if(r===null)throw new Error("Élément #worker-badge-root introuvable.");var t;const d=((t=r.dataset.token)==null?void 0:t.trim())??"";o.createRoot(r).render(e.jsx(a.StrictMode,{children:e.jsx(n,{children:e.jsx(s,{token:d})})}));

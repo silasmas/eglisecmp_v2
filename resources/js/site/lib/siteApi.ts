@@ -1225,14 +1225,18 @@ export async function fetchWorkerEditableProfile(token: string): Promise<WorkerE
 }
 
 /**
- * Envoie l?OTP pour une modification de dossier.
+ * Envoie l?OTP pour une modification de dossier (adresse saisie = actuelle ou nouvelle).
  *
  * @param token Jeton d?édition public.
+ * @param email Adresse e-mail à vérifier.
  */
-export async function sendWorkerEditOtp(token: string): Promise<{ ok: boolean; message: string }> {
+export async function sendWorkerEditOtp(
+  token: string,
+  email: string,
+): Promise<{ ok: boolean; message: string }> {
   const body = await fetchSitePostJson<{ data: { ok: boolean; message: string } }>(
     `workers/edit/${encodeURIComponent(token)}/otp/send`,
-    {},
+    { email },
   );
   return body.data;
 }
@@ -1241,15 +1245,17 @@ export async function sendWorkerEditOtp(token: string): Promise<{ ok: boolean; m
  * Vérifie l?OTP de modification de dossier.
  *
  * @param token Jeton d?édition public.
+ * @param email Adresse e-mail concernée.
  * @param otpCode Code reçu par e-mail.
  */
 export async function verifyWorkerEditOtp(
   token: string,
+  email: string,
   otpCode: string,
 ): Promise<{ ok: boolean; verified: boolean; message: string }> {
   const body = await fetchSitePostJson<{ data: { ok: boolean; verified: boolean; message: string } }>(
     `workers/edit/${encodeURIComponent(token)}/otp/verify`,
-    { otp_code: otpCode },
+    { email, otp_code: otpCode },
   );
   return body.data;
 }

@@ -81,6 +81,9 @@
           <span class="field-label">Département</span>
           <select id="departmentFilter" class="field-input" aria-label="Filtrer par département">
             <option value="">Tous les départements</option>
+            @foreach(($studioBootstrap['departments'] ?? []) as $department)
+              <option value="{{ $department['id'] }}">{{ $department['name'] }}</option>
+            @endforeach
           </select>
         </label>
         <label class="field" style="margin:0;">
@@ -91,7 +94,9 @@
             <option value="local">Brouillons locaux</option>
           </select>
         </label>
-        <p id="studioDirectoryStatus" class="field-hint" style="margin:0;font-size:.75rem;opacity:.8;"></p>
+        <p id="studioDirectoryStatus" class="field-hint" style="margin:0;font-size:.75rem;opacity:.8;">
+          {{ count($studioBootstrap['departments'] ?? []) }} département(s) · {{ count($studioBootstrap['workers'] ?? []) }} ouvrier(s) validé(s)
+        </p>
         <button type="button" class="studio-action-btn ghost" id="refreshValidatedWorkersBtn" title="Recharger les ouvriers validés">
           <i class="bi bi-arrow-clockwise"></i>
           <span>Actualiser validés</span>
@@ -296,8 +301,9 @@
       };
     })();
   </script>
-  <script src="js/state.js"></script>
-  <script src="js/badge.js"></script>
-  <script src="js/admin.js"></script>
+  <script src="js/state.js?v={{ (int) @filemtime(public_path('worker-badge-studio/js/state.js')) }}"></script>
+  <script src="js/badge.js?v={{ (int) @filemtime(public_path('worker-badge-studio/js/badge.js')) }}"></script>
+  <script src="js/admin.js?v={{ (int) @filemtime(public_path('worker-badge-studio/js/admin.js')) }}"></script>
+  <script src="js/studio-directory-boot.js?v={{ (int) @filemtime(public_path('worker-badge-studio/js/studio-directory-boot.js')) }}"></script>
 </body>
 </html>

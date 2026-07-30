@@ -118,18 +118,17 @@ final class PublicChurchWorkerController extends Controller
 
     /**
      * Envoie un OTP pour valider une modification de dossier.
+     * L’OTP est envoyé à l’e-mail saisi (adresse actuelle ou nouvelle).
      */
-    public function sendEditOtp(string $token): JsonResponse
+    public function sendEditOtp(Request $request, string $token): JsonResponse
     {
-        $worker = $this->findEditableWorker($token);
-        $email = (string) $worker->email;
+        $this->findEditableWorker($token);
 
-        if ($email === '') {
-            throw ValidationException::withMessages([
-                'email' => 'Aucun e-mail n’est associé à ce dossier.',
-            ]);
-        }
+        $validated = $request->validate([
+            'email' => ['required', 'email', 'max:190'],
+        ]);
 
+        $email = $this->emailOtp->normalizeEmail($validated['email']);
         $this->emailOtp->send($email, EmailOtp::PURPOSE_WORKER_PROFILE_UPDATE);
 
         return response()->json([
@@ -145,13 +144,16 @@ final class PublicChurchWorkerController extends Controller
      */
     public function verifyEditOtp(Request $request, string $token): JsonResponse
     {
-        $worker = $this->findEditableWorker($token);
+        $this->findEditableWorker($token);
+
         $validated = $request->validate([
+            'email' => ['required', 'email', 'max:190'],
             'otp_code' => ['required', 'string', 'max:12'],
         ]);
 
+        $email = $this->emailOtp->normalizeEmail($validated['email']);
         $this->emailOtp->verify(
-            (string) $worker->email,
+            $email,
             EmailOtp::PURPOSE_WORKER_PROFILE_UPDATE,
             $validated['otp_code'],
         );
@@ -160,7 +162,7 @@ final class PublicChurchWorkerController extends Controller
             'data' => [
                 'ok' => true,
                 'verified' => true,
-                'message' => 'Identité confirmée. Vous pouvez enregistrer vos modifications.',
+                'message' => 'E-mail confirmé. Vous pouvez enregistrer vos modifications.',
             ],
         ]);
     }
@@ -196,11 +198,6 @@ final class PublicChurchWorkerController extends Controller
         ]);
 
         $email = $this->emailOtp->normalizeEmail($validated['email']);
-        if ($email !== $this->emailOtp->normalizeEmail((string) $worker->email)) {
-            throw ValidationException::withMessages([
-                'email' => 'L’e-mail ne peut pas être modifié via ce lien. Contactez l’administration.',
-            ]);
-        }
 
         if (! $this->emailOtp->hasVerifiedRecently($email, EmailOtp::PURPOSE_WORKER_PROFILE_UPDATE, 60)) {
             $this->emailOtp->verify(
@@ -228,6 +225,8 @@ final class PublicChurchWorkerController extends Controller
             ]);
         }
 
+        $emailChanged = $email !== $this->emailOtp->normalizeEmail((string) $worker->email);
+
         $worker->fill([
             'department_id' => (int) $validated['department_id'],
             'last_name' => trim($validated['last_name']),
@@ -252,11 +251,21 @@ final class PublicChurchWorkerController extends Controller
         ]);
         $worker->save();
 
+        // Si un compte user est lié, synchroniser l’e-mail.
+        if ($emailChanged && $worker->user_id !== null) {
+            $worker->loadMissing('user');
+            if ($worker->user !== null) {
+                $worker->user->forceFill(['email' => $email])->save();
+            }
+        }
+
         return response()->json([
             'data' => [
                 'ok' => true,
                 'id' => $worker->id,
-                'message' => 'Vos informations ont été mises à jour avec succès.',
+                'message' => $emailChanged
+                    ? 'Vos informations et votre e-mail ont été mis à jour avec succès.'
+                    : 'Vos informations ont été mises à jour avec succès.',
             ],
         ]);
     }

@@ -29,7 +29,10 @@ final class WorkerBadgeStudioDirectory
 
         $workersQuery = ChurchWorker::query()
             ->with('department:id,name,slug,color')
-            ->where('status', ChurchWorker::STATUS_APPROVED)
+            ->where(function ($query): void {
+                $query->where('status', ChurchWorker::STATUS_APPROVED)
+                    ->orWhere('badge_generated', true);
+            })
             ->orderBy('last_name')
             ->orderBy('first_name');
 
@@ -37,8 +40,11 @@ final class WorkerBadgeStudioDirectory
             $workersQuery->where('department_id', $departmentId);
         }
 
+        // Les responsables non globaux ne voient que leurs départements.
         if (! $this->canSeeAllDepartments($user)) {
-            $managedIds = $departments->pluck('id');
+            $managedIds = ChurchDepartment::query()
+                ->where('manager_user_id', $user->id)
+                ->pluck('id');
             $workersQuery->whereIn('department_id', $managedIds->isEmpty() ? [-1] : $managedIds->all());
         }
 
@@ -59,45 +65,38 @@ final class WorkerBadgeStudioDirectory
     }
 
     /**
-     * Départements visibles dans le studio.
+     * Départements visibles dans le studio (tous les actifs pour tout accès studio).
      *
      * @return Collection<int, ChurchDepartment>
      */
     public function departmentsFor(User $user): Collection
     {
-        $query = ChurchDepartment::query()
+        // Le studio liste toujours tous les départements actifs (filtre UI).
+        $active = ChurchDepartment::query()
+            ->where('is_active', true)
             ->orderBy('sort_order')
-            ->orderBy('name');
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'color', 'is_active']);
 
-        // Actifs en priorité ; si aucun actif, on retombe sur tous (évite liste vide).
-        $activeQuery = (clone $query)->where('is_active', true);
-        if ($this->canSeeAllDepartments($user)) {
-            $active = $activeQuery->get(['id', 'name', 'slug', 'color', 'is_active']);
-            if ($active->isNotEmpty()) {
-                return $active;
-            }
-
-            return $query->get(['id', 'name', 'slug', 'color', 'is_active']);
+        if ($active->isNotEmpty()) {
+            return $active;
         }
 
-        // Responsable : uniquement ses départements (actifs si possible).
-        $managed = $query->where('manager_user_id', $user->id);
-        $activeManaged = (clone $managed)->where('is_active', true)->get(['id', 'name', 'slug', 'color', 'is_active']);
-        if ($activeManaged->isNotEmpty()) {
-            return $activeManaged;
-        }
-
-        return $managed->get(['id', 'name', 'slug', 'color', 'is_active']);
+        return ChurchDepartment::query()
+            ->orderBy('sort_order')
+            ->orderBy('name')
+            ->get(['id', 'name', 'slug', 'color', 'is_active']);
     }
 
     /**
-     * Admin global ou droit de voir tous les départements / ouvriers.
+     * Admin global ou droit de voir tous les ouvriers / départements.
      */
     public function canSeeAllDepartments(User $user): bool
     {
         return $user->hasRole('super_admin')
             || $user->can('ViewAny:ChurchWorker')
-            || $user->can('ViewAny:ChurchDepartment');
+            || $user->can('ViewAny:ChurchDepartment')
+            || $user->can('Update:ChurchWorker');
     }
 
     /**

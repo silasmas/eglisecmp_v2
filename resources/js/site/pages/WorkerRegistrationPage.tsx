@@ -167,10 +167,14 @@ export default function WorkerRegistrationPage() {
   const handleSendOtp = async () => {
     setError(null);
     setInfo(null);
+    if (email.trim() === '') {
+      setError('Saisissez une adresse e-mail valide.');
+      return;
+    }
     setBusy(true);
     try {
       const result = isEditMode
-        ? await sendWorkerEditOtp(editToken)
+        ? await sendWorkerEditOtp(editToken, email.trim())
         : await sendWorkerEmailOtp(email.trim());
       setOtpSent(true);
       setEmailVerified(false);
@@ -190,7 +194,7 @@ export default function WorkerRegistrationPage() {
     setBusy(true);
     try {
       const result = isEditMode
-        ? await verifyWorkerEditOtp(editToken, otpCode.trim())
+        ? await verifyWorkerEditOtp(editToken, email.trim(), otpCode.trim())
         : await verifyWorkerEmailOtp(email.trim(), otpCode.trim());
       setEmailVerified(result.verified);
       setInfo(result.message);
@@ -409,20 +413,19 @@ export default function WorkerRegistrationPage() {
                         className={INPUT}
                         value={email}
                         onChange={(e) => {
-                          if (isEditMode) {
-                            return;
-                          }
                           setEmail(e.target.value);
                           setEmailVerified(false);
                           setOtpSent(false);
                           setOtpCode('');
                         }}
                         required
-                        disabled={isEditMode || emailVerified}
-                        readOnly={isEditMode || emailVerified}
+                        disabled={emailVerified}
+                        readOnly={emailVerified}
                       />
                       {isEditMode ? (
-                        <p className="mt-1 text-xs text-surface-500">E-mail du dossier (OTP envoyé à cette adresse).</p>
+                        <p className="mt-1 text-xs text-surface-500">
+                          Vous pouvez changer d’e-mail. L’OTP sera envoyé à la nouvelle adresse avant validation.
+                        </p>
                       ) : null}
                       {emailVerified ? (
                         <p className="mt-1 text-xs text-emerald-700">E-mail verrouillé après vérification OTP.</p>

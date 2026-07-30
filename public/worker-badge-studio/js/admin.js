@@ -354,6 +354,14 @@ function applyStudioDirectoryPayload(payload, sourceLabel = '') {
   );
 }
 
+// Expose pour studio-directory-boot.js (anti-cache / secours).
+window.applyStudioDirectoryPayload = applyStudioDirectoryPayload;
+window.fillAdminForm = fillAdminForm;
+window.renderParticipantsList = renderParticipantsList;
+window.syncDepartmentsAsCategories = syncDepartmentsAsCategories;
+window.refreshAdminCategorySelect = refreshAdminCategorySelect;
+window.Admin = Admin;
+
 /**
  * Résout l’URL API studio (évite le <base href> assets).
  */
