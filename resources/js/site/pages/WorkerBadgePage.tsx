@@ -1,25 +1,51 @@
 import { useEffect, useRef, useState } from 'react';
 import { useParams } from 'react-router-dom';
-import { Download, IdCard, Printer, ShieldCheck } from 'lucide-react';
 import html2canvas from 'html2canvas';
 import WorkerBadgeCard from '../components/workers/WorkerBadgeCard';
+import { detectSpaBasename } from '../lib/routerBasename';
 import { fetchWorkerBadge, type WorkerBadgeData } from '../lib/siteApi';
 import '../styles/worker-badge.css';
 
 /**
- * Page badge ouvrier — design module badge (standalone), hors layout site.
+ * Construit l’URL publique du badge (tient compte du basename /public).
+ *
+ * @param token Jeton public du badge.
+ * @returns URL absolue de la page badge.
  */
-export default function WorkerBadgePage() {
-  const { token = '' } = useParams();
+function buildBadgePublicUrl(token: string): string {
+  if (typeof window !== 'undefined' && typeof window.CMP_BADGE_PUBLIC_URL === 'string' && window.CMP_BADGE_PUBLIC_URL !== '') {
+    return window.CMP_BADGE_PUBLIC_URL;
+  }
+  const origin = typeof window !== 'undefined' ? window.location.origin : '';
+  const base = detectSpaBasename();
+  const prefix = base !== '' ? base : '';
+  return `${origin}${prefix}/ouvriers/badge/${token}`;
+}
+
+declare global {
+  interface Window {
+    CMP_BADGE_PUBLIC_URL?: string;
+    CMP_BADGE_TOKEN?: string;
+  }
+}
+
+type WorkerBadgeViewProps = {
+  token: string;
+};
+
+/**
+ * Contenu page badge — même moule que retraite-jcmp-inscription/badge.html.
+ *
+ * @param props.token Jeton public de l’ouvrier.
+ */
+export function WorkerBadgeView({ token }: WorkerBadgeViewProps) {
   const [data, setData] = useState<WorkerBadgeData | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [zoom, setZoom] = useState(100);
   const badgeRef = useRef<HTMLDivElement | null>(null);
 
-  const badgeUrl = typeof window !== 'undefined'
-    ? `${window.location.origin}/ouvriers/badge/${token}`
-    : `/ouvriers/badge/${token}`;
+  const badgeUrl = buildBadgePublicUrl(token);
 
   useEffect(() => {
     if (token === '') {
@@ -44,7 +70,7 @@ export default function WorkerBadgePage() {
   }, [token]);
 
   /**
-   * Télécharge le badge en JPEG.
+   * Télécharge le badge en JPEG (html2canvas).
    */
   const downloadBadge = async () => {
     if (badgeRef.current === null || data === null) {
@@ -69,106 +95,94 @@ export default function WorkerBadgePage() {
   };
 
   return (
-    <div className="worker-badge-standalone">
-      <header className="worker-badge-standalone__hero">
-        <div className="worker-badge-standalone__hero-inner">
-          <span className="worker-badge-standalone__pill">
-            <IdCard className="h-4 w-4" aria-hidden />
+    <div className="worker-badge-module-page">
+      <header className="hero">
+        <div className="hero-content">
+          <div className="hero-badge">
+            <i className="bi bi-person-badge" aria-hidden />
             Badge ouvrier
-          </span>
-          <h1 className="worker-badge-standalone__title">
+          </div>
+          <h1>
             Votre <span>badge</span>
           </h1>
-          <p className="worker-badge-standalone__sub">
+          <p className="hero-sub">
             <strong>Centre Missionnaire Philadelphie</strong>
             {data !== null ? ` · ${data.fullName}` : ' · Service ouvrier'}
           </p>
-          <div className="worker-badge-standalone__divider" />
+          <div className="hero-divider" />
         </div>
       </header>
 
-      <div className="worker-badge-standalone__banner">
+      <div className="tpl-banner">
+        <i className="bi bi-info-circle" aria-hidden />
         <span>
-          Présentez ce badge lors des services. Le QR code renvoie vers cette page sécurisée par jeton.
+          Présentez ce badge lors des services. Le QR code en bas à droite ouvre cette page.
         </span>
       </div>
 
       {error !== null && data === null ? (
-        <p className="mx-auto mt-8 max-w-lg rounded-2xl bg-red-50 px-4 py-3 text-center text-sm text-red-700">
+        <p className="tpl-banner" style={{ background: '#fef2f2', borderColor: '#fecaca', color: '#b91c1c' }}>
           {error}
         </p>
       ) : null}
 
       {data !== null ? (
         <>
-          <div className="worker-badge-standalone__status">
-            {data.badgeValidated ? (
-              <span className="worker-badge-standalone__chip worker-badge-standalone__chip--ok">
-                <ShieldCheck className="h-4 w-4" />
-                Badge validé
-              </span>
-            ) : (
-              <span className="worker-badge-standalone__chip worker-badge-standalone__chip--warn">
-                Dossier {data.status === 'approved' ? 'validé — badge à générer' : 'en cours de validation'}
-              </span>
-            )}
-          </div>
-
-          <div className="worker-badge-standalone__actions">
-            <button type="button" className="worker-badge-standalone__btn" onClick={() => window.print()}>
-              <Printer className="h-4 w-4" />
-              Imprimer
+          <div className="tpl-actions">
+            <button type="button" className="btn btn-download" onClick={() => window.print()}>
+              <i className="bi bi-printer" aria-hidden /> Imprimer
             </button>
             <button
               type="button"
-              className="worker-badge-standalone__btn worker-badge-standalone__btn--primary"
+              className="btn btn-outline"
               disabled={busy}
               onClick={() => void downloadBadge()}
             >
-              <Download className="h-4 w-4" />
-              {busy ? 'Génération…' : 'Télécharger'}
+              <i className="bi bi-download" aria-hidden />
+              {busy ? ' Génération…' : ' Télécharger'}
             </button>
           </div>
 
-          <div className="worker-badge-standalone__zoom">
+          <div className="badge-zoom-controls" style={{ marginTop: '1rem' }}>
             <button
               type="button"
-              className="worker-badge-standalone__zoom-btn"
-              aria-label="Réduire"
+              className="badge-zoom-btn"
+              aria-label="Réduire l’aperçu"
               onClick={() => setZoom((z) => Math.max(60, z - 10))}
             >
-              −
+              <i className="bi bi-dash-lg" aria-hidden />
             </button>
-            <span>{zoom}%</span>
+            <span className="badge-zoom-value">{zoom}%</span>
             <button
               type="button"
-              className="worker-badge-standalone__zoom-btn"
-              aria-label="Agrandir"
+              className="badge-zoom-btn"
+              aria-label="Agrandir l’aperçu"
               onClick={() => setZoom((z) => Math.min(140, z + 10))}
             >
-              +
+              <i className="bi bi-plus-lg" aria-hidden />
             </button>
           </div>
 
-          <div className="worker-badge-standalone__stage">
+          <div className="tpl-stage">
             <div
               ref={badgeRef}
-              className="inline-block bg-white p-2"
               style={{ transform: `scale(${zoom / 100})`, transformOrigin: 'top center' }}
             >
               <WorkerBadgeCard data={data} badgeUrl={badgeUrl} />
             </div>
           </div>
-
-          <div className="worker-badge-standalone__meta">
-            <p><strong>Département :</strong> {data.department}</p>
-            {data.departmentRole !== '' ? <p><strong>Rôle :</strong> {data.departmentRole}</p> : null}
-            <p><strong>Ville :</strong> {data.city} · {data.commune}</p>
-          </div>
         </>
       ) : error === null ? (
-        <p className="mt-10 text-center text-sm text-zinc-500">Chargement du badge…</p>
+        <p className="tpl-banner">Chargement du badge…</p>
       ) : null}
     </div>
   );
+}
+
+/**
+ * Route SPA (secours) — lit le token dans l’URL React Router.
+ */
+export default function WorkerBadgePage() {
+  const { token = '' } = useParams();
+  return <WorkerBadgeView token={token} />;
 }

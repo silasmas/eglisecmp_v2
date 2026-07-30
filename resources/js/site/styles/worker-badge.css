@@ -171,6 +171,25 @@
   object-fit: contain;
 }
 
+/* Isoler le module badge du chrome éventuel du site */
+html.worker-badge-module-root body.worker-badge-module {
+  margin: 0;
+  background: #f6f4f1 !important;
+  font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
+}
+
+.worker-badge-module-shell {
+  min-height: 100vh;
+  background: #f6f4f1;
+}
+
+.worker-badge-role-box {
+  left: 50% !important;
+  transform: translateX(-50%);
+  top: 72.75%;
+}
+
+
 /* Page publique badge — design module (hors site) */
 .worker-badge-standalone {
   font-family: Poppins, ui-sans-serif, system-ui, sans-serif;

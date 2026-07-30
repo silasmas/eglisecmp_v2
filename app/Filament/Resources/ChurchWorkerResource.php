@@ -24,6 +24,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
@@ -55,6 +56,11 @@ class ChurchWorkerResource extends Resource
 
     protected static ?int $navigationSort = 11;
 
+    /**
+     * Requête de base (droits admin / responsable de département).
+     *
+     * @return Builder<ChurchWorker>
+     */
     public static function getEloquentQuery(): Builder
     {
         $query = parent::getEloquentQuery()->with(['department', 'user']);
@@ -75,6 +81,9 @@ class ChurchWorkerResource extends Resource
         return $query->whereIn('department_id', $managedIds);
     }
 
+    /**
+     * Accès à la ressource.
+     */
     public static function canAccess(): bool
     {
         $user = auth()->user();
@@ -89,6 +98,9 @@ class ChurchWorkerResource extends Resource
         return ChurchDepartment::query()->where('manager_user_id', $user->id)->exists();
     }
 
+    /**
+     * Formulaire d’édition.
+     */
     public static function form(Schema $schema): Schema
     {
         return $schema
@@ -111,55 +123,118 @@ class ChurchWorkerResource extends Resource
             ]);
     }
 
+    /**
+     * Fiche détaillée affichée dans la modale « Voir ».
+     */
     public static function infolist(Schema $schema): Schema
     {
         return $schema
             ->columns(12)
             ->schema([
-                Section::make('Ouvrier')
+                Section::make('Photo & identité')
                     ->columns(12)
                     ->columnSpanFull()
                     ->schema([
                         ImageEntry::make('photo_path')
                             ->label('Photo')
                             ->circular()
+                            ->imageHeight(140)
                             ->getStateUsing(fn (ChurchWorker $record): ?string => FilamentImageUrl::resolve($record->photo_path))
                             ->columnSpan(3),
                         TextEntry::make('full_name')
-                            ->label('Nom')
-                            ->state(fn (ChurchWorker $r): string => $r->fullName())
-                            ->columnSpan(3),
-                        TextEntry::make('department.name')->label('Département')->columnSpan(3),
+                            ->label('Nom complet')
+                            ->state(fn (ChurchWorker $record): string => $record->fullName())
+                            ->columnSpan(5),
                         TextEntry::make('status')
                             ->label('Statut')
                             ->formatStateUsing(fn (?string $state): string => ChurchWorker::statusOptions()[$state ?? ''] ?? ($state ?? '—'))
                             ->badge()
-                            ->columnSpan(3),
+                            ->color(fn (?string $state): string => match ($state) {
+                                ChurchWorker::STATUS_APPROVED => 'success',
+                                ChurchWorker::STATUS_REJECTED => 'danger',
+                                default => 'warning',
+                            })
+                            ->columnSpan(4),
+                        TextEntry::make('gender')
+                            ->label('Sexe')
+                            ->formatStateUsing(fn (?string $state): string => ChurchWorker::genderOptions()[$state ?? ''] ?? '—')
+                            ->columnSpan(4),
+                        TextEntry::make('birth_date')
+                            ->label('Naissance')
+                            ->date('d/m/Y')
+                            ->columnSpan(4),
+                        TextEntry::make('department.name')
+                            ->label('Département')
+                            ->columnSpan(4),
+                        TextEntry::make('department_role')
+                            ->label('Rôle')
+                            ->placeholder('—')
+                            ->columnSpan(6),
+                        TextEntry::make('department_joined_at')
+                            ->label('Depuis')
+                            ->date('d/m/Y')
+                            ->placeholder('—')
+                            ->columnSpan(6),
+                    ]),
+                Section::make('Coordonnées')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
                         TextEntry::make('phone')->label('Téléphone')->columnSpan(4),
-                        TextEntry::make('email')->label('E-mail')->columnSpan(4),
-                        TextEntry::make('department_role')->label('Rôle')->placeholder('—')->columnSpan(4),
+                        TextEntry::make('email')->label('E-mail')->placeholder('—')->columnSpan(4),
+                        TextEntry::make('user.email')->label('Compte user')->placeholder('—')->columnSpan(4),
                         TextEntry::make('city')->label('Ville')->columnSpan(3),
                         TextEntry::make('commune')->label('Commune')->columnSpan(3),
                         TextEntry::make('quartier')->label('Quartier')->columnSpan(3),
                         TextEntry::make('avenue')->label('Avenue')->columnSpan(3),
+                        TextEntry::make('address_reference')
+                            ->label('Référence adresse')
+                            ->placeholder('—')
+                            ->columnSpanFull(),
+                    ]),
+                Section::make('Profil')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
                         TextEntry::make('profession')->label('Profession')->placeholder('—')->columnSpan(4),
                         TextEntry::make('education_level')->label('Niveau')->placeholder('—')->columnSpan(4),
                         TextEntry::make('studies')->label('Études')->placeholder('—')->columnSpan(4),
                         TextEntry::make('skills')->label('Compétences')->placeholder('—')->columnSpanFull(),
-                        TextEntry::make('badge_token')
-                            ->label('Lien badge')
-                            ->formatStateUsing(fn (string $token): string => url('/ouvriers/badge/'.$token))
-                            ->copyable()
+                        TextEntry::make('rejection_reason')
+                            ->label('Motif de refus')
+                            ->placeholder('—')
+                            ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_REJECTED)
                             ->columnSpanFull(),
+                    ]),
+                Section::make('Badge')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
                         TextEntry::make('badge_generated')
                             ->label('Badge')
                             ->formatStateUsing(fn (?bool $state): string => $state ? 'Généré / validé' : 'Non généré')
+                            ->badge()
+                            ->color(fn (?bool $state): string => $state ? 'success' : 'gray')
                             ->columnSpan(4),
-                        TextEntry::make('user.email')->label('Compte user')->placeholder('—')->columnSpan(4),
+                        TextEntry::make('badge_generated_at')
+                            ->label('Généré le')
+                            ->dateTime('d/m/Y H:i')
+                            ->placeholder('—')
+                            ->columnSpan(4),
+                        TextEntry::make('badge_token')
+                            ->label('Lien badge')
+                            ->formatStateUsing(fn (?string $state): string => filled($state)
+                                ? route('workers.badge.public', ['token' => $state])
+                                : '—')
+                            ->copyable()
+                            ->columnSpanFull(),
                     ]),
             ]);
     }
 
+    /**
+     * Table liste + actions (voir = modale).
+     */
     public static function table(Table $table): Table
     {
         return $table
@@ -168,7 +243,7 @@ class ChurchWorkerResource extends Resource
                 ImageColumn::make('photo_path')
                     ->label('Photo')
                     ->circular()
-                    ->getStateUsing(fn (ChurchWorker $r): ?string => FilamentImageUrl::resolve($r->photo_path)),
+                    ->getStateUsing(fn (ChurchWorker $record): ?string => FilamentImageUrl::resolve($record->photo_path)),
                 TextColumn::make('first_name')->label('Prénom')->searchable(),
                 TextColumn::make('last_name')->label('Nom')->searchable()->sortable(),
                 TextColumn::make('department.name')->label('Département')->sortable(),
@@ -192,66 +267,119 @@ class ChurchWorkerResource extends Resource
                 SelectFilter::make('status')->options(ChurchWorker::statusOptions()),
                 SelectFilter::make('department_id')->label('Département')->relationship('department', 'name'),
             ])
+            ->recordUrl(null)
             ->actions([
-                ViewAction::make(),
+                ViewAction::make()
+                    ->label('Voir')
+                    ->slideOver()
+                    ->modalWidth(Width::FourExtraLarge)
+                    ->modalHeading(fn (ChurchWorker $record): string => $record->fullName())
+                    ->extraModalFooterActions(fn (ViewAction $action): array => [
+                        self::makeApproveAction()->cancelParentActions(),
+                        self::makeRejectAction()->cancelParentActions(),
+                        self::makeGenerateBadgeAction()->cancelParentActions(),
+                        self::makeOpenBadgeAction(),
+                        EditAction::make()
+                            ->label('Modifier')
+                            ->icon('heroicon-o-pencil-square')
+                            ->cancelParentActions(),
+                    ]),
+                self::makeApproveAction(),
+                self::makeRejectAction(),
+                self::makeGenerateBadgeAction(),
+                self::makeOpenBadgeAction(),
                 EditAction::make(),
-                Action::make('approve')
-                    ->label('Valider')
-                    ->icon('heroicon-o-check-circle')
-                    ->color('success')
-                    ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_PENDING)
-                    ->requiresConfirmation()
-                    ->action(function (ChurchWorker $record): void {
-                        $user = auth()->user();
-                        if (! $user instanceof User) {
-                            return;
-                        }
-                        app(ChurchWorkerApprovalService::class)->approve($record, $user);
-                        Notification::make()->title('Ouvrier validé et compte créé')->success()->send();
-                    }),
-                Action::make('reject')
-                    ->label('Refuser')
-                    ->icon('heroicon-o-x-circle')
-                    ->color('danger')
-                    ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_PENDING)
-                    ->form([
-                        Textarea::make('rejection_reason')->label('Motif')->required(),
-                    ])
-                    ->action(function (ChurchWorker $record, array $data): void {
-                        $user = auth()->user();
-                        if (! $user instanceof User) {
-                            return;
-                        }
-                        app(ChurchWorkerApprovalService::class)->reject($record, $user, $data['rejection_reason'] ?? null);
-                        Notification::make()->title('Inscription refusée')->warning()->send();
-                    }),
-                Action::make('generateBadge')
-                    ->label('Générer badge')
-                    ->icon('heroicon-o-qr-code')
-                    ->color('primary')
-                    ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_APPROVED && ! $record->badge_generated)
-                    ->action(function (ChurchWorker $record): void {
-                        app(ChurchWorkerApprovalService::class)->generateBadge($record);
-                        Notification::make()
-                            ->title('Badge généré')
-                            ->body(url('/ouvriers/badge/'.$record->badge_token))
-                            ->success()
-                            ->send();
-                    }),
-                Action::make('openBadge')
-                    ->label('Voir badge')
-                    ->icon('heroicon-o-eye')
-                    ->url(fn (ChurchWorker $record): string => url('/ouvriers/badge/'.$record->badge_token))
-                    ->openUrlInNewTab()
-                    ->visible(fn (ChurchWorker $record): bool => $record->badge_generated),
             ]);
     }
 
+    /**
+     * Valide un ouvrier en attente.
+     */
+    protected static function makeApproveAction(): Action
+    {
+        return Action::make('approve')
+            ->label('Valider')
+            ->icon('heroicon-o-check-circle')
+            ->color('success')
+            ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_PENDING)
+            ->requiresConfirmation()
+            ->modalHeading('Valider cet ouvrier ?')
+            ->modalDescription('Un compte utilisateur sera créé et un e-mail de confirmation pourra être envoyé.')
+            ->action(function (ChurchWorker $record): void {
+                $user = auth()->user();
+                if (! $user instanceof User) {
+                    return;
+                }
+                app(ChurchWorkerApprovalService::class)->approve($record, $user);
+                Notification::make()->title('Ouvrier validé et compte créé')->success()->send();
+            });
+    }
+
+    /**
+     * Refuse une inscription en attente.
+     */
+    protected static function makeRejectAction(): Action
+    {
+        return Action::make('reject')
+            ->label('Rejeter')
+            ->icon('heroicon-o-x-circle')
+            ->color('danger')
+            ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_PENDING)
+            ->form([
+                Textarea::make('rejection_reason')->label('Motif')->required()->rows(3),
+            ])
+            ->action(function (ChurchWorker $record, array $data): void {
+                $user = auth()->user();
+                if (! $user instanceof User) {
+                    return;
+                }
+                app(ChurchWorkerApprovalService::class)->reject($record, $user, $data['rejection_reason'] ?? null);
+                Notification::make()->title('Inscription refusée')->warning()->send();
+            });
+    }
+
+    /**
+     * Marque le badge comme généré (lien public actif).
+     */
+    protected static function makeGenerateBadgeAction(): Action
+    {
+        return Action::make('generateBadge')
+            ->label('Générer badge')
+            ->icon('heroicon-o-qr-code')
+            ->color('primary')
+            ->visible(fn (ChurchWorker $record): bool => $record->status === ChurchWorker::STATUS_APPROVED && ! $record->badge_generated)
+            ->action(function (ChurchWorker $record): void {
+                app(ChurchWorkerApprovalService::class)->generateBadge($record);
+                Notification::make()
+                    ->title('Badge généré')
+                    ->body(route('workers.badge.public', ['token' => $record->badge_token]))
+                    ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Ouvre la page publique du badge.
+     */
+    protected static function makeOpenBadgeAction(): Action
+    {
+        return Action::make('openBadge')
+            ->label('Voir badge')
+            ->icon('heroicon-o-identification')
+            ->url(fn (ChurchWorker $record): string => route('workers.badge.public', ['token' => $record->badge_token]))
+            ->openUrlInNewTab()
+            ->visible(fn (ChurchWorker $record): bool => $record->badge_generated);
+    }
+
+    /**
+     * Pages Filament (pas de page « view » : la fiche s’ouvre en modale).
+     *
+     * @return array<string, \Filament\Resources\Pages\PageRegistration>
+     */
     public static function getPages(): array
     {
         return [
             'index' => Pages\ListChurchWorkers::route('/'),
-            'view' => Pages\ViewChurchWorker::route('/{record}'),
             'edit' => Pages\EditChurchWorker::route('/{record}/edit'),
         ];
     }

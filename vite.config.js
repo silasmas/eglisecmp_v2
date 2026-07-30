@@ -23,6 +23,7 @@ export default defineConfig({
                 'resources/js/app.js',
                 'resources/css/filament/admin/theme.css',
                 'resources/js/site/main.tsx',
+                'resources/js/site/worker-badge-entry.tsx',
             ],
             refresh: true,
         }),

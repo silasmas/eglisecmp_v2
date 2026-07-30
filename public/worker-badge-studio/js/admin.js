@@ -5,6 +5,10 @@
 
 const Admin = {
   participants: [],
+  validatedWorkers: [],
+  departments: [],
+  departmentFilter: '',
+  sourceFilter: 'all',
   selectedId: null,
   photo: null,
 };
@@ -28,6 +32,7 @@ function getAdminFormParticipant() {
   const showPhoto = getAdminEl('adminShowPhoto') ? getAdminEl('adminShowPhoto').checked : true;
   const showWorkshop = getAdminEl('adminShowWorkshop') ? getAdminEl('adminShowWorkshop').checked : true;
   const showRoom = getAdminEl('adminShowRoom') ? getAdminEl('adminShowRoom').checked : true;
+  const existing = findParticipantById(getAdminEl('adminId').value);
 
   const participant = {
     id: getAdminEl('adminId').value || `ADMIN-${Date.now()}`,
@@ -37,7 +42,6 @@ function getAdminFormParticipant() {
     sexe: getAdminEl('adminSexe').value,
     category: categoryKey,
     atelier: getAdminEl('adminAtelier').value.trim().slice(0, 2),
-    // « chambre » conservé en clé technique = rôle / sous-branche du département
     chambre: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 24),
     departmentRole: encadrant ? '' : getAdminEl('adminChambre').value.trim().slice(0, 24),
     badgeToken: getAdminEl('adminId')?.dataset?.badgeToken || '',
@@ -47,6 +51,12 @@ function getAdminFormParticipant() {
     showRoom: encadrant ? false : showRoom,
     showAssignments: showWorkshop || (!encadrant && showRoom),
     createdAt: new Date().toISOString(),
+    source: existing?.source || 'local',
+    departmentId: existing?.departmentId || '',
+    departmentName: existing?.departmentName || '',
+    departmentColor: existing?.departmentColor || '',
+    churchWorkerId: existing?.churchWorkerId || null,
+    badgeGenerated: existing?.badgeGenerated || false,
   };
 
   if (typeof ensureBadgeToken === 'function') {
@@ -80,6 +90,7 @@ function updateAdminCategoryState(options = {}) {
 
 function fillAdminForm(participant) {
   const categoryKey = BADGE_CATEGORIES[participant.category] ? participant.category : 'participant';
+  refreshAdminCategorySelect(categoryKey);
 
   getAdminEl('adminId').value = participant.id || '';
   if (typeof ensureBadgeToken === 'function') {
@@ -120,46 +131,95 @@ function updateAdminPreview() {
 }
 
 function getParticipantMeta(participant) {
-  const parts = [getParticipantBadgeCategoryLabel(participant)];
+  const parts = [];
+  if (participant.source === 'validated' || String(participant.id || '').startsWith('WORKER-')) {
+    parts.push(participant.departmentName || getParticipantBadgeCategoryLabel(participant));
+    parts.push('Validé');
+  } else {
+    parts.push(getParticipantBadgeCategoryLabel(participant));
+  }
   const showWorkshop = participant.showWorkshop ?? participant.showAssignments ?? true;
   const showRoom = participant.showRoom ?? participant.showAssignments ?? true;
   if (!showWorkshop && !showRoom) {
-    parts.push('Affectation masquée');
+    if (participant.source !== 'validated') {
+      parts.push('Affectation masquée');
+    }
     return parts.join(' · ');
   }
-  if (showWorkshop) {
-    parts.push(`Atelier ${participant.atelier || '—'}`);
+  if (showWorkshop && participant.atelier) {
+    parts.push(`Atelier ${participant.atelier}`);
   }
   if (showRoom && (participant.category || '') !== 'encadrants') {
-    parts.push(`Rôle ${participant.departmentRole || participant.chambre || '—'}`);
+    const role = participant.departmentRole || participant.chambre || '';
+    if (role) {
+      parts.push(`Rôle ${role}`);
+    }
   }
   return parts.join(' · ');
 }
 
+/**
+ * Liste affichée selon filtres département / source.
+ */
+function getVisibleParticipants() {
+  const dept = String(Admin.departmentFilter || '');
+  const source = String(Admin.sourceFilter || 'all');
+
+  const local = (Admin.participants || []).map((item) => ({ ...item, source: item.source || 'local' }));
+  const validated = (Admin.validatedWorkers || []).map((item) => ({ ...item, source: 'validated' }));
+
+  let rows = [];
+  if (source === 'validated') {
+    rows = validated;
+  } else if (source === 'local') {
+    rows = local;
+  } else {
+    const validatedIds = new Set(validated.map((item) => item.id));
+    rows = [...validated, ...local.filter((item) => !validatedIds.has(item.id))];
+  }
+
+  if (dept !== '') {
+    rows = rows.filter((item) => String(item.departmentId || '') === dept
+      || String(item.category || '') === dept
+      || String(item.departmentSlug || '') === dept);
+  }
+
+  return rows;
+}
+
 function renderParticipantsList() {
   const list = getAdminEl('participantsList');
-  if (!Admin.participants.length) {
+  const rows = getVisibleParticipants();
+  if (!rows.length) {
     list.innerHTML = `
       <div class="admin-empty">
         <i class="bi bi-inbox"></i>
-        <span>Aucun inscrit pour le moment. Validez une inscription ou créez un exemple.</span>
+        <span>Aucun ouvrier pour ce filtre. Validez des dossiers ou créez un exemple.</span>
       </div>
     `;
     return;
   }
 
-  list.innerHTML = Admin.participants.map((participant) => {
+  list.innerHTML = rows.map((participant) => {
     const category = getBadgeCategory(participant.category);
+    const color = participant.departmentColor || category.color;
+    const canDelete = participant.source !== 'validated' && !String(participant.id || '').startsWith('WORKER-');
     return `
       <div class="admin-person ${participant.id === Admin.selectedId ? 'active' : ''}" data-id="${participant.id}">
-        <span class="admin-person-color" style="background:${category.color}"></span>
+        <span class="admin-person-color" style="background:${color}"></span>
         <button type="button" class="admin-person-main" data-action="select">
           <strong>${badgeEscapeHtml(getParticipantFullName(participant) || 'Sans nom')}</strong>
           <small>${badgeEscapeHtml(getParticipantMeta(participant))}</small>
         </button>
-        <button type="button" class="admin-person-delete" data-action="delete" aria-label="Supprimer ${badgeEscapeHtml(getParticipantFullName(participant) || 'ce badge')}">
-          <i class="bi bi-x-lg"></i>
-        </button>
+        ${canDelete ? `
+          <button type="button" class="admin-person-delete" data-action="delete" aria-label="Supprimer ${badgeEscapeHtml(getParticipantFullName(participant) || 'ce badge')}">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        ` : `
+          <span class="admin-person-delete" style="opacity:.35;pointer-events:none;" title="Ouvrier validé">
+            <i class="bi bi-shield-check"></i>
+          </span>
+        `}
       </div>
     `;
   }).join('');
@@ -183,25 +243,112 @@ function getBlankAdminParticipant() {
   };
 }
 
+function findParticipantById(id) {
+  if (!id) return null;
+  return Admin.validatedWorkers.find((item) => item.id === id)
+    || Admin.participants.find((item) => item.id === id)
+    || null;
+}
+
 function deleteAdminParticipant(id) {
+  if (String(id || '').startsWith('WORKER-')) {
+    return;
+  }
   Admin.participants = Admin.participants.filter((participant) => participant.id !== id);
   writeParticipants(Admin.participants);
   if (Admin.selectedId === id) {
-    fillAdminForm(Admin.participants[0] || getBlankAdminParticipant());
+    fillAdminForm(getVisibleParticipants()[0] || getBlankAdminParticipant());
   }
   renderParticipantsList();
 }
 
 function saveAdminParticipant(participant) {
+  if (participant.source === 'validated' || String(participant.id || '').startsWith('WORKER-')) {
+    const index = Admin.validatedWorkers.findIndex((item) => item.id === participant.id);
+    if (index >= 0) {
+      Admin.validatedWorkers[index] = { ...Admin.validatedWorkers[index], ...participant, source: 'validated' };
+    }
+    Admin.selectedId = participant.id;
+    renderParticipantsList();
+    return;
+  }
+
   const index = Admin.participants.findIndex((item) => item.id === participant.id);
   if (index >= 0) {
-    Admin.participants[index] = { ...Admin.participants[index], ...participant };
+    Admin.participants[index] = { ...Admin.participants[index], ...participant, source: 'local' };
   } else {
-    Admin.participants.unshift(participant);
+    Admin.participants.unshift({ ...participant, source: 'local' });
   }
   writeParticipants(Admin.participants);
   Admin.selectedId = participant.id;
   renderParticipantsList();
+}
+
+/**
+ * Enregistre les départements BDD comme catégories de badge (couleur).
+ */
+function syncDepartmentsAsCategories(departments) {
+  (departments || []).forEach((department) => {
+    const key = String(department.slug || '').trim();
+    if (!key) return;
+    BADGE_CATEGORIES[key] = {
+      label: department.name || key,
+      color: department.color || '#7b1d3e',
+    };
+  });
+  if (typeof saveStoredBadgeCategories === 'function') {
+    saveStoredBadgeCategories();
+  }
+  refreshAdminCategorySelect(getAdminEl('adminCategory')?.value || 'participant');
+  renderCategoryList();
+}
+
+/**
+ * Remplit le filtre département.
+ */
+function renderDepartmentFilter() {
+  const select = getAdminEl('departmentFilter');
+  if (!select) return;
+  const current = Admin.departmentFilter || '';
+  select.innerHTML = `<option value="">Tous les départements</option>${
+    (Admin.departments || []).map((department) => `
+      <option value="${badgeEscapeHtml(String(department.id))}" ${String(department.id) === String(current) ? 'selected' : ''}>
+        ${badgeEscapeHtml(department.name)}
+      </option>
+    `).join('')
+  }`;
+}
+
+/**
+ * Charge les ouvriers validés depuis l’API admin du studio.
+ */
+async function loadValidatedWorkers() {
+  const apiUrl = window.CMP_STUDIO_WORKERS_API;
+  if (!apiUrl) {
+    return;
+  }
+
+  try {
+    const response = await fetch(apiUrl, {
+      headers: { Accept: 'application/json' },
+      credentials: 'same-origin',
+    });
+    if (!response.ok) {
+      throw new Error(`HTTP ${response.status}`);
+    }
+    const payload = await response.json();
+    Admin.departments = Array.isArray(payload.departments) ? payload.departments : [];
+    Admin.validatedWorkers = (Array.isArray(payload.workers) ? payload.workers : []).map((worker) => ({
+      ...worker,
+      source: 'validated',
+      departmentSlug: worker.category,
+    }));
+    syncDepartmentsAsCategories(Admin.departments);
+    renderDepartmentFilter();
+    renderParticipantsList();
+  } catch (error) {
+    console.warn('Impossible de charger les ouvriers validés', error);
+  }
 }
 
 function isDemoParticipant(participant) {
@@ -590,9 +737,16 @@ function initAdmin() {
   refreshAdminCategorySelect('participant');
   renderCategoryList();
 
-  Admin.participants = readParticipants();
+  Admin.participants = readParticipants().map((item) => ({ ...item, source: item.source || 'local' }));
   renderParticipantsList();
   fillAdminForm(Admin.participants[0] || getBlankAdminParticipant());
+  void loadValidatedWorkers().then(() => {
+    const visible = getVisibleParticipants();
+    if (visible.length && !Admin.selectedId) {
+      fillAdminForm(visible[0]);
+      renderParticipantsList();
+    }
+  });
 
   getAdminEl('participantsList').addEventListener('click', (event) => {
     const row = event.target.closest('.admin-person');
@@ -601,10 +755,33 @@ function initAdmin() {
       deleteAdminParticipant(row.dataset.id);
       return;
     }
-    const participant = Admin.participants.find((item) => item.id === row.dataset.id);
+    const participant = findParticipantById(row.dataset.id);
     if (participant) fillAdminForm(participant);
     renderParticipantsList();
   });
+
+  const departmentFilter = getAdminEl('departmentFilter');
+  if (departmentFilter) {
+    departmentFilter.addEventListener('change', () => {
+      Admin.departmentFilter = departmentFilter.value || '';
+      renderParticipantsList();
+    });
+  }
+
+  const sourceFilter = getAdminEl('workersSourceFilter');
+  if (sourceFilter) {
+    sourceFilter.addEventListener('change', () => {
+      Admin.sourceFilter = sourceFilter.value || 'all';
+      renderParticipantsList();
+    });
+  }
+
+  const refreshBtn = getAdminEl('refreshValidatedWorkersBtn');
+  if (refreshBtn) {
+    refreshBtn.addEventListener('click', () => {
+      void loadValidatedWorkers();
+    });
+  }
 
   getAdminEl('adminCategoryList').addEventListener('click', (event) => {
     const row = event.target.closest('.studio-category-row');
@@ -616,10 +793,11 @@ function initAdmin() {
     beginCategoryEdit(row.dataset.key);
   });
 
-  ['adminAtelier', 'adminChambre'].forEach((id) => {
-    getAdminEl(id).addEventListener('input', (event) => {
-      event.target.value = event.target.value.trim().slice(0, 2);
-    });
+  getAdminEl('adminAtelier').addEventListener('input', (event) => {
+    event.target.value = event.target.value.trim().slice(0, 2);
+  });
+  getAdminEl('adminChambre').addEventListener('input', (event) => {
+    event.target.value = event.target.value.trim().slice(0, 24);
   });
 
   getAdminEl('adminCategory').addEventListener('change', () => {

@@ -10,7 +10,9 @@ use App\Http\Controllers\SchedulerHttpController;
 use App\Http\Controllers\SeedController;
 use App\Http\Controllers\ShieldSyncController;
 use App\Http\Controllers\StorageLinkController;
+use App\Http\Controllers\WorkerBadgePublicController;
 use App\Http\Controllers\WorkerBadgeStudioController;
+use App\Http\Controllers\WorkerBadgeStudioWorkersController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -48,6 +50,23 @@ Route::get('/admin/worker-badge-studio', WorkerBadgeStudioController::class)
     ->middleware(['web', 'auth'])
     ->name('admin.worker-badge-studio');
 
+Route::get('/admin/worker-badge-studio/workers', WorkerBadgeStudioWorkersController::class)
+    ->middleware(['web', 'auth'])
+    ->name('admin.worker-badge-studio.workers');
+
+/*
+|--------------------------------------------------------------------------
+| Badge ouvrier public — page module (hors SPA / navbar / FAB)
+|--------------------------------------------------------------------------
+*/
+Route::get('/ouvriers/badge/{token}', WorkerBadgePublicController::class)
+    ->where('token', '[A-Za-z0-9._-]+')
+    ->name('workers.badge.public');
+
+Route::get('/public/ouvriers/badge/{token}', WorkerBadgePublicController::class)
+    ->where('token', '[A-Za-z0-9._-]+')
+    ->name('workers.badge.public.prefixed');
+
 Route::match(['get', 'post'], '/payment/flexpay/callback/mobile', [FlexPayCallbackController::class, 'mobile'])
     ->name('flexpay.callback.mobile');
 
@@ -67,7 +86,7 @@ Route::middleware(['web', 'auth'])
     ->where('key', '[A-Za-z0-9._-]+')
     ->name('admin.qr-download');
 
-$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)).*$';
+$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)).*$';
 
 Route::view('/', 'site')->name('site.spa.home');
 

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
 import fondBadge from '../../assets/worker-badge/fond-badge.png';
 import nomBadge from '../../assets/worker-badge/nom-badge.png';
+import chambreBadge from '../../assets/worker-badge/Chambre.png';
 import logoCmp from '../../assets/Logo-CMP-2023-new.png';
 import type { WorkerBadgeData } from '../../lib/siteApi';
 import { cn } from '../../lib/utils';
@@ -14,6 +15,9 @@ type WorkerBadgeCardProps = {
 
 /**
  * Charge une image pour dessin canvas.
+ *
+ * @param src URL ou data-URI de l’image.
+ * @returns Promesse résolue avec l’élément Image chargé.
  */
 function loadImage(src: string): Promise<HTMLImageElement> {
   return new Promise((resolve, reject) => {
@@ -28,8 +32,8 @@ function loadImage(src: string): Promise<HTMLImageElement> {
 /**
  * Génère un QR code avec le logo CMP au centre (niveau de correction H).
  *
- * @param content URL / payload du QR
- * @returns Data URL PNG
+ * @param content Contenu encodé (URL du badge).
+ * @returns Data-URL PNG du QR.
  */
 async function buildQrWithLogo(content: string): Promise<string> {
   const size = 512;
@@ -67,7 +71,6 @@ async function buildQrWithLogo(content: string): Promise<string> {
     ctx.arcTo(bx, by, bx + bw, by, r);
     ctx.closePath();
     ctx.fill();
-
     ctx.drawImage(logo, x, y, logoSize, logoSize);
   } catch {
     // Logo indisponible : QR sans logo.
@@ -77,7 +80,11 @@ async function buildQrWithLogo(content: string): Promise<string> {
 }
 
 /**
- * Carte badge ouvrier (visuel adapté du studio badge retraite).
+ * Carte badge ouvrier — classes compatibles studio retraite (retreat-badge*).
+ *
+ * @param props.data Données publiques de l’ouvrier.
+ * @param props.badgeUrl URL encodée dans le QR.
+ * @param props.className Classes CSS optionnelles.
  */
 export default function WorkerBadgeCard({ data, badgeUrl, className }: WorkerBadgeCardProps) {
   const [qrDataUrl, setQrDataUrl] = useState('');
@@ -115,34 +122,49 @@ export default function WorkerBadgeCard({ data, badgeUrl, className }: WorkerBad
     }
   }, [data.fullName]);
 
+  const role = data.departmentRole.trim();
+  const color = data.departmentColor || '#7b1d3e';
+
   return (
-    <div className={cn('worker-badge-shell', className)}>
-      <div className="worker-badge" style={{ ['--badge-category-color' as string]: data.departmentColor }}>
-        <img className="worker-badge-bg" src={fondBadge} alt="" />
-        <div className="worker-badge-filter" />
-        <div className="worker-badge-border" />
-        <div className="worker-badge-photo" aria-label="Photo de l’ouvrier">
+    <div
+      className={cn('retreat-badge-shell worker-badge-shell', className)}
+      style={{ ['--badge-category-color' as string]: color }}
+    >
+      <div
+        className={cn(
+          'retreat-badge worker-badge',
+          role === '' ? 'retreat-badge-no-assignments' : 'retreat-badge-single-assignment',
+        )}
+        style={{ ['--badge-category-color' as string]: color }}
+      >
+        <img className="retreat-badge-bg worker-badge-bg" src={fondBadge} alt="" />
+        <div className="retreat-badge-filter worker-badge-filter" />
+        <div className="retreat-badge-border worker-badge-border" />
+        <div className="retreat-badge-photo worker-badge-photo" aria-label="Photo de l’ouvrier">
           {data.photoUrl !== '' ? (
             <img src={data.photoUrl} alt={data.fullName} />
           ) : (
-            <span className="text-4xl text-white/50">👤</span>
+            <i className="bi bi-person-fill" aria-hidden />
           )}
         </div>
-        <div className="worker-badge-name-banner">
+        <div className="retreat-badge-name-banner worker-badge-name-banner">
           <img src={nomBadge} alt="" />
           <span ref={nameRef}>{data.fullName}</span>
         </div>
-        <div className="worker-badge-category-banner">{data.department || 'Ouvrier CMP'}</div>
-        {data.departmentRole !== '' ? (
-          <div className="worker-badge-role">{data.departmentRole}</div>
-        ) : null}
-        {qrDataUrl !== '' ? (
-          <div className="worker-badge-qr">
-            <img src={qrDataUrl} alt="QR code du badge" />
+        <div className="retreat-badge-category-banner worker-badge-category-banner">
+          {data.department || 'Ouvrier CMP'}
+        </div>
+        {role !== '' ? (
+          <div className="retreat-badge-assignment retreat-badge-chambre worker-badge-role-box" data-assignment-label="Rôle">
+            <img src={chambreBadge} alt="" />
+            <span className="retreat-badge-assignment-caption">Rôle</span>
+            <strong>{role}</strong>
           </div>
         ) : null}
-        {data.badgeValidated ? (
-          <div className="worker-badge-validated">Badge validé</div>
+        {qrDataUrl !== '' ? (
+          <div className="retreat-badge-qr worker-badge-qr" title="Scanner pour ouvrir le badge">
+            <img src={qrDataUrl} alt="QR code du badge" />
+          </div>
         ) : null}
       </div>
     </div>

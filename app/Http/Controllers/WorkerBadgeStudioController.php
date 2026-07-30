@@ -37,6 +37,7 @@ final class WorkerBadgeStudioController extends Controller
                 'workersAdminUrl' => url('/admin/church-workers'),
                 'departmentsAdminUrl' => url('/admin/church-departments'),
                 'qrLinksAdminUrl' => \App\Filament\Pages\PublicQrLinksPage::getUrl(),
+                'workersApiUrl' => url('/admin/worker-badge-studio/workers'),
                 'userName' => $user->name,
             ])
             ->header('Cache-Control', 'no-store, private');

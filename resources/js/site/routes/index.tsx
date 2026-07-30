@@ -28,48 +28,53 @@ import WorkerRegistrationPage from '../pages/WorkerRegistrationPage';
 import WorkerBadgePage from '../pages/WorkerBadgePage';
 import WorkerBadgeLayout from '../components/workers/WorkerBadgeLayout';
 
+/**
+ * Le badge est déclaré AVANT le Layout site pour éviter que le splat `*`
+ * n’affiche la page dans le chrome (navbar / footer / FAB).
+ */
 export const router = createBrowserRouter(
   [
-  {
-    element: <Layout />,
-    errorElement: <SiteErrorPage />,
-    children: [
-      { index: true, element: <HomePage /> },
-      { path: 'discover', element: <DiscoverPage /> },
-      { path: 'discover/about', element: <AboutPage /> },
-      { path: 'discover/vision', element: <VisionPage /> },
-      { path: 'discover/leadership', element: <LeadershipPage /> },
-      { path: 'discover/cellules', element: <CellsPage /> },
-      { path: 'discover/extensions', element: <ExtensionsPage /> },
-      { path: 'teachings', element: <TeachingsPage /> },
-      { path: 'teachings/playlist/:eventId', element: <PlaylistWatchPage /> },
-      { path: 'teachings/message/:postId', element: <MessageWatchPage /> },
-      { path: 'events', element: <EventsPage /> },
-      { path: 'events/bunda', element: <BundaPage /> },
-      { path: 'media', element: <MediaPage /> },
-      { path: 'join', element: <JoinPage /> },
-      { path: 'contact', element: <Navigate to="/join#contact" replace /> },
-      { path: 'offrandes', element: <OffrandesPage /> },
-      { path: 'requete-de-priere', element: <PrayerRequestPage /> },
-      { path: 'rendez-vous', element: <AppointmentPage /> },
-      { path: 'temoignages', element: <TestimonyWallPage /> },
-      { path: 'presentation-enfants', element: <ChildPresentationPage /> },
-      { path: 'protocole/stats-culte', element: <WorshipStatsReportPage /> },
-      { path: 'stats-culte', element: <Navigate to="/protocole/stats-culte" replace /> },
-      { path: 'ouvriers/inscription', element: <WorkerRegistrationPage /> },
-      { path: 'raccourcis', element: <QrShortcutsLandingPage /> },
-      { path: 'qr', element: <Navigate to="/raccourcis" replace /> },
-      { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },
-      { path: '*', element: <SiteErrorPage statusCode={404} /> },
-    ],
-  },
-  {
-    element: <WorkerBadgeLayout />,
-    errorElement: <SiteErrorPage />,
-    children: [
-      { path: 'ouvriers/badge/:token', element: <WorkerBadgePage /> },
-    ],
-  },
+    {
+      path: 'ouvriers/badge/:token',
+      element: <WorkerBadgeLayout />,
+      errorElement: <SiteErrorPage />,
+      children: [
+        { index: true, element: <WorkerBadgePage /> },
+      ],
+    },
+    {
+      element: <Layout />,
+      errorElement: <SiteErrorPage />,
+      children: [
+        { index: true, element: <HomePage /> },
+        { path: 'discover', element: <DiscoverPage /> },
+        { path: 'discover/about', element: <AboutPage /> },
+        { path: 'discover/vision', element: <VisionPage /> },
+        { path: 'discover/leadership', element: <LeadershipPage /> },
+        { path: 'discover/cellules', element: <CellsPage /> },
+        { path: 'discover/extensions', element: <ExtensionsPage /> },
+        { path: 'teachings', element: <TeachingsPage /> },
+        { path: 'teachings/playlist/:eventId', element: <PlaylistWatchPage /> },
+        { path: 'teachings/message/:postId', element: <MessageWatchPage /> },
+        { path: 'events', element: <EventsPage /> },
+        { path: 'events/bunda', element: <BundaPage /> },
+        { path: 'media', element: <MediaPage /> },
+        { path: 'join', element: <JoinPage /> },
+        { path: 'contact', element: <Navigate to="/join#contact" replace /> },
+        { path: 'offrandes', element: <OffrandesPage /> },
+        { path: 'requete-de-priere', element: <PrayerRequestPage /> },
+        { path: 'rendez-vous', element: <AppointmentPage /> },
+        { path: 'temoignages', element: <TestimonyWallPage /> },
+        { path: 'presentation-enfants', element: <ChildPresentationPage /> },
+        { path: 'protocole/stats-culte', element: <WorshipStatsReportPage /> },
+        { path: 'stats-culte', element: <Navigate to="/protocole/stats-culte" replace /> },
+        { path: 'ouvriers/inscription', element: <WorkerRegistrationPage /> },
+        { path: 'raccourcis', element: <QrShortcutsLandingPage /> },
+        { path: 'qr', element: <Navigate to="/raccourcis" replace /> },
+        { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },
+        { path: '*', element: <SiteErrorPage statusCode={404} /> },
+      ],
+    },
   ],
   { basename: detectSpaBasename() },
 );
