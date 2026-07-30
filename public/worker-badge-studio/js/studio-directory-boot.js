@@ -71,9 +71,17 @@
         .filter(Boolean)
         .join(' · ');
       const color = worker.departmentColor || '#7b1d3e';
+      const first = String(worker.prenom || '').trim();
+      const last = String(worker.nom || '').trim();
+      const initials = `${first.charAt(0)}${last.charAt(0) || (first.charAt(1) || '')}`.toUpperCase() || '?';
+      const photo = String(worker.photo || '').trim();
+      const avatar = photo
+        ? `<span class="admin-person-avatar" style="--avatar-color:${escapeHtml(color)}"><img src="${escapeHtml(photo)}" alt="${escapeHtml(name)}"></span>`
+        : `<span class="admin-person-avatar admin-person-avatar--initials" style="--avatar-color:${escapeHtml(color)}" aria-hidden="true">${escapeHtml(initials)}</span>`;
       return `
         <div class="admin-person" data-id="${escapeHtml(String(worker.id))}" data-studio-boot="1">
           <span class="admin-person-color" style="background:${escapeHtml(color)}"></span>
+          ${avatar}
           <button type="button" class="admin-person-main" data-action="select">
             <strong>${escapeHtml(name)}</strong>
             <small>${escapeHtml(meta || 'Ouvrier validé')}</small>
@@ -146,6 +154,19 @@
       refreshBtn.addEventListener('click', function (event) {
         event.preventDefault();
         void refreshFromApi();
+      });
+    }
+
+    const searchInput = document.getElementById('workerSearchInput');
+    if (searchInput && !searchInput.dataset.studioBootBound) {
+      searchInput.dataset.studioBootBound = '1';
+      searchInput.addEventListener('input', function () {
+        if (typeof window.Admin === 'object' && window.Admin) {
+          window.Admin.searchQuery = searchInput.value || '';
+        }
+        if (typeof window.renderParticipantsList === 'function') {
+          window.renderParticipantsList();
+        }
       });
     }
 

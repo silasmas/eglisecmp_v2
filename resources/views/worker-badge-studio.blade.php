@@ -22,14 +22,14 @@
     window.CMP_STUDIO_BOOTSTRAP = @json($studioBootstrap);
   </script>
 
-  <link rel="stylesheet" href="css/tokens.css">
-  <link rel="stylesheet" href="css/base.css">
-  <link rel="stylesheet" href="css/form.css">
-  <link rel="stylesheet" href="css/uploads.css">
-  <link rel="stylesheet" href="css/badge.css">
-  <link rel="stylesheet" href="css/buttons.css">
-  <link rel="stylesheet" href="css/utilities.css">
-  <link rel="stylesheet" href="css/pages.css">
+  <link rel="stylesheet" href="css/tokens.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/tokens.css')) }}">
+  <link rel="stylesheet" href="css/base.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/base.css')) }}">
+  <link rel="stylesheet" href="css/form.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/form.css')) }}">
+  <link rel="stylesheet" href="css/uploads.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/uploads.css')) }}">
+  <link rel="stylesheet" href="css/badge.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/badge.css')) }}">
+  <link rel="stylesheet" href="css/buttons.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/buttons.css')) }}">
+  <link rel="stylesheet" href="css/utilities.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/utilities.css')) }}">
+  <link rel="stylesheet" href="css/pages.css?v={{ (int) @filemtime(public_path('worker-badge-studio/css/pages.css')) }}">
 </head>
 <body class="studio-page">
   <header class="studio-topbar">
@@ -76,7 +76,8 @@
         </div>
         <i class="bi bi-people"></i>
       </div>
-      <div class="studio-list-filters" style="display:grid;gap:.55rem;padding:.75rem 1rem 0;">
+
+      <div class="studio-people-toolbar studio-framed-box">
         <label class="field" style="margin:0;">
           <span class="field-label">Département</span>
           <select id="departmentFilter" class="field-input" aria-label="Filtrer par département">
@@ -94,7 +95,18 @@
             <option value="local">Brouillons locaux</option>
           </select>
         </label>
-        <p id="studioDirectoryStatus" class="field-hint" style="margin:0;font-size:.75rem;opacity:.8;">
+        <label class="field" style="margin:0;">
+          <span class="field-label">Rechercher</span>
+          <input
+            type="search"
+            id="workerSearchInput"
+            class="field-input"
+            placeholder="Nom ou prénom…"
+            autocomplete="off"
+            aria-label="Rechercher un ouvrier par nom"
+          >
+        </label>
+        <p id="studioDirectoryStatus" class="field-hint studio-directory-status">
           {{ count($studioBootstrap['departments'] ?? []) }} département(s) · {{ count($studioBootstrap['workers'] ?? []) }} ouvrier(s) validé(s)
         </p>
         <button type="button" class="studio-action-btn ghost" id="refreshValidatedWorkersBtn" title="Recharger les ouvriers validés">
@@ -102,7 +114,10 @@
           <span>Actualiser validés</span>
         </button>
       </div>
-      <div class="admin-list studio-scroll" id="participantsList"></div>
+
+      <div class="studio-people-list-wrap studio-framed-box">
+        <div class="admin-list studio-scroll" id="participantsList"></div>
+      </div>
     </aside>
 
     <section class="studio-stage" aria-label="Aperçu du badge">

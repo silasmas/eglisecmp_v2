@@ -9,6 +9,7 @@ const Admin = {
   departments: [],
   departmentFilter: '',
   sourceFilter: 'all',
+  searchQuery: '',
   selectedId: null,
   photo: null,
 };
@@ -159,11 +160,12 @@ function getParticipantMeta(participant) {
 }
 
 /**
- * Liste affichée selon filtres département / source.
+ * Liste affichée selon filtres département / source / recherche.
  */
 function getVisibleParticipants() {
   const dept = String(Admin.departmentFilter || '');
   const source = String(Admin.sourceFilter || 'all');
+  const query = String(Admin.searchQuery || '').trim().toLowerCase();
 
   const local = (Admin.participants || []).map((item) => ({ ...item, source: item.source || 'local' }));
   const validated = (Admin.validatedWorkers || []).map((item) => ({ ...item, source: 'validated' }));
@@ -184,17 +186,53 @@ function getVisibleParticipants() {
       || String(item.departmentSlug || '') === dept);
   }
 
+  if (query !== '') {
+    rows = rows.filter((item) => {
+      const full = getParticipantFullName(item).toLowerCase();
+      const parts = [item.prenom, item.nom, item.postnom, item.departmentName, item.departmentRole, item.chambre]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return full.includes(query) || parts.includes(query);
+    });
+  }
+
   return rows;
+}
+
+/**
+ * Initialise le prénom/nom pour l’avatar (2 lettres max).
+ */
+function getParticipantInitials(participant) {
+  const first = String(participant?.prenom || '').trim();
+  const last = String(participant?.nom || '').trim();
+  const a = first ? first.charAt(0) : '';
+  const b = last ? last.charAt(0) : (first.length > 1 ? first.charAt(1) : '');
+  const initials = `${a}${b}`.toUpperCase();
+  return initials || '?';
+}
+
+/**
+ * HTML de l’avatar (photo ou initiales).
+ */
+function renderParticipantAvatar(participant, color) {
+  const photo = String(participant?.photo || '').trim();
+  const name = getParticipantFullName(participant) || 'Ouvrier';
+  if (photo !== '') {
+    return `<span class="admin-person-avatar" style="--avatar-color:${badgeEscapeHtml(color)}"><img src="${badgeEscapeHtml(photo)}" alt="${badgeEscapeHtml(name)}"></span>`;
+  }
+  return `<span class="admin-person-avatar admin-person-avatar--initials" style="--avatar-color:${badgeEscapeHtml(color)}" aria-hidden="true">${badgeEscapeHtml(getParticipantInitials(participant))}</span>`;
 }
 
 function renderParticipantsList() {
   const list = getAdminEl('participantsList');
+  if (!list) return;
   const rows = getVisibleParticipants();
   if (!rows.length) {
     list.innerHTML = `
       <div class="admin-empty">
         <i class="bi bi-inbox"></i>
-        <span>Aucun ouvrier pour ce filtre. Les départements viennent de la BDD (actifs). Les ouvriers listés ici sont ceux au statut « validé ».</span>
+        <span>Aucun ouvrier pour ce filtre. Modifiez la recherche, le département ou actualisez les validés.</span>
       </div>
     `;
     return;
@@ -207,6 +245,7 @@ function renderParticipantsList() {
     return `
       <div class="admin-person ${participant.id === Admin.selectedId ? 'active' : ''}" data-id="${participant.id}">
         <span class="admin-person-color" style="background:${color}"></span>
+        ${renderParticipantAvatar(participant, color)}
         <button type="button" class="admin-person-main" data-action="select">
           <strong>${badgeEscapeHtml(getParticipantFullName(participant) || 'Sans nom')}</strong>
           <small>${badgeEscapeHtml(getParticipantMeta(participant))}</small>
@@ -838,6 +877,14 @@ function initAdmin() {
   if (sourceFilter) {
     sourceFilter.addEventListener('change', () => {
       Admin.sourceFilter = sourceFilter.value || 'all';
+      renderParticipantsList();
+    });
+  }
+
+  const searchInput = getAdminEl('workerSearchInput');
+  if (searchInput) {
+    searchInput.addEventListener('input', () => {
+      Admin.searchQuery = searchInput.value || '';
       renderParticipantsList();
     });
   }
