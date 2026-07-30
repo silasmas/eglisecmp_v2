@@ -1,9 +1,10 @@
 <x-filament-panels::page>
   <div class="space-y-6">
     <x-filament::section>
-      <x-slot name="heading">Pages accessibles par QR / lien direct</x-slot>
+      <x-slot name="heading">Où générer les QR (scan / lien direct)</x-slot>
       <x-slot name="description">
-        Générez et téléchargez les QR codes à imprimer ou à partager. L’inscription ouvrier n’apparaît pas dans le menu flottant du site.
+        Menu <strong>Ouvriers → QR pages (scan)</strong>. Ces pages n’apparaissent pas dans le menu flottant du site :
+        inscription ouvrier, présentation enfants, stats culte, landing raccourcis.
       </x-slot>
 
       <div class="grid gap-6 md:grid-cols-2 xl:grid-cols-2">

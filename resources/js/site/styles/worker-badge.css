@@ -170,3 +170,192 @@
   height: 100%;
   object-fit: contain;
 }
+
+/* Page publique badge — design module (hors site) */
+.worker-badge-standalone {
+  font-family: Poppins, ui-sans-serif, system-ui, sans-serif;
+  padding-bottom: 3rem;
+}
+
+.worker-badge-standalone__hero {
+  background: #1a1018;
+  color: #fff;
+  padding: 2.5rem 1.25rem 2rem;
+  text-align: center;
+}
+
+.worker-badge-standalone__hero-inner {
+  max-width: 40rem;
+  margin-inline: auto;
+}
+
+.worker-badge-standalone__pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.worker-badge-standalone__title {
+  margin-top: 1rem;
+  font-size: clamp(1.75rem, 4vw, 2.75rem);
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.worker-badge-standalone__title span {
+  color: #e8b86d;
+}
+
+.worker-badge-standalone__sub {
+  margin-top: 0.75rem;
+  color: rgba(255, 255, 255, 0.78);
+  font-size: 0.95rem;
+}
+
+.worker-badge-standalone__divider {
+  margin: 1.25rem auto 0;
+  width: 4rem;
+  height: 3px;
+  border-radius: 999px;
+  background: #7b1d3e;
+}
+
+.worker-badge-standalone__banner {
+  max-width: 44rem;
+  margin: 1.25rem auto 0;
+  padding: 0.85rem 1.1rem;
+  border-radius: 0.85rem;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  font-size: 0.875rem;
+  text-align: center;
+}
+
+.worker-badge-standalone__status {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.25rem;
+}
+
+.worker-badge-standalone__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  border-radius: 999px;
+  padding: 0.45rem 0.95rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.worker-badge-standalone__chip--ok {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.worker-badge-standalone__chip--warn {
+  background: #fef3c7;
+  color: #92400e;
+}
+
+.worker-badge-standalone__actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.65rem;
+  margin-top: 1.25rem;
+}
+
+.worker-badge-standalone__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  border-radius: 0.75rem;
+  border: 1px solid #e4e4e7;
+  background: #fff;
+  padding: 0.65rem 1.1rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.worker-badge-standalone__btn--primary {
+  background: #7b1d3e;
+  border-color: #7b1d3e;
+  color: #fff;
+}
+
+.worker-badge-standalone__btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.worker-badge-standalone__zoom {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.75rem;
+  margin-top: 1rem;
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #52525b;
+}
+
+.worker-badge-standalone__zoom-btn {
+  width: 2rem;
+  height: 2rem;
+  border-radius: 999px;
+  border: 1px solid #d4d4d8;
+  background: #fff;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.worker-badge-standalone__stage {
+  display: flex;
+  justify-content: center;
+  margin-top: 1.5rem;
+  padding: 0 1rem 2rem;
+  overflow: auto;
+}
+
+.worker-badge-standalone__meta {
+  max-width: 28rem;
+  margin: 0 auto;
+  padding: 1rem 1.25rem;
+  border-radius: 1rem;
+  background: #fff;
+  border: 1px solid #e4e4e7;
+  font-size: 0.875rem;
+  color: #3f3f46;
+  line-height: 1.6;
+}
+
+@media print {
+  .worker-badge-standalone__hero,
+  .worker-badge-standalone__banner,
+  .worker-badge-standalone__status,
+  .worker-badge-standalone__actions,
+  .worker-badge-standalone__zoom,
+  .worker-badge-standalone__meta {
+    display: none !important;
+  }
+
+  .worker-badge-page,
+  .worker-badge-standalone,
+  .worker-badge-standalone__stage {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+}
+

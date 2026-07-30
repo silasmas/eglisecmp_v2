@@ -10,6 +10,7 @@ use App\Http\Controllers\SchedulerHttpController;
 use App\Http\Controllers\SeedController;
 use App\Http\Controllers\ShieldSyncController;
 use App\Http\Controllers\StorageLinkController;
+use App\Http\Controllers\WorkerBadgeStudioController;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -37,6 +38,15 @@ Route::get('/deploy/shield-sync/{token}', ShieldSyncController::class)
 Route::get('/deploy/scheduler/{token}', SchedulerHttpController::class)
     ->where('token', '[A-Za-z0-9._-]+')
     ->name('deploy.scheduler');
+
+/*
+|--------------------------------------------------------------------------
+| Studio badges ouvriers — session admin obligatoire (nouvel onglet)
+|--------------------------------------------------------------------------
+*/
+Route::get('/admin/worker-badge-studio', WorkerBadgeStudioController::class)
+    ->middleware(['web', 'auth'])
+    ->name('admin.worker-badge-studio');
 
 Route::match(['get', 'post'], '/payment/flexpay/callback/mobile', [FlexPayCallbackController::class, 'mobile'])
     ->name('flexpay.callback.mobile');

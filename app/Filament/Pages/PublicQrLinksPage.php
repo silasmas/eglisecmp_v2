@@ -17,13 +17,13 @@ class PublicQrLinksPage extends Page
 {
     protected static string|BackedEnum|null $navigationIcon = 'heroicon-o-qr-code';
 
-    protected static ?string $navigationLabel = 'Liens QR';
+    protected static ?string $navigationLabel = 'QR pages (scan)';
 
-    protected static ?string $title = 'QR codes des pages publiques';
+    protected static ?string $title = 'QR codes — pages accessibles par scan / lien direct';
 
-    protected static string|UnitEnum|null $navigationGroup = 'Site public';
+    protected static string|UnitEnum|null $navigationGroup = 'Ouvriers';
 
-    protected static ?int $navigationSort = 95;
+    protected static ?int $navigationSort = 5;
 
     protected string $view = 'filament.pages.public-qr-links';
 

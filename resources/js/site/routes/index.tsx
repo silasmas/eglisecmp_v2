@@ -26,6 +26,7 @@ import ExtensionsPage from '../pages/ExtensionsPage';
 import WorshipStatsReportPage from '../pages/WorshipStatsReportPage';
 import WorkerRegistrationPage from '../pages/WorkerRegistrationPage';
 import WorkerBadgePage from '../pages/WorkerBadgePage';
+import WorkerBadgeLayout from '../components/workers/WorkerBadgeLayout';
 
 export const router = createBrowserRouter(
   [
@@ -56,11 +57,17 @@ export const router = createBrowserRouter(
       { path: 'protocole/stats-culte', element: <WorshipStatsReportPage /> },
       { path: 'stats-culte', element: <Navigate to="/protocole/stats-culte" replace /> },
       { path: 'ouvriers/inscription', element: <WorkerRegistrationPage /> },
-      { path: 'ouvriers/badge/:token', element: <WorkerBadgePage /> },
       { path: 'raccourcis', element: <QrShortcutsLandingPage /> },
       { path: 'qr', element: <Navigate to="/raccourcis" replace /> },
       { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },
       { path: '*', element: <SiteErrorPage statusCode={404} /> },
+    ],
+  },
+  {
+    element: <WorkerBadgeLayout />,
+    errorElement: <SiteErrorPage />,
+    children: [
+      { path: 'ouvriers/badge/:token', element: <WorkerBadgePage /> },
     ],
   },
   ],

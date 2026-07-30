@@ -1,0 +1,277 @@
+/* ═══════════════════════════════════════════
+   BADGE
+═══════════════════════════════════════════ */
+.badge-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+.badge-scene {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+.badge-card,
+.retreat-badge-shell {
+  width: min(100%, 360px);
+  padding: clamp(10px, 1.75vw, 20px);
+  flex: 0 0 auto;
+}
+.retreat-badge {
+  --badge-atelier-color: #F97316;
+  width: 100%;
+  aspect-ratio: 2480 / 3508;
+  position: relative;
+  overflow: visible;
+  background: #f7f1e5;
+  color: #fff;
+  box-shadow: 0 18px 50px rgba(26,16,24,0.18);
+}
+.retreat-badge-bg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.retreat-badge > :not(.retreat-badge-border) {
+  overflow: hidden;
+}
+.retreat-badge-filter {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background: var(--badge-category-color, #4B5563);
+  opacity: 0.08;
+  mix-blend-mode: multiply;
+  pointer-events: none;
+}
+.retreat-badge-border {
+  position: absolute;
+  inset: 2.85% 3.65%;
+  z-index: 4;
+  outline: clamp(14px, 1.75vw, 19px) solid var(--badge-category-color, #4B5563);
+  outline-offset: clamp(5px, 0.85vw, 10px);
+  box-shadow: 0 0 0 clamp(14px, 1.75vw, 19px) var(--badge-category-color, #4B5563);
+  pointer-events: none;
+}
+.retreat-badge-photo {
+  position: absolute;
+  left: 50%;
+  top: 32.65%;
+  width: 34%;
+  aspect-ratio: 1;
+  transform: translateX(-50%);
+  border-radius: 50%;
+  border: clamp(4px, 0.48vw, 6px) solid var(--badge-category-color, #4B5563);
+  overflow: hidden;
+  background: #252525;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2;
+}
+.retreat-badge-photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: contrast(1.08);
+}
+.retreat-badge-photo i {
+  font-size: clamp(3rem, 8vw, 5.8rem);
+  color: rgba(255,255,255,0.45);
+}
+.retreat-badge-name-banner {
+  position: absolute;
+  left: 14.9%;
+  right: 14.9%;
+  top: 58.2%;
+  min-height: 8.1%;
+  z-index: 2;
+}
+.retreat-badge-name-banner img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: fill;
+}
+.retreat-badge-name-banner span {
+  position: absolute;
+  inset: 18% 8.5% 22%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  color: #fff;
+  font-size: var(--badge-name-fit-size, clamp(0.78rem, 2.45vw, 1.12rem));
+  font-weight: 800;
+  line-height: 1.05;
+  text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.retreat-badge-category-banner {
+  position: absolute;
+  left: 30.2%;
+  right: 30.2%;
+  top: 65.95%;
+  min-height: 3.8%;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  background: var(--badge-category-color, #4B5563);
+  border-radius: 0 0 999px 999px;
+  color: #fff;
+  font-size: clamp(0.62rem, 2.05vw, 0.76rem);
+  font-weight: 800;
+  line-height: 1.1;
+  padding: 0.15em 0.85em 0.25em;
+  overflow-wrap: anywhere;
+}
+.retreat-badge-assignment {
+  position: absolute;
+  top: 72.75%;
+  width: 17.3%;
+  aspect-ratio: 426 / 491;
+  z-index: 2;
+  color: #2f2f2f;
+  text-align: center;
+}
+.retreat-badge-assignment img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+}
+.retreat-badge-atelier {
+  left: 38.75%;
+  transform: translateX(-50%);
+}
+.retreat-badge-chambre {
+  left: 61.25%;
+  transform: translateX(-50%);
+}
+.retreat-badge-single-assignment .retreat-badge-assignment {
+  left: 50%;
+}
+.retreat-badge-assignment strong {
+  position: absolute;
+  left: 17%;
+  right: 17%;
+  top: 38.4%;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30%;
+  color: #373737;
+  font-size: clamp(0.98rem, 3.9vw, 1.48rem);
+  line-height: 1;
+  font-weight: 900;
+  letter-spacing: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.retreat-badge-no-photo .retreat-badge-name-banner {
+  top: 47%;
+}
+.retreat-badge-no-photo .retreat-badge-category-banner {
+  top: 54.8%;
+}
+.retreat-badge-no-photo .retreat-badge-assignment {
+  top: 62%;
+}
+.retreat-badge-no-assignments .retreat-badge-name-banner {
+  top: 56%;
+}
+.retreat-badge-no-assignments .retreat-badge-category-banner {
+  top: 63.8%;
+}
+.retreat-badge-no-photo.retreat-badge-no-assignments .retreat-badge-name-banner {
+  top: 51%;
+}
+.retreat-badge-no-photo.retreat-badge-no-assignments .retreat-badge-category-banner {
+  top: 58.8%;
+}
+.badge-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+  flex-wrap: wrap;
+  justify-content: center;
+}
+.badge-zoom-controls {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0 0 1rem;
+}
+.badge-zoom-btn {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  box-shadow: var(--shadow-xs);
+}
+.badge-zoom-value {
+  min-width: 56px;
+  text-align: center;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.badge-note {
+  max-width: 560px;
+  text-align: center;
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+}
+
+/* ═══════════════════════════════════════════
+   SUCCESS ANIMATION
+═══════════════════════════════════════════ */
+.success-checkmark {
+  width: 72px;
+  height: 72px;
+  border-radius: 50%;
+  background: var(--success);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0 auto 1.2rem;
+  animation: scaleIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+.success-checkmark i { font-size: 2.2rem; color: #fff; }
+@keyframes scaleIn {
+  from { transform: scale(0); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+@media (max-width: 520px) {
+  .badge-card,
+  .retreat-badge-shell {
+    width: min(100%, 320px);
+  }
+  .retreat-badge-name-banner span {
+    font-size: 0.86rem;
+  }
+  .retreat-badge-category-banner {
+    font-size: 0.68rem;
+  }
+  .retreat-badge-assignment strong {
+    font-size: 1.08rem;
+  }
+}
