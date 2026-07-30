@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use Illuminate\Foundation\Auth\User as AuthUser;
 use Flexpik\FilamentStudio\Models\StudioCollection;
 use Illuminate\Auth\Access\HandlesAuthorization;
-use Illuminate\Foundation\Auth\User as AuthUser;
 
 class StudioCollectionPolicy
 {
     use HandlesAuthorization;
-
+    
     public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:StudioCollection');
@@ -71,4 +71,5 @@ class StudioCollectionPolicy
     {
         return $authUser->can('Reorder:StudioCollection');
     }
+
 }

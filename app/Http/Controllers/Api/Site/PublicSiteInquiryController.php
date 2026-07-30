@@ -41,6 +41,7 @@ final class PublicSiteInquiryController extends Controller
             'country' => 'nullable|string|max:190',
             'is_anonymous' => 'nullable|boolean',
             'message' => 'required|string|max:12000',
+            'appointment_reason' => 'nullable|string|max:64',
             'preferred_at' => 'nullable|date',
             'minister_id' => 'nullable|integer|min:1',
         ]);
@@ -68,6 +69,7 @@ final class PublicSiteInquiryController extends Controller
                 'minister_id' => 'required|integer|min:1',
                 'preferred_at' => 'required|date',
                 'phone' => 'required|string|max:190',
+                'appointment_reason' => 'required|string|in:'.implode(',', array_keys(\App\Support\AppointmentReasons::options())),
             ]);
         }
 
@@ -116,10 +118,14 @@ final class PublicSiteInquiryController extends Controller
                 ? SiteInquiry::PRAYER_NOTIFY_PENDING
                 : null,
             'message' => $validated['message'],
+            'appointment_reason' => $validated['appointment_reason'] ?? null,
             'preferred_at' => $preferredAt,
             'appointment_status' => $validated['kind'] === SiteInquiry::KIND_APPOINTMENT
                 ? SiteInquiry::STATUS_PENDING
                 : SiteInquiry::STATUS_PENDING,
+            'reception_status' => $validated['kind'] === SiteInquiry::KIND_APPOINTMENT
+                ? SiteInquiry::RECEPTION_AWAITING
+                : null,
         ]);
 
         if ($inquiry->kind === SiteInquiry::KIND_APPOINTMENT) {

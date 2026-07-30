@@ -93,6 +93,8 @@ export interface Event {
   /** True si une affiche a été uploadée (pas l'image par défaut). */
   hasPoster?: boolean;
   theme?: string;
+  /** Slug du sous-menu Événements (admin). */
+  menuSlug?: string | null;
   featured?: boolean;
   featuredFrom?: string | null;
   featuredUntil?: string | null;

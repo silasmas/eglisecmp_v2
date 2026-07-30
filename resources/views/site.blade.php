@@ -23,9 +23,39 @@
             gtag('config', '{{ $googleAnalyticsId }}');
         </script>
     @endif
+    <style>
+        #root:empty {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: #faf7f5;
+            color: #57534e;
+            font-family: system-ui, sans-serif;
+        }
+        #root:empty::before {
+            content: "Chargement…";
+            font-size: 14px;
+        }
+    </style>
     @vite(['resources/js/site/main.tsx'])
 </head>
 <body>
 <div id="root"></div>
+<script>
+    window.addEventListener('error', function (event) {
+        if (!event.filename || event.filename.indexOf('5173') === -1) {
+            return;
+        }
+        var root = document.getElementById('root');
+        if (!root || root.childElementCount > 0) {
+            return;
+        }
+        root.innerHTML = '<div style="min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px;font-family:system-ui,sans-serif;text-align:center">' +
+            '<div><p style="font-weight:600;margin-bottom:8px">Les assets de développement n’ont pas chargé.</p>' +
+            '<p style="opacity:.75;margin-bottom:16px;font-size:14px">Rechargez la page (le site basculera sur le build local).</p>' +
+            '<button onclick="location.reload()" style="background:#7f1d1d;color:#fff;border:0;border-radius:12px;padding:12px 20px;font-weight:600;cursor:pointer">Recharger</button></div></div>';
+    }, true);
+</script>
 </body>
 </html>

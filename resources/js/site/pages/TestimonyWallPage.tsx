@@ -89,6 +89,13 @@ export default function TestimonyWallPage() {
   return (
     <div className="tw-page -mt-24 pt-24">
       <section className="tw-hero">
+        <img
+          src="https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1600&h=900&fit=crop"
+          alt=""
+          className="absolute inset-0 h-full w-full object-cover"
+          aria-hidden
+        />
+        <div className="absolute inset-0 bg-gradient-to-b from-black/75 via-black/65 to-[#0a0a0a]" aria-hidden />
         <div className="tw-hero-glow" aria-hidden />
         <div className="tw-hero-grid">
           <div>

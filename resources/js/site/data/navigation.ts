@@ -12,6 +12,8 @@ export const navigation: NavItem[] = [
       { label: 'À propos', href: '/discover/about' },
       { label: 'Vision & Mission', href: '/discover/vision' },
       { label: 'Leadership', href: '/discover/leadership' },
+      { label: 'Nos cellules', href: '/discover/cellules' },
+      { label: 'Nos extensions', href: '/discover/extensions' },
     ],
   },
   {
@@ -27,8 +29,14 @@ export const navigation: NavItem[] = [
     label: 'Événements',
     href: '/events',
     children: [
-      { label: 'Bunda', href: '/events/bunda' },
-      { label: 'Événements à venir', href: '/events' },
+      { label: 'Jeudi dédicace', href: '/events?theme=jeudi-dedicace' },
+      { label: "Mois de l'ouvrier", href: '/events?theme=mois-ouvrier' },
+      { label: 'Séminaires', href: '/events?theme=seminaires' },
+      { label: 'Mois évangélique', href: '/events?theme=mois-evangelique' },
+      { label: 'Bunda 21', href: '/events/bunda' },
+      { label: 'Aksanti Mungu', href: '/events?theme=aksanti-mungu' },
+      { label: 'Culte de nativité', href: '/events?theme=nativite' },
+      { label: 'Réveillon', href: '/events?theme=reveillon' },
     ],
   },
   {

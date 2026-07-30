@@ -12,6 +12,7 @@
         "bezhansalleh/filament-shield": "^4.2",
         "cms-multi/filament-clear-cache": "^3.0",
         "devletes/filament-pinnable-navigation": "^1.0",
+        "endroid/qr-code": "*",
         "filament/filament": "^5.5",
         "flexpik/filament-studio": "^1.2",
         "jibaymcs/tabbed": "^1.0",
@@ -68,7 +69,7 @@
         ],
         "dev": [
             "Composer\\Config::disableProcessTimeout",
-            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
+            "npx concurrently -c \"#93c5fd,#c4b5fd,#fb7185,#fdba74\" \"php artisan serve --host=127.0.0.1 --port=8000\" \"php artisan queue:listen --tries=1\" \"php artisan pail --timeout=0\" \"npm run dev\" --names=server,queue,logs,vite"
         ],
         "studio:patch-fr": [
             "@php scripts/apply-studio-fr-patch.php"

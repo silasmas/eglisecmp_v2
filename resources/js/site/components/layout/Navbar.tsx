@@ -13,8 +13,6 @@ export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [openDropdown, setOpenDropdown] = useState<string | null>(null);
   const location = useLocation();
-  const isHome = location.pathname === '/';
-  const isTestimonyWall = location.pathname === '/temoignages';
   const { scrollYProgress } = useScroll();
   const progressScaleX = useTransform(scrollYProgress, [0, 1], [0, 1]);
 
@@ -27,10 +25,11 @@ export default function Navbar() {
   useEffect(() => {
     setMobileOpen(false);
     setOpenDropdown(null);
+    setScrolled(window.scrollY > 20);
   }, [location.pathname]);
 
-  /** Hero sombre (accueil ou mur de témoignages) : logo et liens en blanc. */
-  const isTransparentDark = (isHome || isTestimonyWall) && !scrolled;
+  /** Bannière / hero sombre en haut de page : logo et liens en blanc jusqu’au scroll. */
+  const isTransparentDark = !scrolled;
 
   return (
     <>
@@ -58,7 +57,7 @@ export default function Navbar() {
                 className={cn(
                   'h-11 w-11 shrink-0 object-contain transition-[transform,filter] duration-300 group-hover:scale-[1.02] sm:h-12 sm:w-12',
                   isTransparentDark
-                    ? 'drop-shadow-[0_3px_12px_rgba(0,0,0,0.35)]'
+                    ? 'brightness-0 invert drop-shadow-[0_3px_12px_rgba(0,0,0,0.35)]'
                     : 'brightness-0 saturate-100'
                 )}
               />
@@ -98,7 +97,7 @@ export default function Navbar() {
                           ? 'text-white bg-white/15'
                           : 'text-burgundy-800 bg-burgundy-50'
                         : isTransparentDark
-                          ? 'text-white/70 hover:text-white hover:bg-white/10'
+                          ? 'text-white hover:bg-white/10'
                           : 'text-surface-600 hover:text-surface-900 hover:bg-surface-100'
                     )}
                   >
@@ -109,7 +108,9 @@ export default function Navbar() {
                         transition={{ duration: 0.2, ease: 'easeInOut' }}
                         className="inline-flex"
                       >
-                        <ChevronDown className="w-3.5 h-3.5 opacity-50" />
+                        <ChevronDown
+                          className={cn('w-3.5 h-3.5', isTransparentDark ? 'opacity-90' : 'opacity-50')}
+                        />
                       </motion.span>
                     )}
                   </Link>
@@ -176,7 +177,7 @@ export default function Navbar() {
                 className={cn(
                   'lg:hidden p-2 rounded-lg transition-colors',
                   isTransparentDark
-                    ? 'text-white/80 hover:text-white hover:bg-white/10'
+                    ? 'text-white hover:bg-white/10'
                     : 'text-surface-600 hover:text-surface-900 hover:bg-surface-100'
                 )}
                 aria-label="Menu"

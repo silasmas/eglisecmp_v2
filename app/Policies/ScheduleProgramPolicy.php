@@ -4,17 +4,14 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use Illuminate\Foundation\Auth\User as AuthUser;
 use App\Models\ScheduleProgram;
 use Illuminate\Auth\Access\HandlesAuthorization;
-use Illuminate\Foundation\Auth\User as AuthUser;
 
-/**
- * Autorisations Filament / Shield pour les programmes site public.
- */
 class ScheduleProgramPolicy
 {
     use HandlesAuthorization;
-
+    
     public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:ScheduleProgram');
@@ -74,4 +71,5 @@ class ScheduleProgramPolicy
     {
         return $authUser->can('Reorder:ScheduleProgram');
     }
+
 }

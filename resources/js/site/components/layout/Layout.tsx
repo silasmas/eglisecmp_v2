@@ -10,12 +10,14 @@ import { useScrollToTop } from '../../hooks/useScrollToTop';
 import { useYoutubeLive } from '../../context/YoutubeLiveContext';
 
 function SiteChrome() {
+  const location = useLocation();
   const { live, modalOpen, dismissLiveModal } = useYoutubeLive();
+  const hideFab = location.pathname === '/raccourcis' || location.pathname === '/qr';
 
   return (
     <>
       <YoutubeLiveModal open={modalOpen} live={live} onClose={dismissLiveModal} />
-      <FloatingActionsMenu />
+      {hideFab ? null : <FloatingActionsMenu />}
     </>
   );
 }

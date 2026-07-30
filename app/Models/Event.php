@@ -23,6 +23,7 @@ class Event extends Model
         'date_fin',
         'is_active',
         'theme',
+        'menu_slug',
         'references',
         'image_url',
         'est_a_la_une',

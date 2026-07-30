@@ -18,6 +18,7 @@ export default function ContactPage() {
         badge="Contact"
         title="Nous contacter"
         description="Une question, un besoin, une envie de nous rejoindre ? N'hésitez pas à nous écrire."
+        backgroundImage="https://images.unsplash.com/photo-1423666639041-f56000c27a9a?w=1600&h=700&fit=crop"
       />
 
       <section className="py-24">

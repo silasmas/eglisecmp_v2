@@ -1,6 +1,6 @@
 import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowRight, Heart, Globe, Users } from 'lucide-react';
+import { ArrowRight, Heart, Globe, Users, Home, MapPinned } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
 import CTAButton from '../components/ui/CTAButton';
 
@@ -23,6 +23,18 @@ const cards = [
     description: 'Rencontrez les pasteurs et leaders qui servent notre communauté.',
     href: '/discover/leadership',
   },
+  {
+    icon: Home,
+    title: 'Nos cellules',
+    description: 'Trouvez une cellule de maison près de chez vous pour grandir en fraternité.',
+    href: '/discover/cellules',
+  },
+  {
+    icon: MapPinned,
+    title: 'Nos extensions',
+    description: 'Explorez la présence de CMP dans le monde sur une carte interactive.',
+    href: '/discover/extensions',
+  },
 ];
 
 export default function DiscoverPage() {
@@ -37,7 +49,7 @@ export default function DiscoverPage() {
 
       <section className="py-24">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-3">
             {cards.map((card, i) => (
               <motion.div
                 key={card.title}

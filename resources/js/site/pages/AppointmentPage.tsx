@@ -24,6 +24,18 @@ const STEP_LABELS: Record<WizardStep, string> = {
 
 const WIZARD_STEPS: WizardStep[] = [1, 2, 3, 4, 5];
 
+/** Motifs classifiés (alignés avec l’admin). */
+const APPOINTMENT_REASONS: Array<{ value: string; label: string }> = [
+  { value: 'premiere_visite', label: 'Première visite' },
+  { value: 'entretien_pastoral', label: 'Entretien pastoral' },
+  { value: 'conseil_spirituel', label: 'Conseil spirituel' },
+  { value: 'accompagnement', label: 'Accompagnement' },
+  { value: 'mariage', label: 'Mariage / couple' },
+  { value: 'famille', label: 'Famille / enfants' },
+  { value: 'discipline', label: 'Discipline / réconciliation' },
+  { value: 'autre', label: 'Autre' },
+];
+
 /**
  * Indicateur d’étapes relié par des tirets dont la couleur reflète la progression.
  */
@@ -95,6 +107,7 @@ export default function AppointmentPage() {
   const [slots, setSlots] = useState<AppointmentSlotRow[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [selectedSlot, setSelectedSlot] = useState<AppointmentSlotRow | null>(null);
+  const [reason, setReason] = useState('');
   const [message, setMessage] = useState('');
   const [name, setName] = useState('');
   const [phone, setPhone] = useState('');
@@ -209,10 +222,10 @@ export default function AppointmentPage() {
       return selectedSlot !== null;
     }
     if (step === 4) {
-      return message.trim() !== '';
+      return reason !== '' && message.trim() !== '';
     }
     return name.trim() !== '' && phone.trim() !== '';
-  }, [message, ministerId, name, phone, selectedDate, selectedSlot, step]);
+  }, [message, ministerId, name, phone, reason, selectedDate, selectedSlot, step]);
 
   const goNext = () => {
     setError(null);
@@ -230,7 +243,14 @@ export default function AppointmentPage() {
 
   const handleSubmit = async () => {
     setError(null);
-    if (ministerId === null || selectedSlot === null || name.trim() === '' || phone.trim() === '' || message.trim() === '') {
+    if (
+      ministerId === null
+      || selectedSlot === null
+      || name.trim() === ''
+      || phone.trim() === ''
+      || message.trim() === ''
+      || reason === ''
+    ) {
       setError('Vérifiez toutes les étapes avant d’envoyer.');
       return;
     }
@@ -242,6 +262,7 @@ export default function AppointmentPage() {
         name: name.trim(),
         phone: phone.trim(),
         message: message.trim(),
+        appointment_reason: reason,
         minister_id: ministerId,
         preferred_at: selectedSlot.starts_at,
       });
@@ -282,6 +303,7 @@ export default function AppointmentPage() {
           title="Prendre rendez-vous"
           description="Votre demande de rendez-vous a bien été enregistrée."
           compact
+          backgroundImage="https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=1600&h=700&fit=crop"
         />
         <section className="mx-auto max-w-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
           <div className="rounded-3xl border border-emerald-200 bg-emerald-50 px-6 py-8 text-emerald-900 dark:border-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-100">
@@ -312,6 +334,7 @@ export default function AppointmentPage() {
         title="Prendre rendez-vous"
         description="Choisissez un pasteur selon ses disponibilités, puis un créneau et laissez vos coordonnées."
         compact
+        backgroundImage="https://images.unsplash.com/photo-1529070538774-1843cb3265df?w=1600&h=700&fit=crop"
       />
 
       <section className="mx-auto max-w-5xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">
@@ -461,14 +484,34 @@ export default function AppointmentPage() {
           {step === 4 ? (
             <div>
               <h2 className="font-heading text-lg font-bold text-surface-950 dark:text-white">Motif du rendez-vous</h2>
+              <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-surface-500" htmlFor="ap-reason">
+                Classification *
+              </label>
+              <select
+                id="ap-reason"
+                required
+                value={reason}
+                onChange={(event) => setReason(event.target.value)}
+                className="mt-2 w-full rounded-2xl border border-surface-200 px-4 py-3 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white"
+              >
+                <option value="">Choisir un motif…</option>
+                {APPOINTMENT_REASONS.map((item) => (
+                  <option key={item.value} value={item.value}>
+                    {item.label}
+                  </option>
+                ))}
+              </select>
+              <label className="mt-4 block text-xs font-semibold uppercase tracking-wide text-surface-500" htmlFor="ap-msg">
+                Précisions *
+              </label>
               <textarea
                 id="ap-msg"
                 required
                 rows={5}
                 value={message}
                 onChange={(event) => setMessage(event.target.value)}
-                className="mt-4 w-full rounded-2xl border border-surface-200 px-4 py-3 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white"
-                placeholder="Ex. première visite, entretien pastoral, accompagnement…"
+                className="mt-2 w-full rounded-2xl border border-surface-200 px-4 py-3 text-sm dark:border-surface-600 dark:bg-surface-900 dark:text-white"
+                placeholder="Décrivez brièvement votre besoin…"
               />
             </div>
           ) : null}
@@ -513,6 +556,9 @@ export default function AppointmentPage() {
                   <li>{selectedMinister?.fullname}</li>
                   <li>{selectedDate !== '' ? formatDateLabel(selectedDate) : ''}</li>
                   <li>{selectedSlot?.label}</li>
+                  <li>
+                    {APPOINTMENT_REASONS.find((item) => item.value === reason)?.label ?? reason}
+                  </li>
                   <li className="line-clamp-2">{message}</li>
                 </ul>
               </div>

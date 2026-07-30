@@ -8,9 +8,11 @@ use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
@@ -31,12 +33,30 @@ class MinisterResource extends Resource
 
     public static function form(Schema $schema): Schema
     {
-        return $schema->schema([
-            TextInput::make('fullname')->label('Nom complet')->required(),
-            TextInput::make('image_url')->label('Photo'),
-            TextInput::make('contact')->label('Contact'),
-            Toggle::make('is_active')->label('Actif')->default(true),
-        ]);
+        return $schema
+            ->columns(12)
+            ->schema([
+                Section::make('Pasteur')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('fullname')->label('Nom complet')->required()->columnSpan(6),
+                        TextInput::make('image_url')->label('Photo (URL ou chemin)')->columnSpan(6),
+                        TextInput::make('contact')->label('Contact')->columnSpan(4),
+                        Select::make('user_id')
+                            ->label('Compte admin lié')
+                            ->relationship('user', 'name')
+                            ->searchable()
+                            ->preload()
+                            ->helperText('Permet au pasteur de se connecter et gérer ses rendez-vous.')
+                            ->columnSpan(4),
+                        Toggle::make('is_titular')
+                            ->label('Pasteur titulaire')
+                            ->helperText('Seul le titulaire peut orienter un fidèle vers un autre pasteur et voir tous les RDV.')
+                            ->columnSpan(2),
+                        Toggle::make('is_active')->label('Actif')->default(true)->columnSpan(2),
+                    ]),
+            ]);
     }
 
     public static function table(Table $table): Table
@@ -54,7 +74,8 @@ class MinisterResource extends Resource
                     ->formatStateUsing(fn ($state): string => static::normalizeLegacyValue($state) ?? '')
                     ->placeholder('-')
                     ->searchable(),
-
+                TextColumn::make('user.name')->label('Compte')->placeholder('—')->toggleable(),
+                IconColumn::make('is_titular')->label('Titulaire')->boolean(),
                 TextColumn::make('contact')->label('Contact'),
                 IconColumn::make('is_active')->label('Actif')->boolean(),
             ])

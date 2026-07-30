@@ -576,6 +576,7 @@ export async function submitSiteInquiry(payload: {
   is_anonymous?: boolean;
   preferred_at?: string;
   minister_id?: number;
+  appointment_reason?: string;
 }): Promise<{ ok: boolean }> {
   const body: Record<string, unknown> = {
     kind: payload.kind,
@@ -599,6 +600,9 @@ export async function submitSiteInquiry(payload: {
   }
   if (payload.minister_id !== undefined) {
     body.minister_id = payload.minister_id;
+  }
+  if (payload.appointment_reason !== undefined && payload.appointment_reason.trim() !== '') {
+    body.appointment_reason = payload.appointment_reason.trim();
   }
 
   const res = await fetchSitePostJson<{ data: { ok: boolean } }>('inquiries', body);
@@ -870,4 +874,298 @@ export async function unsubscribeFromAlerts(token: string): Promise<{ message: s
   return {
     message: res.data?.message ?? 'Vous êtes désabonné(e) des alertes.',
   };
+}
+
+export type ChildPresentationMeta = {
+  dates: Array<{ date: string; label: string }>;
+  ecodim_entry_age_years: number;
+  max_document_mb: number;
+  requirements: string[];
+};
+
+export type ChildPresentationPayload = {
+  children_count: number;
+  parent_names: string;
+  phone: string;
+  otp_code: string;
+  presentation_date: string;
+  children: Array<{ full_name: string; gender: 'male' | 'female'; age_years: number; age_months: number }>;
+  birth_certificate: File;
+  parent_id_document: File;
+};
+
+/**
+ * Charge les dates disponibles et les consignes de présentation d'enfants.
+ */
+export async function fetchChildPresentationMeta(): Promise<ChildPresentationMeta> {
+  return fetchSiteData<ChildPresentationMeta>('child-presentations/meta');
+}
+
+/**
+ * Message ECODIM selon l'âge saisi (temps restant avant l'école du dimanche).
+ */
+export async function getEcodimHint(
+  ageYears: number,
+  ageMonths = 0,
+): Promise<{ eligible: boolean; message: string; months_remaining: number }> {
+  return fetchSiteData<{ eligible: boolean; message: string; months_remaining: number }>(
+    `child-presentations/ecodim-hint?age_years=${encodeURIComponent(String(ageYears))}&age_months=${encodeURIComponent(String(ageMonths))}`,
+  );
+}
+
+/**
+ * Envoie un code OTP SMS pour authentifier le numéro du parent.
+ */
+export async function sendChildPresentationOtp(phone: string): Promise<{ ok: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; message: string } }>(
+    'child-presentations/otp/send',
+    { phone },
+  );
+
+  return body.data;
+}
+
+/**
+ * Vérifie le code OTP reçu par SMS.
+ */
+export async function verifyChildPresentationOtp(
+  phone: string,
+  otpCode: string,
+): Promise<{ ok: boolean; verified: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; verified: boolean; message: string } }>(
+    'child-presentations/otp/verify',
+    { phone, otp_code: otpCode },
+  );
+
+  return body.data;
+}
+
+/**
+ * Soumet une demande de présentation d'enfants (multipart).
+ */
+export async function submitChildPresentation(
+  payload: ChildPresentationPayload,
+): Promise<{ ok: boolean; id: number; message: string }> {
+  const form = new FormData();
+  form.append('children_count', String(payload.children_count));
+  form.append('parent_names', payload.parent_names);
+  form.append('phone', payload.phone);
+  form.append('otp_code', payload.otp_code);
+  form.append('presentation_date', payload.presentation_date);
+  payload.children.forEach((child, index) => {
+    form.append(`children[${index}][full_name]`, child.full_name);
+    form.append(`children[${index}][gender]`, child.gender);
+    form.append(`children[${index}][age_years]`, String(child.age_years));
+    form.append(`children[${index}][age_months]`, String(child.age_months));
+  });
+  form.append('birth_certificate', payload.birth_certificate);
+  form.append('parent_id_document', payload.parent_id_document);
+
+  const response = await fetch(siteApiUrl('/child-presentations'), {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: form,
+  });
+
+  let parsed: unknown = null;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const message = extractApiErrorMessage(parsed);
+    throw new Error(message !== '' ? message : `Envoi impossible (${response.status})`);
+  }
+
+  const res = parsed as { data?: { ok?: boolean; id?: number; message?: string } };
+
+  return {
+    ok: res.data?.ok === true,
+    id: res.data?.id ?? 0,
+    message: res.data?.message ?? 'Demande envoyée.',
+  };
+}
+
+export type PublicChurchExtension = {
+  id: string;
+  name: string;
+  city: string;
+  country: string;
+  address: string;
+  description: string;
+  lat: number;
+  lng: number;
+  leaderName: string;
+  leaderPhotoUrl: string;
+};
+
+/**
+ * Liste des extensions CMP actives (carte mondiale).
+ */
+export async function fetchChurchExtensions(): Promise<PublicChurchExtension[]> {
+  return fetchSiteList<PublicChurchExtension>('extensions');
+}
+
+export type WorshipServiceTypeOption = {
+  value: string;
+  label: string;
+};
+
+/**
+ * Types de culte disponibles pour le formulaire protocole.
+ */
+export async function fetchWorshipReportMeta(): Promise<{ service_types: WorshipServiceTypeOption[] }> {
+  return fetchSiteData<{ service_types: WorshipServiceTypeOption[] }>('worship-reports/meta');
+}
+
+/**
+ * Vérifie qu'un numéro est enregistré dans l'équipe protocole.
+ */
+export async function lookupWorshipReporterPhone(
+  phone: string,
+): Promise<{ ok: boolean; name: string; phone: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; name: string; phone: string } }>(
+    'worship-reports/lookup-phone',
+    { phone },
+  );
+
+  return body.data;
+}
+
+/**
+ * Envoie un OTP SMS au rapporteur protocole.
+ */
+export async function sendWorshipReportOtp(phone: string): Promise<{ ok: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; message: string } }>(
+    'worship-reports/otp/send',
+    { phone },
+  );
+
+  return body.data;
+}
+
+/**
+ * Vérifie le code OTP du rapporteur protocole.
+ */
+export async function verifyWorshipReportOtp(
+  phone: string,
+  otpCode: string,
+): Promise<{ ok: boolean; verified: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; verified: boolean; message: string } }>(
+    'worship-reports/otp/verify',
+    { phone, otp_code: otpCode },
+  );
+
+  return body.data;
+}
+
+/**
+ * Envoie un rapport de présence de culte (OTP déjà vérifié).
+ */
+export async function submitWorshipReport(payload: {
+  service_date: string;
+  service_type: string;
+  attendees_count: number;
+  report_text: string;
+  submitted_by?: string;
+  phone: string;
+  otp_code: string;
+}): Promise<{ ok: boolean; id: number; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; id: number; message: string } }>(
+    'worship-reports',
+    payload,
+  );
+
+  return body.data;
+}
+export type WorkerDepartmentOption = {
+  id: number;
+  name: string;
+  slug: string;
+  description: string;
+  color: string;
+};
+
+export type WorkerRegistrationMeta = {
+  departments: WorkerDepartmentOption[];
+  communes: string[];
+  cities: string[];
+  genders: Array<{ value: string; label: string }>;
+  education_levels: string[];
+};
+
+export type WorkerBadgeData = {
+  token: string;
+  fullName: string;
+  firstName: string;
+  lastName: string;
+  gender: string;
+  department: string;
+  departmentColor: string;
+  departmentRole: string;
+  photoUrl: string;
+  status: string;
+  badgeValidated: boolean;
+  badgeGenerated: boolean;
+  phone: string | null;
+  commune: string;
+  city: string;
+};
+
+/** M�tadonn�es wizard inscription ouvrier. */
+export async function fetchWorkerRegistrationMeta(): Promise<WorkerRegistrationMeta> {
+  return fetchSiteData<WorkerRegistrationMeta>('workers/meta');
+}
+
+/** Envoie un OTP e-mail pour l inscription ouvrier. */
+export async function sendWorkerEmailOtp(email: string): Promise<{ ok: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; message: string } }>('workers/otp/send', { email });
+  return body.data;
+}
+
+/** V�rifie l OTP e-mail ouvrier. */
+export async function verifyWorkerEmailOtp(
+  email: string,
+  otpCode: string,
+): Promise<{ ok: boolean; verified: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; verified: boolean; message: string } }>(
+    'workers/otp/verify',
+    { email, otp_code: otpCode },
+  );
+  return body.data;
+}
+
+/** Soumet l inscription ouvrier (multipart). */
+export async function submitWorkerRegistration(form: FormData): Promise<{ ok: boolean; id: number; message: string }> {
+  const response = await fetch(siteApiUrl('/workers'), {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: form,
+  });
+
+  let parsed: unknown = null;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const message = extractApiErrorMessage(parsed);
+    throw new Error(message !== '' ? message : `Envoi impossible (${response.status})`);
+  }
+
+  const res = parsed as { data?: { ok?: boolean; id?: number; message?: string } };
+  return {
+    ok: res.data?.ok === true,
+    id: res.data?.id ?? 0,
+    message: res.data?.message ?? 'Inscription envoy�e.',
+  };
+}
+
+/** Donn�es publiques du badge ouvrier. */
+export async function fetchWorkerBadge(token: string): Promise<WorkerBadgeData> {
+  return fetchSiteData<WorkerBadgeData>(`workers/badge/${encodeURIComponent(token)}`);
 }

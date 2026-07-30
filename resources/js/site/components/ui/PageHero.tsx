@@ -2,6 +2,10 @@ import { motion } from 'framer-motion';
 import { cn } from '../../lib/utils';
 import { staggerContainer, staggerItem } from '../../lib/animations';
 
+/** Bannière image par défaut pour toutes les pages hors accueil. */
+export const DEFAULT_PAGE_BANNER =
+  'https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1600&h=700&fit=crop';
+
 interface PageHeroProps {
   badge?: string;
   title: string;
@@ -11,6 +15,9 @@ interface PageHeroProps {
   className?: string;
 }
 
+/**
+ * En-tête de page avec bannière image (toujours affichée hors accueil).
+ */
 export default function PageHero({
   badge,
   title,
@@ -19,26 +26,21 @@ export default function PageHero({
   compact = false,
   className,
 }: PageHeroProps) {
+  const imageSrc = (backgroundImage ?? '').trim() !== '' ? backgroundImage!.trim() : DEFAULT_PAGE_BANNER;
+
   return (
     <section
       className={cn(
-        compact ? 'relative overflow-hidden pb-14 pt-24 sm:pb-16 sm:pt-28' : 'relative overflow-hidden pt-32 pb-20 sm:pt-40 sm:pb-28',
-        className
+        'relative overflow-hidden',
+        compact ? 'pb-14 pt-24 sm:pb-16 sm:pt-28' : 'pb-20 pt-32 sm:pb-28 sm:pt-40',
+        className,
       )}
     >
-      {backgroundImage && (
-        <div className="absolute inset-0">
-          <img
-            src={backgroundImage}
-            alt=""
-            className="w-full h-full object-cover opacity-15"
-          />
-          <div className="absolute inset-0 bg-gradient-to-b from-white/60 via-white/80 to-white" />
-        </div>
-      )}
-      {!backgroundImage && (
-        <div className="absolute inset-0 bg-gradient-to-b from-burgundy-50/50 to-white" />
-      )}
+      <div className="absolute inset-0">
+        <img src={imageSrc} alt="" className="h-full w-full object-cover" />
+        <div className="absolute inset-0 bg-gradient-to-b from-surface-950/75 via-surface-950/55 to-white dark:to-surface-950" />
+        <div className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-white to-transparent dark:from-surface-950" />
+      </div>
 
       <motion.div
         className="relative mx-auto max-w-7xl px-4 sm:px-6 lg:px-8"
@@ -46,31 +48,31 @@ export default function PageHero({
         initial="hidden"
         animate="show"
       >
-        {badge && (
+        {badge ? (
           <motion.span
             variants={staggerItem}
-            className="inline-block text-[11px] font-semibold uppercase tracking-[0.15em] mb-5 px-4 py-1.5 rounded-full bg-burgundy-50 text-burgundy-700 border border-burgundy-100"
+            className="mb-5 inline-block rounded-full border border-white/25 bg-white/15 px-4 py-1.5 text-[11px] font-semibold uppercase tracking-[0.15em] text-white backdrop-blur-sm"
           >
             {badge}
           </motion.span>
-        )}
+        ) : null}
         <motion.h1
           variants={staggerItem}
           className={cn(
-            'font-heading font-extrabold text-surface-900 leading-[1.1] tracking-tight max-w-3xl',
-            compact ? 'text-3xl sm:text-4xl lg:text-[2.75rem]' : 'text-4xl sm:text-5xl lg:text-[3.75rem]'
+            'max-w-3xl font-heading font-extrabold leading-[1.1] tracking-tight text-white',
+            compact ? 'text-3xl sm:text-4xl lg:text-[2.75rem]' : 'text-4xl sm:text-5xl lg:text-[3.75rem]',
           )}
         >
           {title}
         </motion.h1>
-        {description && (
+        {description ? (
           <motion.p
             variants={staggerItem}
-            className="mt-6 text-lg sm:text-xl text-surface-500 max-w-2xl leading-relaxed"
+            className="mt-6 max-w-2xl text-lg leading-relaxed text-white/80 sm:text-xl"
           >
             {description}
           </motion.p>
-        )}
+        ) : null}
       </motion.div>
     </section>
   );

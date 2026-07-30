@@ -22,10 +22,17 @@ use Illuminate\Support\Carbon;
  * @property Carbon|null $prayer_team_notified_at
  * @property string|null $prayer_team_notification_response
  * @property string $message
+ * @property string|null $appointment_reason
  * @property int|null $minister_id
+ * @property int|null $oriented_from_minister_id
  * @property int|null $bureau_id
  * @property Carbon|null $preferred_at
  * @property string $appointment_status
+ * @property string|null $reception_status
+ * @property string|null $session_notes
+ * @property string|null $session_conclusion
+ * @property Carbon|null $received_at
+ * @property Carbon|null $completed_at
  * @property string|null $confirmation_sms_status
  * @property Carbon|null $confirmation_sms_sent_at
  * @property string|null $confirmation_sms_response
@@ -41,6 +48,14 @@ class SiteInquiry extends Model
     public const STATUS_CONFIRMED = 'confirmed';
 
     public const STATUS_DECLINED = 'declined';
+
+    public const RECEPTION_AWAITING = 'awaiting';
+
+    public const RECEPTION_IN_PROGRESS = 'in_progress';
+
+    public const RECEPTION_COMPLETED = 'completed';
+
+    public const RECEPTION_ORIENTED = 'oriented';
 
     public const SMS_STATUS_SENT = 'sent';
 
@@ -73,8 +88,15 @@ class SiteInquiry extends Model
         'prayer_team_notified_at',
         'prayer_team_notification_response',
         'message',
+        'appointment_reason',
         'preferred_at',
         'appointment_status',
+        'reception_status',
+        'session_notes',
+        'session_conclusion',
+        'oriented_from_minister_id',
+        'received_at',
+        'completed_at',
         'confirmation_sms_status',
         'confirmation_sms_sent_at',
         'confirmation_sms_response',
@@ -89,6 +111,8 @@ class SiteInquiry extends Model
             'preferred_at' => 'datetime',
             'confirmation_sms_sent_at' => 'datetime',
             'prayer_team_notified_at' => 'datetime',
+            'received_at' => 'datetime',
+            'completed_at' => 'datetime',
             'is_anonymous' => 'boolean',
         ];
     }
@@ -101,6 +125,31 @@ class SiteInquiry extends Model
     public function minister(): BelongsTo
     {
         return $this->belongsTo(Minister::class);
+    }
+
+    /**
+     * Pasteur titulaire qui a orienté le fidèle (si applicable).
+     *
+     * @return BelongsTo<Minister, $this>
+     */
+    public function orientedFromMinister(): BelongsTo
+    {
+        return $this->belongsTo(Minister::class, 'oriented_from_minister_id');
+    }
+
+    /**
+     * Libellés des statuts de réception pastorale.
+     *
+     * @return array<string, string>
+     */
+    public static function receptionStatusOptions(): array
+    {
+        return [
+            self::RECEPTION_AWAITING => 'En attente de réception',
+            self::RECEPTION_IN_PROGRESS => 'En cours',
+            self::RECEPTION_COMPLETED => 'Terminé',
+            self::RECEPTION_ORIENTED => 'Orienté',
+        ];
     }
 
     /**

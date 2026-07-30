@@ -5,6 +5,9 @@ declare(strict_types=1);
 use App\Http\Controllers\Api\Site\PublicAlertSubscriptionController;
 use App\Http\Controllers\Api\Site\PublicAppointmentController;
 use App\Http\Controllers\Api\Site\PublicBundaController;
+use App\Http\Controllers\Api\Site\PublicChildPresentationController;
+use App\Http\Controllers\Api\Site\PublicChurchExtensionController;
+use App\Http\Controllers\Api\Site\PublicChurchWorkerController;
 use App\Http\Controllers\Api\Site\PublicContentReactionController;
 use App\Http\Controllers\Api\Site\PublicDailyVerseController;
 use App\Http\Controllers\Api\Site\PublicEventController;
@@ -20,6 +23,7 @@ use App\Http\Controllers\Api\Site\PublicSiteSearchController;
 use App\Http\Controllers\Api\Site\PublicSiteStatisticController;
 use App\Http\Controllers\Api\Site\PublicTeachingsPlaylistController;
 use App\Http\Controllers\Api\Site\PublicTestimonyController;
+use App\Http\Controllers\Api\Site\PublicWorshipServiceReportController;
 use App\Http\Controllers\Api\Site\PublicYoutubeLiveController;
 use App\Http\Middleware\SetSiteApiLocale;
 use Illuminate\Support\Facades\Route;
@@ -83,4 +87,36 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
         ->middleware('throttle:60,1');
     Route::get('offrandes/status', [PublicOffrandePaymentController::class, 'checkStatus'])
         ->middleware('throttle:120,1');
+
+    Route::get('child-presentations/meta', [PublicChildPresentationController::class, 'meta']);
+    Route::get('child-presentations/ecodim-hint', [PublicChildPresentationController::class, 'ecodimHint'])
+        ->middleware('throttle:60,1');
+    Route::post('child-presentations/otp/send', [PublicChildPresentationController::class, 'sendOtp'])
+        ->middleware('throttle:10,1');
+    Route::post('child-presentations/otp/verify', [PublicChildPresentationController::class, 'verifyOtp'])
+        ->middleware('throttle:20,1');
+    Route::post('child-presentations', [PublicChildPresentationController::class, 'store'])
+        ->middleware('throttle:10,1');
+
+    Route::get('extensions', [PublicChurchExtensionController::class, 'index']);
+
+    Route::get('worship-reports/meta', [PublicWorshipServiceReportController::class, 'meta']);
+    Route::post('worship-reports/lookup-phone', [PublicWorshipServiceReportController::class, 'lookupPhone'])
+        ->middleware('throttle:30,1');
+    Route::post('worship-reports/otp/send', [PublicWorshipServiceReportController::class, 'sendOtp'])
+        ->middleware('throttle:10,1');
+    Route::post('worship-reports/otp/verify', [PublicWorshipServiceReportController::class, 'verifyOtp'])
+        ->middleware('throttle:20,1');
+    Route::post('worship-reports', [PublicWorshipServiceReportController::class, 'store'])
+        ->middleware('throttle:20,1');
+
+    Route::get('workers/meta', [PublicChurchWorkerController::class, 'meta']);
+    Route::post('workers/otp/send', [PublicChurchWorkerController::class, 'sendEmailOtp'])
+        ->middleware('throttle:10,1');
+    Route::post('workers/otp/verify', [PublicChurchWorkerController::class, 'verifyEmailOtp'])
+        ->middleware('throttle:20,1');
+    Route::post('workers', [PublicChurchWorkerController::class, 'store'])
+        ->middleware('throttle:10,1');
+    Route::get('workers/badge/{token}', [PublicChurchWorkerController::class, 'badge'])
+        ->middleware('throttle:60,1');
 });

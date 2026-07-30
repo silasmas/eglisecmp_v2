@@ -9,33 +9,28 @@ use App\Services\YoutubeLiveStatusService;
 use Illuminate\Console\Command;
 
 /**
- * Détecte un live YouTube et notifie les contacts du site (si activé dans .env).
+ * Rafraîchit le cache live YouTube et notifie les abonnés si un nouveau live démarre.
  */
 class CheckYoutubeLiveCommand extends Command
 {
     protected $signature = 'youtube:check-live';
 
-    protected $description = 'Vérifie si un live YouTube a démarré et envoie email/SMS aux contacts configurés';
+    protected $description = 'Rafraîchit le statut live YouTube (cache) et envoie les alertes si configuré';
 
-    public function handle(YoutubeLiveNotificationService $notifier, YoutubeLiveStatusService $liveStatus): int
+    public function handle(YoutubeLiveStatusService $liveStatus, YoutubeLiveNotificationService $notifier): int
     {
         $snapshot = $liveStatus->snapshot(true);
+
+        if ($snapshot['isLive'] && $snapshot['live'] !== null) {
+            $this->info('Live actif : '.$snapshot['live']['title'].' ('.$snapshot['live']['videoId'].')');
+        } else {
+            $this->line('Aucun live YouTube en cours.');
+        }
+
         $result = $notifier->checkAndNotify();
 
         if ($result['notified']) {
-            $this->info('Notifications live envoyées pour '.$result['videoId']
-                .' ('.$result['emails'].' email(s), '.$result['sms'].' SMS).');
-
-            return self::SUCCESS;
-        }
-
-        if ($result['videoId'] !== null) {
-            $this->line('Live détecté ('.$result['videoId'].') — déjà notifié ou inchangé.');
-        } else {
-            $this->line('Aucun live YouTube en cours.');
-            if ($snapshot['isLive'] === false) {
-                $this->line('Vérifiez YOUTUBE_CHANNEL_ID et YOUTUBE_API_KEY dans .env si un live est actif sur YouTube.');
-            }
+            $this->info('Notifications envoyées ('.$result['emails'].' email(s), '.$result['sms'].' SMS).');
         }
 
         return self::SUCCESS;

@@ -1,11 +1,23 @@
 {
+  "node_modules/leaflet/dist/images/layers-2x.png": {
+    "file": "assets/layers-2x-Bpkbi35X.png",
+    "src": "node_modules/leaflet/dist/images/layers-2x.png"
+  },
+  "node_modules/leaflet/dist/images/layers.png": {
+    "file": "assets/layers-BWBAp2CZ.png",
+    "src": "node_modules/leaflet/dist/images/layers.png"
+  },
+  "node_modules/leaflet/dist/images/marker-icon.png": {
+    "file": "assets/marker-icon-hN30_KVU.png",
+    "src": "node_modules/leaflet/dist/images/marker-icon.png"
+  },
   "resources/css/app.css": {
-    "file": "assets/app-C-ukcJkr.css",
+    "file": "assets/app-XGu7Jf22.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-aM2tdRcl.css",
+    "file": "assets/theme-DjsnWioc.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
@@ -19,16 +31,29 @@
     "file": "assets/Logo-CMP-2023-new-BaryjCFu.png",
     "src": "resources/js/site/assets/Logo-CMP-2023-new.png"
   },
+  "resources/js/site/assets/worker-badge/fond-badge.png": {
+    "file": "assets/fond-badge-CuU_FIGk.png",
+    "src": "resources/js/site/assets/worker-badge/fond-badge.png"
+  },
+  "resources/js/site/assets/worker-badge/nom-badge.png": {
+    "file": "assets/nom-badge-DUU25ZnV.png",
+    "src": "resources/js/site/assets/worker-badge/nom-badge.png"
+  },
   "resources/js/site/main.tsx": {
-    "file": "assets/main-Dj9iHYX0.js",
+    "file": "assets/main-BeoBZOyA.js",
     "name": "main",
     "src": "resources/js/site/main.tsx",
     "isEntry": true,
     "css": [
-      "assets/main-ZjCdf_-b.css"
+      "assets/main-R0AWar17.css"
     ],
     "assets": [
-      "assets/Logo-CMP-2023-new-BaryjCFu.png"
+      "assets/Logo-CMP-2023-new-BaryjCFu.png",
+      "assets/fond-badge-CuU_FIGk.png",
+      "assets/nom-badge-DUU25ZnV.png",
+      "assets/layers-BWBAp2CZ.png",
+      "assets/layers-2x-Bpkbi35X.png",
+      "assets/marker-icon-hN30_KVU.png"
     ]
   }
 }

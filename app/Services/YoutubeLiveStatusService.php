@@ -9,7 +9,10 @@ use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
 
 /**
- * Détecte si la chaîne YouTube configurée diffuse un live (API Data v3, plusieurs stratégies).
+ * Détecte si la chaîne YouTube diffuse un live.
+ *
+ * Les endpoints publics ne lisent que le cache (pas d’appel HTTP bloquant).
+ * Le rafraîchissement se fait via `youtube:check-live` / `snapshot(true)`.
  */
 final class YoutubeLiveStatusService
 {
@@ -21,20 +24,26 @@ final class YoutubeLiveStatusService
 
     private const STALE_LIVE_GRACE_SECONDS = 300;
 
+    private const HTTP_TIMEOUT_SECONDS = 3;
+
     /**
-     * Retourne les infos du live en cours ou null si aucun / API indisponible.
+     * Statut live pour le site public : lecture cache uniquement (jamais de réseau).
      *
      * @return array{isLive: bool, videoId: string, title: string, embedUrl: string, thumbnailUrl: string, watchUrl: string}|null
      */
     public function current(): ?array
     {
-        $snapshot = $this->snapshot(false);
+        $cached = $this->readCache();
 
-        return $snapshot['isLive'] === true ? $snapshot['live'] : null;
+        if ($cached === null) {
+            return null;
+        }
+
+        return $cached['isLive'] === true ? $cached['live'] : null;
     }
 
     /**
-     * Interroge l’API YouTube et met à jour le cache (pour la planification / notifications).
+     * Interroge YouTube et met à jour le cache (CLI / scheduler uniquement).
      *
      * @return array{isLive: bool, live: array{isLive: bool, videoId: string, title: string, embedUrl: string, thumbnailUrl: string, watchUrl: string}|null}
      */
@@ -95,7 +104,7 @@ final class YoutubeLiveStatusService
     }
 
     /**
-     * Conserve le dernier live connu si l’API échoue (évite les faux « hors live »).
+     * Conserve le dernier live connu si l’API échoue.
      *
      * @return array{isLive: bool, live: array<string, mixed>|null}
      */
@@ -118,11 +127,16 @@ final class YoutubeLiveStatusService
             }
         }
 
+        Cache::put(self::CACHE_KEY, [
+            'isLive' => false,
+            'cachedAt' => now()->toIso8601String(),
+        ], self::CACHE_SECONDS_IDLE);
+
         return ['isLive' => false, 'live' => null];
     }
 
     /**
-     * @return array<string, mixed>|null Null = échec API (ne pas écraser le cache live).
+     * @return array<string, mixed>|null Null = échec API (ne pas écraser un live frais).
      */
     private function fetchFromApi(string $channelId, string $apiKey): ?array
     {
@@ -146,13 +160,21 @@ final class YoutubeLiveStatusService
     }
 
     /**
-     * Stratégie 1 : search eventType=live (endpoint officiel).
-     *
+     * Client HTTP court pour ne pas bloquer le scheduler.
+     */
+    private function youtubeHttp(): \Illuminate\Http\Client\PendingRequest
+    {
+        return Http::timeout(self::HTTP_TIMEOUT_SECONDS)
+            ->connectTimeout(2)
+            ->retry(0);
+    }
+
+    /**
      * @return array<string, mixed>|null
      */
     private function fetchLiveViaSearch(string $channelId, string $apiKey): ?array
     {
-        $response = Http::timeout(10)->get('https://www.googleapis.com/youtube/v3/search', [
+        $response = $this->youtubeHttp()->get('https://www.googleapis.com/youtube/v3/search', [
             'part' => 'snippet',
             'channelId' => $channelId,
             'eventType' => 'live',
@@ -191,18 +213,16 @@ final class YoutubeLiveStatusService
     }
 
     /**
-     * Stratégie 2 : dernières vidéos de la chaîne + liveBroadcastContent=live.
-     *
      * @return array<string, mixed>|null
      */
     private function fetchLiveViaRecentVideos(string $channelId, string $apiKey): ?array
     {
-        $searchResponse = Http::timeout(10)->get('https://www.googleapis.com/youtube/v3/search', [
+        $searchResponse = $this->youtubeHttp()->get('https://www.googleapis.com/youtube/v3/search', [
             'part' => 'snippet',
             'channelId' => $channelId,
             'type' => 'video',
             'order' => 'date',
-            'maxResults' => 8,
+            'maxResults' => 5,
             'key' => $apiKey,
         ]);
 
@@ -230,7 +250,7 @@ final class YoutubeLiveStatusService
             return null;
         }
 
-        $videosResponse = Http::timeout(10)->get('https://www.googleapis.com/youtube/v3/videos', [
+        $videosResponse = $this->youtubeHttp()->get('https://www.googleapis.com/youtube/v3/videos', [
             'part' => 'snippet,liveStreamingDetails',
             'id' => implode(',', $videoIds),
             'key' => $apiKey,

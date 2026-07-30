@@ -6,6 +6,8 @@ namespace App\Models;
 use Database\Factories\UserFactory;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Spatie\Permission\Traits\HasRoles;
@@ -59,6 +61,26 @@ class User extends Authenticatable
     public function roleModel(): BelongsTo
     {
         return $this->belongsTo(Role::class, 'role_id');
+    }
+
+    /**
+     * Fiche pasteur liée à ce compte (réception pastorale).
+     *
+     * @return HasOne<Minister, $this>
+     */
+    public function ministerProfile(): HasOne
+    {
+        return $this->hasOne(Minister::class);
+    }
+
+    /**
+     * Historique des connexions de cet utilisateur.
+     *
+     * @return HasMany<LoginHistory, $this>
+     */
+    public function loginHistories(): HasMany
+    {
+        return $this->hasMany(LoginHistory::class);
     }
 
     /**

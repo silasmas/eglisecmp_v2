@@ -21,7 +21,7 @@ return [
         [
             'command' => 'youtube:check-live',
             'label' => 'Détection live YouTube',
-            'frequency' => 'Toutes les 3 minutes',
+            'frequency' => 'Toutes les minutes',
         ],
         [
             'command' => 'events:check-alerts',

@@ -621,6 +621,7 @@ export default function OffrandesPage() {
         title="Offrandes"
         description="Donnez avec Mobile money ou carte bancaire via l’opérateur de paiement configuré pour le site."
         compact
+        backgroundImage="https://images.unsplash.com/photo-1532629345422-7515f3d16bb6?w=1600&h=700&fit=crop"
       />
 
       <section className="mx-auto max-w-[1400px] px-4 pb-24 pt-10 sm:px-6 lg:px-8">

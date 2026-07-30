@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { ChevronDown, Heart } from 'lucide-react';
+import { ChevronDown, Heart, X } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { navigation } from '../../data/navigation';
 import { cn } from '../../lib/utils';
@@ -10,6 +10,9 @@ interface MobileMenuProps {
   onClose: () => void;
 }
 
+/**
+ * Panneau de navigation mobile (drawer) avec fermeture explicite.
+ */
 export default function MobileMenu({ open, onClose }: MobileMenuProps) {
   const [expandedItem, setExpandedItem] = useState<string | null>(null);
 
@@ -33,8 +36,23 @@ export default function MobileMenu({ open, onClose }: MobileMenuProps) {
             exit={{ x: '100%' }}
             transition={{ type: 'spring', damping: 30, stiffness: 300 }}
             className="fixed top-0 right-0 bottom-0 z-50 w-full max-w-sm bg-white border-l border-surface-200 lg:hidden overflow-y-auto shadow-2xl"
+            role="dialog"
+            aria-modal="true"
+            aria-label="Menu de navigation"
           >
-            <div className="p-6 pt-24">
+            <div className="sticky top-0 z-10 flex items-center justify-between border-b border-surface-100 bg-white/95 px-5 py-4 backdrop-blur">
+              <p className="font-heading text-sm font-semibold text-surface-900">Menu</p>
+              <button
+                type="button"
+                onClick={onClose}
+                className="inline-flex h-10 w-10 items-center justify-center rounded-full border border-surface-200 bg-white text-surface-700 shadow-sm transition hover:border-burgundy-200 hover:bg-burgundy-50 hover:text-burgundy-800"
+                aria-label="Fermer le menu"
+              >
+                <X className="h-5 w-5" strokeWidth={2.25} />
+              </button>
+            </div>
+
+            <div className="p-6 pt-4">
               <nav className="space-y-1">
                 {navigation.map((item) => (
                   <div key={item.label}>

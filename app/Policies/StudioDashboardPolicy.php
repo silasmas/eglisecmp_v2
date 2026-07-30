@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use Illuminate\Foundation\Auth\User as AuthUser;
 use Flexpik\FilamentStudio\Models\StudioDashboard;
 use Illuminate\Auth\Access\HandlesAuthorization;
-use Illuminate\Foundation\Auth\User as AuthUser;
 
 class StudioDashboardPolicy
 {
     use HandlesAuthorization;
-
+    
     public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:StudioDashboard');
@@ -71,4 +71,5 @@ class StudioDashboardPolicy
     {
         return $authUser->can('Reorder:StudioDashboard');
     }
+
 }

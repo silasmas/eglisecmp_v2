@@ -56,7 +56,14 @@ class EventResource extends Resource
                                 3 => 'Special',
                             ])
                             ->columnSpan(4),
-                        TextInput::make('theme.fr')->label('Theme (FR)')->columnSpan(8),
+                        TextInput::make('theme.fr')->label('Theme (FR)')->columnSpan(4),
+                        Select::make('menu_slug')
+                            ->label('Sous-menu site')
+                            ->options(\App\Support\EventMenuSlugs::options())
+                            ->searchable()
+                            ->nullable()
+                            ->helperText('Lie cet événement au sous-menu « Événements » du site public.')
+                            ->columnSpan(4),
                         TextInput::make('lieu')->label('Lieu')->columnSpan(4),
                         TextInput::make('orateur')->label('Orateur')->columnSpan(6),
                         FileUpload::make('image_url.fr')

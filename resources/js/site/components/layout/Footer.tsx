@@ -2,6 +2,7 @@ import { Link } from 'react-router-dom';
 import { Mail, MapPin, Phone } from 'lucide-react';
 import { churchInfo } from '../../data/content';
 import cmpLogo from '../../assets/Logo-CMP-2023-new.png';
+import ChurchLocationAnchor from '../ui/ChurchLocationAnchor';
 
 function FacebookIcon() {
   return (
@@ -66,19 +67,26 @@ const footerLinks = [
   {
     title: 'Programmes',
     links: [
-      { label: 'Culte dominical', href: '/events' },
-      { label: 'Culte d\'enseignement', href: '/events' },
-      { label: 'Bunda', href: '/events/bunda' },
-      { label: 'Jeunesse', href: '/events' },
+      { label: 'Cultes matinaux', href: '/events' },
+      { label: 'Culte des cellules', href: '/discover/cellules' },
+      { label: "Culte d'enseignement", href: '/events' },
+      { label: 'Jeudi Etoko', href: '/events' },
+      { label: 'Culte des Mamans', href: '/events' },
+      { label: 'Jeunesse', href: '/events?theme=jeunesse' },
+      { label: 'Culte Dominical', href: '/events' },
     ],
   },
 ];
 
+/**
+ * Pied de page du site public avec ancres de localisation.
+ */
 export default function Footer() {
   return (
-    <footer className="bg-surface-900 border-t border-surface-800">
+    <footer className="relative bg-surface-900 border-t border-surface-800">
+      <ChurchLocationAnchor />
       {/* Main footer */}
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16">
+      <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-16 pt-20">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-10">
           {/* Brand */}
           <div className="lg:col-span-2">

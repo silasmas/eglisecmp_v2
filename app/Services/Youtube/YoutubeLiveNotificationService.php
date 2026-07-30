@@ -38,7 +38,8 @@ final class YoutubeLiveNotificationService
             return ['notified' => false, 'videoId' => null, 'emails' => 0, 'sms' => 0];
         }
 
-        $snapshot = $this->liveStatus->snapshot(true);
+        // Utilise le cache déjà rafraîchi par youtube:check-live (évite un 2e appel API).
+        $snapshot = $this->liveStatus->snapshot(false);
         $live = $snapshot['live'];
         $isLive = $snapshot['isLive'] && $live !== null;
 

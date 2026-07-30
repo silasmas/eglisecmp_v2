@@ -65,6 +65,27 @@ body {
   margin: 0;
 }
 
+/* Curseur main sur tous les boutons et liens du site */
+a,
+button,
+[role="button"],
+input[type="button"],
+input[type="submit"],
+input[type="reset"],
+label[for],
+summary,
+select {
+  cursor: pointer;
+}
+
+a:disabled,
+button:disabled,
+[role="button"][aria-disabled="true"],
+input:disabled,
+select:disabled {
+  cursor: not-allowed;
+}
+
 h1, h2, h3, h4, h5, h6 {
   font-family: var(--font-heading);
   letter-spacing: -0.02em;

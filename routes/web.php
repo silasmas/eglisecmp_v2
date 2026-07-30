@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\FlexPayCallbackController;
 use App\Http\Controllers\FlexPayPaidController;
+use App\Http\Controllers\PublicQrDownloadController;
 use App\Http\Controllers\SchedulerHttpController;
 use App\Http\Controllers\ShieldSyncController;
 use App\Http\Controllers\StorageLinkController;
@@ -40,6 +41,11 @@ Route::get('/paid/{reference}/{amount}/{currency}/{status}', FlexPayPaidControll
         'currency' => '[A-Za-z]{3}',
         'status' => 'success|cancel|decline',
     ]);
+
+Route::middleware(['web', 'auth'])
+    ->get('/admin/qr-download/{key}', PublicQrDownloadController::class)
+    ->where('key', '[A-Za-z0-9._-]+')
+    ->name('admin.qr-download');
 
 $spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)).*$';
 

@@ -138,6 +138,7 @@ export default function PrayerRequestPage() {
             : 'Confiez-nous vos sujets de prière. Notre équipe portera votre intention devant Dieu.'
         }
         compact
+        backgroundImage="https://images.unsplash.com/photo-1519817656842-c6f2c8f4b0a2?w=1600&h=700&fit=crop"
       />
 
       <section className="mx-auto max-w-2xl px-4 pb-24 pt-8 sm:px-6 lg:px-8">

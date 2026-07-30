@@ -19,6 +19,13 @@ import PrayerRequestPage from '../pages/PrayerRequestPage';
 import AppointmentPage from '../pages/AppointmentPage';
 import TestimonyWallPage from '../pages/TestimonyWallPage';
 import AlertUnsubscribePage from '../pages/AlertUnsubscribePage';
+import QrShortcutsLandingPage from '../pages/QrShortcutsLandingPage';
+import ChildPresentationPage from '../pages/ChildPresentationPage';
+import CellsPage from '../pages/CellsPage';
+import ExtensionsPage from '../pages/ExtensionsPage';
+import WorshipStatsReportPage from '../pages/WorshipStatsReportPage';
+import WorkerRegistrationPage from '../pages/WorkerRegistrationPage';
+import WorkerBadgePage from '../pages/WorkerBadgePage';
 
 export const router = createBrowserRouter(
   [
@@ -31,6 +38,8 @@ export const router = createBrowserRouter(
       { path: 'discover/about', element: <AboutPage /> },
       { path: 'discover/vision', element: <VisionPage /> },
       { path: 'discover/leadership', element: <LeadershipPage /> },
+      { path: 'discover/cellules', element: <CellsPage /> },
+      { path: 'discover/extensions', element: <ExtensionsPage /> },
       { path: 'teachings', element: <TeachingsPage /> },
       { path: 'teachings/playlist/:eventId', element: <PlaylistWatchPage /> },
       { path: 'teachings/message/:postId', element: <MessageWatchPage /> },
@@ -43,6 +52,13 @@ export const router = createBrowserRouter(
       { path: 'requete-de-priere', element: <PrayerRequestPage /> },
       { path: 'rendez-vous', element: <AppointmentPage /> },
       { path: 'temoignages', element: <TestimonyWallPage /> },
+      { path: 'presentation-enfants', element: <ChildPresentationPage /> },
+      { path: 'protocole/stats-culte', element: <WorshipStatsReportPage /> },
+      { path: 'stats-culte', element: <Navigate to="/protocole/stats-culte" replace /> },
+      { path: 'ouvriers/inscription', element: <WorkerRegistrationPage /> },
+      { path: 'ouvriers/badge/:token', element: <WorkerBadgePage /> },
+      { path: 'raccourcis', element: <QrShortcutsLandingPage /> },
+      { path: 'qr', element: <Navigate to="/raccourcis" replace /> },
       { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },
       { path: '*', element: <SiteErrorPage statusCode={404} /> },
     ],

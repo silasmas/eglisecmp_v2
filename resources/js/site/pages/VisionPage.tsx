@@ -30,6 +30,7 @@ export default function VisionPage() {
         badge="Vision & Mission"
         title="Notre vision pour les nations"
         description="Comprendre ce qui nous anime et la direction que Dieu donne à notre église."
+        backgroundImage="https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=1600&h=700&fit=crop"
       />
 
       <section className="py-24">

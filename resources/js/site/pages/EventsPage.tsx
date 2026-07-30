@@ -1,6 +1,6 @@
-import { useMemo, useState } from 'react';
-import { motion } from 'framer-motion';
+import { useEffect, useMemo, useState } from 'react';
 import { Bell } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom';
 import PageHero from '../components/ui/PageHero';
 import EventCard from '../components/cards/EventCard';
 import EventDetailModal from '../components/ui/EventDetailModal';
@@ -20,14 +20,48 @@ const FILTER_OPTIONS: { id: EventFilter; label: string }[] = [
   { id: 'featured', label: 'À la une' },
 ];
 
+const THEME_LABELS: Record<string, string> = {
+  'jeudi-dedicace': 'Jeudi dédicace',
+  'mois-ouvrier': "Mois de l'ouvrier",
+  seminaires: 'Séminaires',
+  'mois-evangelique': 'Mois évangélique',
+  'bunda-21': 'Bunda 21',
+  'aksanti-mungu': 'Aksanti Mungu',
+  nativite: 'Culte de nativité',
+  reveillon: 'Réveillon',
+};
+
 /**
- * Page publique listant les événements avec modale de détail et filtres chronologiques.
+ * Indique si un événement correspond au slug de sous-menu demandé.
+ */
+function matchesMenuTheme(event: Event, themeSlug: string): boolean {
+  if (event.menuSlug !== null && event.menuSlug !== undefined && event.menuSlug === themeSlug) {
+    return true;
+  }
+
+  const themeText = (event.theme ?? '').toLowerCase();
+  const title = event.title.toLowerCase();
+  const needle = themeSlug.replace(/-/g, ' ');
+
+  return themeText.includes(needle) || title.includes(needle);
+}
+
+/**
+ * Page publique listant les événements avec filtres chronologiques et thème (?theme=).
  */
 export default function EventsPage() {
+  const [searchParams] = useSearchParams();
+  const themeSlug = (searchParams.get('theme') ?? '').trim();
   const { events, loading } = useSiteEvents(fallbackEvents, 80, 'all');
   const [selectedEvent, setSelectedEvent] = useState<Event | null>(null);
   const [filter, setFilter] = useState<EventFilter>('all');
   const [alertModalOpen, setAlertModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (themeSlug !== '') {
+      setFilter('all');
+    }
+  }, [themeSlug]);
 
   const orderedEvents = useMemo(() => {
     return [...events]
@@ -39,32 +73,47 @@ export default function EventsPage() {
       });
   }, [events]);
 
-  const filteredEvents = useMemo(() => {
-    if (filter === 'all') {
+  const themedEvents = useMemo(() => {
+    if (themeSlug === '') {
       return orderedEvents;
     }
-    if (filter === 'featured') {
-      return orderedEvents.filter((event) => event.featured === true);
+    return orderedEvents.filter((event) => matchesMenuTheme(event, themeSlug));
+  }, [orderedEvents, themeSlug]);
+
+  const filteredEvents = useMemo(() => {
+    if (filter === 'all') {
+      return themedEvents;
     }
-    return orderedEvents.filter((event) => event.temporalStatus === filter);
-  }, [orderedEvents, filter]);
+    if (filter === 'featured') {
+      return themedEvents.filter((event) => event.featured === true);
+    }
+    return themedEvents.filter((event) => event.temporalStatus === filter);
+  }, [themedEvents, filter]);
 
   const counts = useMemo(() => {
     return {
-      all: orderedEvents.length,
-      upcoming: orderedEvents.filter((e) => e.temporalStatus === 'upcoming').length,
-      ongoing: orderedEvents.filter((e) => e.temporalStatus === 'ongoing').length,
-      past: orderedEvents.filter((e) => e.temporalStatus === 'past').length,
-      featured: orderedEvents.filter((e) => e.featured === true).length,
+      all: themedEvents.length,
+      upcoming: themedEvents.filter((e) => e.temporalStatus === 'upcoming').length,
+      ongoing: themedEvents.filter((e) => e.temporalStatus === 'ongoing').length,
+      past: themedEvents.filter((e) => e.temporalStatus === 'past').length,
+      featured: themedEvents.filter((e) => e.featured === true).length,
     };
-  }, [orderedEvents]);
+  }, [themedEvents]);
+
+  const pageTitle = themeSlug !== '' && THEME_LABELS[themeSlug] !== undefined
+    ? THEME_LABELS[themeSlug]
+    : 'Nos événements';
 
   return (
     <>
       <PageHero
         badge="Événements"
-        title="Nos événements"
-        description="Découvrez les prochains événements et célébrations de notre communauté."
+        title={pageTitle}
+        description={
+          themeSlug !== ''
+            ? `Événements synchronisés avec le sous-menu « ${pageTitle} ».`
+            : 'Découvrez les prochains événements et célébrations de notre communauté.'
+        }
         backgroundImage="https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=1400&h=600&fit=crop"
       />
 
@@ -72,56 +121,52 @@ export default function EventsPage() {
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="mb-10 flex flex-wrap items-center justify-between gap-4">
             <div className="flex flex-wrap gap-2">
-            {FILTER_OPTIONS.map((option) => (
-              <button
-                key={option.id}
-                type="button"
-                onClick={() => setFilter(option.id)}
-                className={cn(
-                  'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition',
-                  filter === option.id
-                    ? 'border-burgundy-700 bg-burgundy-800 text-white shadow-md shadow-burgundy-900/15'
-                    : 'border-surface-200 bg-white text-surface-700 hover:border-burgundy-200 hover:bg-burgundy-50',
-                )}
-              >
-                {option.label}
-                <span
+              {FILTER_OPTIONS.map((option) => (
+                <button
+                  key={option.id}
+                  type="button"
+                  onClick={() => setFilter(option.id)}
                   className={cn(
-                    'rounded-full px-2 py-0.5 text-[11px]',
-                    filter === option.id ? 'bg-white/15 text-white' : 'bg-surface-100 text-surface-500',
+                    'inline-flex items-center gap-2 rounded-full border px-4 py-2 text-sm font-semibold transition',
+                    filter === option.id
+                      ? 'border-burgundy-700 bg-burgundy-800 text-white shadow-md shadow-burgundy-900/15'
+                      : 'border-surface-200 bg-white text-surface-700 hover:border-burgundy-200 hover:bg-burgundy-50',
                   )}
                 >
-                  {counts[option.id]}
-                </span>
-              </button>
-            ))}
+                  {option.label}
+                  <span
+                    className={cn(
+                      'rounded-full px-2 py-0.5 text-[11px]',
+                      filter === option.id ? 'bg-white/15 text-white' : 'bg-surface-100 text-surface-500',
+                    )}
+                  >
+                    {counts[option.id]}
+                  </span>
+                </button>
+              ))}
             </div>
             <button
               type="button"
               onClick={() => setAlertModalOpen(true)}
-              className="inline-flex items-center gap-2 rounded-full border border-burgundy-200 bg-burgundy-50 px-4 py-2 text-sm font-semibold text-burgundy-800 transition hover:bg-burgundy-100"
+              className="inline-flex items-center gap-2 rounded-full border border-burgundy-200 bg-burgundy-50 px-4 py-2 text-sm font-semibold text-burgundy-900 hover:bg-burgundy-100"
             >
-              <Bell className="h-4 w-4" aria-hidden />
-              Me prévenir
+              <Bell className="h-4 w-4" />
+              Alertes
             </button>
           </div>
 
           {loading ? (
-            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
-              {[0, 1, 2, 3].map((index) => (
-                <div key={index} className="min-h-[24rem] animate-pulse rounded-2xl bg-surface-100" />
-              ))}
-            </div>
+            <p className="text-center text-surface-500">Chargement des événements…</p>
           ) : filteredEvents.length === 0 ? (
-            <p className="text-center text-surface-500">Aucun événement dans cette catégorie pour le moment.</p>
+            <p className="rounded-2xl border border-dashed border-surface-300 bg-surface-50 px-6 py-12 text-center text-surface-600">
+              Aucun événement pour ce filtre
+              {themeSlug !== '' ? ` (« ${pageTitle} »)` : ''}.
+              {themeSlug !== ''
+                ? ' Assignez le sous-menu correspondant dans l’admin (champ « Sous-menu site »).'
+                : ''}
+            </p>
           ) : (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.5 }}
-              className="grid grid-cols-1 gap-6 sm:grid-cols-2"
-            >
+            <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
               {filteredEvents.map((event) => (
                 <EventCard
                   key={event.id}
@@ -130,7 +175,7 @@ export default function EventsPage() {
                   onOpenDetail={setSelectedEvent}
                 />
               ))}
-            </motion.div>
+            </div>
           )}
         </div>
       </section>

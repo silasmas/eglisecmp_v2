@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Minister extends Model
@@ -11,6 +12,7 @@ class Minister extends Model
     use HasFactory;
 
     protected $fillable = [
+        'user_id',
         'fullname',
         'image_url',
         'bio',
@@ -35,6 +37,16 @@ class Minister extends Model
         ];
     }
 
+    /**
+     * Compte Filament lié à ce pasteur.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function user(): BelongsTo
+    {
+        return $this->belongsTo(User::class);
+    }
+
     public function posts(): HasMany
     {
         return $this->hasMany(Post::class);
@@ -48,5 +60,15 @@ class Minister extends Model
     public function receptionSchedules(): HasMany
     {
         return $this->hasMany(MinisterReceptionSchedule::class);
+    }
+
+    /**
+     * Rendez-vous assignés à ce pasteur.
+     *
+     * @return HasMany<SiteInquiry, $this>
+     */
+    public function appointments(): HasMany
+    {
+        return $this->hasMany(SiteInquiry::class)->where('kind', SiteInquiry::KIND_APPOINTMENT);
     }
 }

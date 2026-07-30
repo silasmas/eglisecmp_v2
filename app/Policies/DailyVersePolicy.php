@@ -4,17 +4,14 @@ declare(strict_types=1);
 
 namespace App\Policies;
 
+use Illuminate\Foundation\Auth\User as AuthUser;
 use App\Models\DailyVerse;
 use Illuminate\Auth\Access\HandlesAuthorization;
-use Illuminate\Foundation\Auth\User as AuthUser;
 
-/**
- * Autorisations Filament / Shield pour les versets du jour.
- */
 class DailyVersePolicy
 {
     use HandlesAuthorization;
-
+    
     public function viewAny(AuthUser $authUser): bool
     {
         return $authUser->can('ViewAny:DailyVerse');
@@ -74,4 +71,5 @@ class DailyVersePolicy
     {
         return $authUser->can('Reorder:DailyVerse');
     }
+
 }

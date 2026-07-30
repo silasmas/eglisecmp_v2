@@ -45,6 +45,7 @@ export default function SiteErrorPage({ statusCode, title, message }: SiteErrorP
         title={heading}
         description="Centre Missionnaire Philadelphie"
         compact
+        backgroundImage="https://images.unsplash.com/photo-1438232992991-995b7058bbb3?w=1600&h=700&fit=crop"
       />
 
       <section className="mx-auto max-w-3xl px-4 pb-24 pt-10 sm:px-6 lg:px-8">

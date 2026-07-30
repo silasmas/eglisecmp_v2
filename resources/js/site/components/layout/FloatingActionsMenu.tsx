@@ -1,10 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plus, X, Heart, HandHeart, Calendar, Sparkles, MessageCircleHeart, Radio } from 'lucide-react';
+import { Plus, X, Sparkles, Radio } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { cn } from '../../lib/utils';
 import { useFeaturedEvent } from '../../context/FeaturedEventContext';
 import { useYoutubeLive } from '../../context/YoutubeLiveContext';
+import { QUICK_ACTION_ITEMS } from '../../data/quickActions';
 
 const FAB_HINT_DELAY_MS = 10_000;
 const FAB_HINT_SESSION_PREFIX = 'cmp-fab-hint-seen:';
@@ -58,17 +59,17 @@ export default function FloatingActionsMenu() {
     }
   }, [open]);
 
-  const items = [
-    { to: '/offrandes', label: 'Offrande', Icon: Heart, className: 'bg-emerald-600 hover:bg-emerald-500' },
-    { to: '/temoignages', label: 'Mur de témoignages', Icon: MessageCircleHeart, className: 'bg-amber-600 hover:bg-amber-500' },
-    { to: '/requete-de-priere', label: 'Requête de prière', Icon: HandHeart, className: 'bg-burgundy-700 hover:bg-burgundy-600' },
-    { to: '/rendez-vous', label: 'Prendre rendez-vous', Icon: Calendar, className: 'bg-surface-900 hover:bg-surface-800 dark:bg-white dark:text-surface-900 dark:hover:bg-surface-100' },
-  ];
+  const items = QUICK_ACTION_ITEMS.map(({ to, label, Icon, fabClassName }) => ({
+    to,
+    label,
+    Icon,
+    className: fabClassName,
+  }));
 
   const mainFabBlink = pulseMainFab || attentionPulse || (pulseYoutubeFab && !open);
 
   return (
-    <div ref={rootRef} className="pointer-events-none fixed bottom-6 right-4 z-[120] flex flex-col items-end gap-3 sm:right-8">
+    <div ref={rootRef} className="pointer-events-none fixed bottom-24 right-4 z-[120] flex flex-col items-end gap-3 sm:bottom-28 sm:right-8">
       <AnimatePresence>
         {hintVisible && !open ? (
           <motion.div
@@ -76,8 +77,16 @@ export default function FloatingActionsMenu() {
             animate={{ opacity: 1, x: 0, scale: 1 }}
             exit={{ opacity: 0, x: 12, scale: 0.95 }}
             transition={{ duration: 0.25 }}
-            className="pointer-events-auto relative mr-1 max-w-[220px] rounded-2xl border border-burgundy-200 bg-white px-4 py-3 text-sm font-medium text-surface-800 shadow-xl dark:border-surface-600 dark:bg-surface-900 dark:text-white"
+            className="pointer-events-auto relative mr-1 max-w-[220px] rounded-2xl border border-burgundy-200 bg-white px-4 py-3 pr-9 text-sm font-medium text-surface-800 shadow-xl dark:border-surface-600 dark:bg-surface-900 dark:text-white"
           >
+            <button
+              type="button"
+              className="absolute right-2 top-2 rounded-full p-1 text-surface-400 transition hover:bg-surface-100 hover:text-surface-700 dark:hover:bg-surface-800"
+              aria-label="Fermer le message"
+              onClick={() => setHintVisible(false)}
+            >
+              <X className="h-3.5 w-3.5" strokeWidth={2.5} />
+            </button>
             <span
               className="absolute -right-2 bottom-5 h-4 w-4 rotate-45 border-b border-r border-burgundy-200 bg-white dark:border-surface-600 dark:bg-surface-900"
               aria-hidden

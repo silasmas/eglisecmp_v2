@@ -33,6 +33,13 @@ class SiteInquiryResource extends Resource
 {
     use HasTabbedActions;
 
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && $user->can('ViewAny:SiteInquiry');
+    }
+
     public const LIST_TAB_ALL = 'all';
 
     public const LIST_TAB_PRAYER = 'prayer';

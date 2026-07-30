@@ -177,6 +177,7 @@ final class SitePublicSerializer
             'image' => $image,
             'hasPoster' => $hasPoster,
             'theme' => self::text($event->theme, $locale, $fallbackLocale),
+            'menuSlug' => is_string($event->menu_slug) ? $event->menu_slug : null,
             'featured' => $event->isFeaturedSpotlightNow(),
             'featuredFrom' => $event->featured_from?->toIso8601String(),
             'featuredUntil' => $event->featured_until?->toIso8601String(),

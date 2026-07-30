@@ -175,6 +175,7 @@ export default function PlaylistWatchPage() {
         title={metaLoading ? 'Chargement…' : eventTitle}
         description="Regardez les messages sur le site, puis passez au suivant depuis la liste ou les boutons ci-dessous."
         compact
+        backgroundImage="https://images.unsplash.com/photo-1504052434569-70ad5836ab65?w=1600&h=700&fit=crop"
       />
 
       <section className="mx-auto max-w-7xl px-4 pb-24 pt-12 sm:px-6 lg:px-8">
