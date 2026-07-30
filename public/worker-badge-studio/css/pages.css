@@ -1221,11 +1221,23 @@
 .studio-fold.is-collapsed .studio-fold-body {
   display: none !important;
 }
+.studio-fold[data-studio-fold="filters"].is-expanded {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 48%;
+}
 .studio-people-toolbar {
   display: grid;
   gap: 0.55rem;
   padding: 0 0.75rem 0.75rem;
-  flex: 0 0 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  max-height: min(42vh, 300px);
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  scrollbar-color: #3a4250 transparent;
   border-top: 1px solid rgba(255,255,255,0.06);
 }
 .studio-directory-status {
