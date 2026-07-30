@@ -41,6 +41,8 @@ use Illuminate\Support\Str;
  * @property string $badge_token
  * @property bool $badge_generated
  * @property Carbon|null $badge_generated_at
+ * @property string|null $edit_token
+ * @property Carbon|null $edit_token_expires_at
  */
 class ChurchWorker extends Model
 {
@@ -53,6 +55,9 @@ class ChurchWorker extends Model
     public const GENDER_MALE = 'male';
 
     public const GENDER_FEMALE = 'female';
+
+    /** Durée de validité du lien de modification (jours). */
+    public const EDIT_TOKEN_TTL_DAYS = 14;
 
     protected $fillable = [
         'department_id',
@@ -83,6 +88,8 @@ class ChurchWorker extends Model
         'badge_token',
         'badge_generated',
         'badge_generated_at',
+        'edit_token',
+        'edit_token_expires_at',
     ];
 
     /**
@@ -97,6 +104,7 @@ class ChurchWorker extends Model
             'reviewed_at' => 'datetime',
             'badge_generated_at' => 'datetime',
             'badge_generated' => 'boolean',
+            'edit_token_expires_at' => 'datetime',
         ];
     }
 
@@ -132,6 +140,24 @@ class ChurchWorker extends Model
         return [
             self::GENDER_MALE => 'Homme',
             self::GENDER_FEMALE => 'Femme',
+        ];
+    }
+
+    /**
+     * Niveaux d’étude proposés dans les formulaires.
+     *
+     * @return list<string>
+     */
+    public static function educationLevelOptions(): array
+    {
+        return [
+            'Primaire',
+            'Secondaire',
+            'Graduat',
+            'Licence',
+            'Master',
+            'Doctorat',
+            'Autre',
         ];
     }
 
@@ -177,5 +203,54 @@ class ChurchWorker extends Model
     public function hasValidatedBadge(): bool
     {
         return $this->status === self::STATUS_APPROVED && $this->badge_generated;
+    }
+
+    /**
+     * Génère (ou régénère) un jeton de modification public.
+     *
+     * @param  int|null  $ttlDays  Durée de validité en jours.
+     * @return $this
+     */
+    public function issueEditToken(?int $ttlDays = null): self
+    {
+        $this->edit_token = (string) Str::uuid();
+        $this->edit_token_expires_at = now()->addDays($ttlDays ?? self::EDIT_TOKEN_TTL_DAYS);
+        $this->save();
+
+        return $this;
+    }
+
+    /**
+     * Le jeton de modification est encore utilisable.
+     */
+    public function hasValidEditToken(): bool
+    {
+        return filled($this->edit_token)
+            && $this->edit_token_expires_at instanceof Carbon
+            && $this->edit_token_expires_at->isFuture();
+    }
+
+    /**
+     * URL publique du formulaire de modification prérempli.
+     */
+    public function profileEditUrl(): ?string
+    {
+        if (! filled($this->edit_token)) {
+            return null;
+        }
+
+        $path = '/ouvriers/modifier/'.$this->edit_token;
+        $request = request();
+
+        if ($request !== null && ($request->is('public') || $request->is('public/*'))) {
+            return url('/public'.$path);
+        }
+
+        $appPath = parse_url((string) config('app.url'), PHP_URL_PATH);
+        if (is_string($appPath) && str_ends_with(rtrim($appPath, '/'), '/public')) {
+            return rtrim((string) config('app.url'), '/').$path;
+        }
+
+        return url($path);
     }
 }

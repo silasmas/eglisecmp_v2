@@ -1,12 +1,17 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useParams } from 'react-router-dom';
 import { CheckCircle2, ChevronLeft, ChevronRight, IdCard } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
 import PhotoCropField from '../components/workers/PhotoCropField';
 import { cn } from '../lib/utils';
 import {
+  fetchWorkerEditableProfile,
   fetchWorkerRegistrationMeta,
+  sendWorkerEditOtp,
   sendWorkerEmailOtp,
+  submitWorkerProfileUpdate,
   submitWorkerRegistration,
+  verifyWorkerEditOtp,
   verifyWorkerEmailOtp,
   type WorkerDepartmentOption,
   type WorkerRegistrationMeta,
@@ -18,9 +23,12 @@ const INPUT =
 type Step = 1 | 2 | 3 | 4;
 
 /**
- * Wizard public d'inscription ouvrier (QR / lien direct).
+ * Wizard public d'inscription / modification ouvrier (QR / lien admin).
  */
 export default function WorkerRegistrationPage() {
+  const { editToken = '' } = useParams();
+  const isEditMode = editToken.trim() !== '';
+
   const [meta, setMeta] = useState<WorkerRegistrationMeta | null>(null);
   const [step, setStep] = useState<Step>(1);
   const [departmentId, setDepartmentId] = useState<number | null>(null);
@@ -43,6 +51,7 @@ export default function WorkerRegistrationPage() {
   const [departmentJoinedAt, setDepartmentJoinedAt] = useState('');
   const [photoBlob, setPhotoBlob] = useState<Blob | null>(null);
   const [photoPreview, setPhotoPreview] = useState('');
+  const [existingPhotoUrl, setExistingPhotoUrl] = useState('');
   const [otpCode, setOtpCode] = useState('');
   const [emailVerified, setEmailVerified] = useState(false);
   const [otpSent, setOtpSent] = useState(false);
@@ -51,6 +60,7 @@ export default function WorkerRegistrationPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
+  const [profileLoaded, setProfileLoaded] = useState(!isEditMode);
 
   useEffect(() => {
     let cancelled = false;
@@ -58,7 +68,7 @@ export default function WorkerRegistrationPage() {
       .then((data) => {
         if (!cancelled) {
           setMeta(data);
-          if (data.genders[0] !== undefined) {
+          if (!isEditMode && data.genders[0] !== undefined) {
             setGender(data.genders[0].value);
           }
         }
@@ -71,7 +81,51 @@ export default function WorkerRegistrationPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isEditMode]);
+
+  useEffect(() => {
+    if (!isEditMode) {
+      return;
+    }
+    let cancelled = false;
+    setProfileLoaded(false);
+    fetchWorkerEditableProfile(editToken)
+      .then((profile) => {
+        if (cancelled) {
+          return;
+        }
+        setDepartmentId(profile.departmentId);
+        setLastName(profile.lastName);
+        setFirstName(profile.firstName);
+        setGender(profile.gender);
+        setBirthDate(profile.birthDate);
+        setPhone(profile.phone);
+        setEmail(profile.email);
+        setCity(profile.city || 'Kinshasa');
+        setCommune(profile.commune);
+        setQuartier(profile.quartier);
+        setAvenue(profile.avenue);
+        setAddressReference(profile.addressReference);
+        setStudies(profile.studies);
+        setEducationLevel(profile.educationLevel);
+        setProfession(profile.profession);
+        setSkills(profile.skills);
+        setDepartmentRole(profile.departmentRole);
+        setDepartmentJoinedAt(profile.departmentJoinedAt);
+        setExistingPhotoUrl(profile.photoUrl);
+        setPhotoPreview(profile.photoUrl);
+        setProfileLoaded(true);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setError('Lien de modification invalide ou expiré. Demandez un nouveau lien à l’administration.');
+          setProfileLoaded(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editToken, isEditMode]);
 
   const selectedDepartment: WorkerDepartmentOption | null = useMemo(() => {
     if (meta === null || departmentId === null) {
@@ -80,6 +134,11 @@ export default function WorkerRegistrationPage() {
     return meta.departments.find((d) => d.id === departmentId) ?? null;
   }, [departmentId, meta]);
 
+  const hasPhoto = photoBlob !== null || existingPhotoUrl !== '';
+
+  /**
+   * Contrôle de passage d’étape.
+   */
   const canNext = (): boolean => {
     if (step === 1) {
       return departmentId !== null;
@@ -99,18 +158,20 @@ export default function WorkerRegistrationPage() {
     if (step === 3) {
       return true;
     }
-    return photoBlob !== null && emailVerified;
+    return hasPhoto && emailVerified;
   };
 
   /**
-   * Envoie l'OTP e-mail.
+   * Envoie l'OTP e-mail (inscription ou modification).
    */
   const handleSendOtp = async () => {
     setError(null);
     setInfo(null);
     setBusy(true);
     try {
-      const result = await sendWorkerEmailOtp(email.trim());
+      const result = isEditMode
+        ? await sendWorkerEditOtp(editToken)
+        : await sendWorkerEmailOtp(email.trim());
       setOtpSent(true);
       setEmailVerified(false);
       setInfo(result.message);
@@ -128,7 +189,9 @@ export default function WorkerRegistrationPage() {
     setError(null);
     setBusy(true);
     try {
-      const result = await verifyWorkerEmailOtp(email.trim(), otpCode.trim());
+      const result = isEditMode
+        ? await verifyWorkerEditOtp(editToken, otpCode.trim())
+        : await verifyWorkerEmailOtp(email.trim(), otpCode.trim());
       setEmailVerified(result.verified);
       setInfo(result.message);
     } catch (err: unknown) {
@@ -140,55 +203,70 @@ export default function WorkerRegistrationPage() {
   };
 
   /**
-   * Soumet le dossier.
+   * Construit le FormData commun inscription / mise à jour.
+   */
+  const buildFormData = (): FormData => {
+    const form = new FormData();
+    form.append('department_id', String(departmentId));
+    form.append('last_name', lastName.trim());
+    form.append('first_name', firstName.trim());
+    form.append('gender', gender);
+    form.append('birth_date', birthDate);
+    form.append('phone', phone.trim());
+    form.append('email', email.trim());
+    form.append('otp_code', otpCode.trim());
+    form.append('city', city);
+    form.append('commune', commune);
+    form.append('quartier', quartier.trim());
+    form.append('avenue', avenue.trim());
+    if (addressReference.trim() !== '') {
+      form.append('address_reference', addressReference.trim());
+    }
+    if (studies.trim() !== '') {
+      form.append('studies', studies.trim());
+    }
+    if (educationLevel !== '') {
+      form.append('education_level', educationLevel);
+    }
+    if (profession.trim() !== '') {
+      form.append('profession', profession.trim());
+    }
+    if (skills.trim() !== '') {
+      form.append('skills', skills.trim());
+    }
+    if (departmentRole.trim() !== '') {
+      form.append('department_role', departmentRole.trim());
+    }
+    if (departmentJoinedAt !== '') {
+      form.append('department_joined_at', departmentJoinedAt);
+    }
+    if (photoBlob !== null) {
+      form.append('photo', photoBlob, 'photo.jpg');
+    }
+    return form;
+  };
+
+  /**
+   * Soumet le dossier (création ou mise à jour).
    */
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!canNext() || departmentId === null || photoBlob === null) {
-      setError('Complétez toutes les étapes et validez votre e-mail.');
+    if (!canNext() || departmentId === null) {
+      setError('Complétez toutes les étapes et validez votre e-mail via OTP.');
+      return;
+    }
+    if (!isEditMode && photoBlob === null) {
+      setError('La photo est obligatoire.');
       return;
     }
 
     setBusy(true);
     setError(null);
     try {
-      const form = new FormData();
-      form.append('department_id', String(departmentId));
-      form.append('last_name', lastName.trim());
-      form.append('first_name', firstName.trim());
-      form.append('gender', gender);
-      form.append('birth_date', birthDate);
-      form.append('phone', phone.trim());
-      form.append('email', email.trim());
-      form.append('otp_code', otpCode.trim());
-      form.append('city', city);
-      form.append('commune', commune);
-      form.append('quartier', quartier.trim());
-      form.append('avenue', avenue.trim());
-      if (addressReference.trim() !== '') {
-        form.append('address_reference', addressReference.trim());
-      }
-      if (studies.trim() !== '') {
-        form.append('studies', studies.trim());
-      }
-      if (educationLevel !== '') {
-        form.append('education_level', educationLevel);
-      }
-      if (profession.trim() !== '') {
-        form.append('profession', profession.trim());
-      }
-      if (skills.trim() !== '') {
-        form.append('skills', skills.trim());
-      }
-      if (departmentRole.trim() !== '') {
-        form.append('department_role', departmentRole.trim());
-      }
-      if (departmentJoinedAt !== '') {
-        form.append('department_joined_at', departmentJoinedAt);
-      }
-      form.append('photo', photoBlob, 'photo.jpg');
-
-      const result = await submitWorkerRegistration(form);
+      const form = buildFormData();
+      const result = isEditMode
+        ? await submitWorkerProfileUpdate(editToken, form)
+        : await submitWorkerRegistration(form);
       setSuccessMessage(result.message);
       setDone(true);
     } catch (err: unknown) {
@@ -198,13 +276,35 @@ export default function WorkerRegistrationPage() {
     }
   };
 
+  if (isEditMode && !profileLoaded && error !== null) {
+    return (
+      <>
+        <PageHero
+          compact
+          badge="Ouvriers CMP"
+          title="Lien invalide"
+          description="Ce lien de modification n’est plus valide."
+        />
+        <section className="pb-20">
+          <div className="mx-auto max-w-2xl px-4">
+            <p className="rounded-2xl border border-red-200 bg-red-50 p-6 text-sm text-red-800">{error}</p>
+          </div>
+        </section>
+      </>
+    );
+  }
+
   return (
     <>
       <PageHero
         compact
         badge="Ouvriers CMP"
-        title="Inscription ouvrier"
-        description="Scannez le QR ou ouvrez ce lien pour constituer votre dossier et recevoir votre badge."
+        title={isEditMode ? 'Mettre à jour mon dossier' : 'Inscription ouvrier'}
+        description={
+          isEditMode
+            ? 'Vérifiez vos informations et votre photo. Un code OTP e-mail est obligatoire avant validation.'
+            : 'Scannez le QR ou ouvrez ce lien pour constituer votre dossier et recevoir votre badge.'
+        }
       />
 
       <section className="bg-gradient-to-b from-burgundy-50/40 to-white pb-20">
@@ -213,9 +313,13 @@ export default function WorkerRegistrationPage() {
             {done ? (
               <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-6 text-center">
                 <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-emerald-600" />
-                <h2 className="font-heading text-lg font-semibold text-emerald-900">Dossier transmis</h2>
+                <h2 className="font-heading text-lg font-semibold text-emerald-900">
+                  {isEditMode ? 'Dossier mis à jour' : 'Dossier transmis'}
+                </h2>
                 <p className="mt-2 text-sm text-emerald-800">{successMessage}</p>
               </div>
+            ) : !profileLoaded ? (
+              <p className="text-sm text-surface-600">Chargement de votre dossier…</p>
             ) : (
               <form onSubmit={(e) => void handleSubmit(e)} className="space-y-6">
                 <div className="flex items-center gap-3">
@@ -305,15 +409,21 @@ export default function WorkerRegistrationPage() {
                         className={INPUT}
                         value={email}
                         onChange={(e) => {
+                          if (isEditMode) {
+                            return;
+                          }
                           setEmail(e.target.value);
                           setEmailVerified(false);
                           setOtpSent(false);
                           setOtpCode('');
                         }}
                         required
-                        disabled={emailVerified}
-                        readOnly={emailVerified}
+                        disabled={isEditMode || emailVerified}
+                        readOnly={isEditMode || emailVerified}
                       />
+                      {isEditMode ? (
+                        <p className="mt-1 text-xs text-surface-500">E-mail du dossier (OTP envoyé à cette adresse).</p>
+                      ) : null}
                       {emailVerified ? (
                         <p className="mt-1 text-xs text-emerald-700">E-mail verrouillé après vérification OTP.</p>
                       ) : null}
@@ -401,16 +511,28 @@ export default function WorkerRegistrationPage() {
                       onChange={(blob, preview) => {
                         setPhotoBlob(blob);
                         setPhotoPreview(preview);
+                        if (blob !== null) {
+                          setExistingPhotoUrl('');
+                        }
                       }}
                     />
+                    {isEditMode && photoBlob === null && existingPhotoUrl !== '' ? (
+                      <p className="text-xs text-surface-500">
+                        Photo actuelle conservée si vous n’en choisissez pas une nouvelle.
+                      </p>
+                    ) : null}
 
                     <div className="rounded-2xl border border-surface-200 bg-surface-50 p-4 space-y-3">
-                      <p className="text-sm font-semibold text-surface-800">Vérification e-mail ({email})</p>
+                      <p className="text-sm font-semibold text-surface-800">
+                        Vérification e-mail OTP ({email})
+                      </p>
+                      <p className="text-xs text-surface-500">
+                        Avant de valider, authentifiez-vous avec le code reçu par e-mail.
+                      </p>
                       {emailVerified ? (
                         <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
-                          <p className="font-semibold">E-mail confirmé</p>
-                          <p className="mt-1 text-emerald-700">Les champs OTP sont verrouillés. Vous pouvez valider votre inscription.</p>
-                          <p className="mt-2 font-mono tracking-widest text-emerald-900">{otpCode}</p>
+                          <p className="font-semibold">Identité confirmée</p>
+                          <p className="mt-1 text-emerald-700">Vous pouvez enregistrer vos informations.</p>
                         </div>
                       ) : (
                         <>
@@ -483,7 +605,11 @@ export default function WorkerRegistrationPage() {
                       disabled={busy || !canNext()}
                       className="ml-auto rounded-xl bg-burgundy-900 px-5 py-3 text-sm font-semibold text-white disabled:opacity-60"
                     >
-                      {busy ? 'Envoi…' : 'Valider mon inscription'}
+                      {busy
+                        ? 'Envoi…'
+                        : isEditMode
+                          ? 'Enregistrer mes modifications'
+                          : 'Valider mon inscription'}
                     </button>
                   )}
                 </div>

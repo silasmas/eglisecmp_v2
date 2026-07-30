@@ -1189,3 +1189,103 @@ export async function submitWorkerRegistration(form: FormData): Promise<{ ok: bo
 export async function fetchWorkerBadge(token: string): Promise<WorkerBadgeData> {
   return fetchSiteData<WorkerBadgeData>(`workers/badge/${encodeURIComponent(token)}`);
 }
+
+export type WorkerEditableProfile = {
+  editToken: string;
+  expiresAt: string | null;
+  departmentId: number;
+  lastName: string;
+  firstName: string;
+  gender: string;
+  birthDate: string;
+  phone: string;
+  email: string;
+  city: string;
+  commune: string;
+  quartier: string;
+  avenue: string;
+  addressReference: string;
+  studies: string;
+  educationLevel: string;
+  profession: string;
+  skills: string;
+  departmentRole: string;
+  departmentJoinedAt: string;
+  photoUrl: string;
+  status: string;
+};
+
+/**
+ * Charge le dossier ouvrier pour modification via jeton.
+ *
+ * @param token Jeton d?édition public.
+ */
+export async function fetchWorkerEditableProfile(token: string): Promise<WorkerEditableProfile> {
+  return fetchSiteData<WorkerEditableProfile>(`workers/edit/${encodeURIComponent(token)}`);
+}
+
+/**
+ * Envoie l?OTP pour une modification de dossier.
+ *
+ * @param token Jeton d?édition public.
+ */
+export async function sendWorkerEditOtp(token: string): Promise<{ ok: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; message: string } }>(
+    `workers/edit/${encodeURIComponent(token)}/otp/send`,
+    {},
+  );
+  return body.data;
+}
+
+/**
+ * Vérifie l?OTP de modification de dossier.
+ *
+ * @param token Jeton d?édition public.
+ * @param otpCode Code reçu par e-mail.
+ */
+export async function verifyWorkerEditOtp(
+  token: string,
+  otpCode: string,
+): Promise<{ ok: boolean; verified: boolean; message: string }> {
+  const body = await fetchSitePostJson<{ data: { ok: boolean; verified: boolean; message: string } }>(
+    `workers/edit/${encodeURIComponent(token)}/otp/verify`,
+    { otp_code: otpCode },
+  );
+  return body.data;
+}
+
+/**
+ * Enregistre les modifications du dossier ouvrier (multipart, OTP requis).
+ *
+ * @param token Jeton d?édition public.
+ * @param form Données du formulaire.
+ */
+export async function submitWorkerProfileUpdate(
+  token: string,
+  form: FormData,
+): Promise<{ ok: boolean; id: number; message: string }> {
+  const response = await fetch(siteApiUrl(`/workers/edit/${encodeURIComponent(token)}`), {
+    method: 'POST',
+    headers: { Accept: 'application/json' },
+    body: form,
+  });
+
+  let parsed: unknown = null;
+  try {
+    parsed = await response.json();
+  } catch {
+    parsed = null;
+  }
+
+  if (!response.ok) {
+    const message = extractApiErrorMessage(parsed);
+    throw new Error(message !== '' ? message : `Enregistrement impossible (${response.status})`);
+  }
+
+  const res = parsed as { data?: { ok?: boolean; id?: number; message?: string } };
+  return {
+    ok: res.data?.ok === true,
+    id: res.data?.id ?? 0,
+    message: res.data?.message ?? 'Dossier mis à jour.',
+  };
+}

@@ -22,6 +22,8 @@ class EmailOtp extends Model
 {
     public const PURPOSE_WORKER_REGISTRATION = 'worker_registration';
 
+    public const PURPOSE_WORKER_PROFILE_UPDATE = 'worker_profile_update';
+
     protected $fillable = [
         'email',
         'purpose',

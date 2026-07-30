@@ -69,6 +69,7 @@ export const router = createBrowserRouter(
         { path: 'protocole/stats-culte', element: <WorshipStatsReportPage /> },
         { path: 'stats-culte', element: <Navigate to="/protocole/stats-culte" replace /> },
         { path: 'ouvriers/inscription', element: <WorkerRegistrationPage /> },
+        { path: 'ouvriers/modifier/:editToken', element: <WorkerRegistrationPage /> },
         { path: 'raccourcis', element: <QrShortcutsLandingPage /> },
         { path: 'qr', element: <Navigate to="/raccourcis" replace /> },
         { path: 'alertes/desabonnement', element: <AlertUnsubscribePage /> },

@@ -15,9 +15,11 @@ use Filament\Actions\Action;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use App\Support\KinshasaCommunes;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -99,26 +101,111 @@ class ChurchWorkerResource extends Resource
     }
 
     /**
-     * Formulaire d’édition.
+     * Formulaire d’édition (dossier complet + photo).
      */
     public static function form(Schema $schema): Schema
     {
         return $schema
             ->columns(12)
             ->schema([
+                Section::make('Photo')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
+                        FileUpload::make('photo_path')
+                            ->label('Photo d’identité')
+                            ->image()
+                            ->avatar()
+                            ->disk('public')
+                            ->directory('workers/photos')
+                            ->visibility('public')
+                            ->imageEditor()
+                            ->maxSize(5120)
+                            ->helperText('JPG, PNG ou WebP — max. 5 Mo.')
+                            ->columnSpan(4),
+                    ]),
                 Section::make('Identité')
                     ->columns(12)
                     ->columnSpanFull()
                     ->schema([
-                        Select::make('department_id')->label('Département')->relationship('department', 'name')->required()->columnSpan(6),
+                        Select::make('department_id')
+                            ->label('Département')
+                            ->relationship('department', 'name')
+                            ->required()
+                            ->searchable()
+                            ->columnSpan(6),
                         TextInput::make('first_name')->label('Prénom')->required()->columnSpan(3),
                         TextInput::make('last_name')->label('Nom')->required()->columnSpan(3),
-                        Select::make('gender')->label('Sexe')->options(ChurchWorker::genderOptions())->required()->columnSpan(3),
-                        DatePicker::make('birth_date')->label('Naissance')->required()->native(false)->columnSpan(3),
+                        Select::make('gender')
+                            ->label('Sexe')
+                            ->options(ChurchWorker::genderOptions())
+                            ->required()
+                            ->columnSpan(3),
+                        DatePicker::make('birth_date')
+                            ->label('Naissance')
+                            ->required()
+                            ->native(false)
+                            ->columnSpan(3),
                         TextInput::make('phone')->label('Téléphone')->required()->columnSpan(3),
-                        TextInput::make('email')->label('E-mail')->email()->columnSpan(3),
-                        TextInput::make('department_role')->label('Rôle dans le département')->columnSpan(6),
+                        TextInput::make('email')->label('E-mail')->email()->required()->columnSpan(3),
+                        TextInput::make('department_role')
+                            ->label('Rôle dans le département')
+                            ->columnSpan(6),
+                        DatePicker::make('department_joined_at')
+                            ->label('Date d’intégration')
+                            ->native(false)
+                            ->columnSpan(6),
+                    ]),
+                Section::make('Adresse')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
+                        Select::make('city')
+                            ->label('Ville')
+                            ->options(['Kinshasa' => 'Kinshasa'])
+                            ->required()
+                            ->columnSpan(3),
+                        Select::make('commune')
+                            ->label('Commune')
+                            ->options(array_combine(KinshasaCommunes::all(), KinshasaCommunes::all()))
+                            ->searchable()
+                            ->required()
+                            ->columnSpan(3),
+                        TextInput::make('quartier')->label('Quartier')->required()->columnSpan(3),
+                        TextInput::make('avenue')->label('Avenue')->required()->columnSpan(3),
+                        TextInput::make('address_reference')
+                            ->label('Référence adresse')
+                            ->columnSpanFull(),
+                    ]),
+                Section::make('Profil professionnel')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->schema([
+                        TextInput::make('profession')->label('Profession')->columnSpan(4),
+                        Select::make('education_level')
+                            ->label('Niveau d’étude')
+                            ->options(array_combine(
+                                ChurchWorker::educationLevelOptions(),
+                                ChurchWorker::educationLevelOptions(),
+                            ))
+                            ->columnSpan(4),
+                        TextInput::make('studies')->label('Études')->columnSpan(4),
                         Textarea::make('skills')->label('Compétences')->rows(3)->columnSpanFull(),
+                    ]),
+                Section::make('Suivi admin')
+                    ->columns(12)
+                    ->columnSpanFull()
+                    ->collapsed()
+                    ->schema([
+                        Select::make('status')
+                            ->label('Statut')
+                            ->options(ChurchWorker::statusOptions())
+                            ->required()
+                            ->columnSpan(4),
+                        Textarea::make('rejection_reason')
+                            ->label('Motif de refus')
+                            ->rows(2)
+                            ->columnSpan(8),
                     ]),
             ]);
     }
@@ -228,6 +315,13 @@ class ChurchWorkerResource extends Resource
                                 : '—')
                             ->copyable()
                             ->columnSpanFull(),
+                        TextEntry::make('edit_token')
+                            ->label('Lien modification ouvrier')
+                            ->state(fn (ChurchWorker $record): string => $record->hasValidEditToken()
+                                ? ($record->profileEditUrl() ?? '—')
+                                : 'Aucun lien actif — générez-en un')
+                            ->copyable(fn (ChurchWorker $record): bool => $record->hasValidEditToken())
+                            ->columnSpanFull(),
                     ]),
             ]);
     }
@@ -278,6 +372,7 @@ class ChurchWorkerResource extends Resource
                         self::makeApproveAction()->cancelParentActions(),
                         self::makeRejectAction()->cancelParentActions(),
                         self::makeGenerateBadgeAction()->cancelParentActions(),
+                        self::makeGenerateEditLinkAction()->cancelParentActions(),
                         self::makeOpenBadgeAction(),
                         EditAction::make()
                             ->label('Modifier')
@@ -287,6 +382,7 @@ class ChurchWorkerResource extends Resource
                 self::makeApproveAction(),
                 self::makeRejectAction(),
                 self::makeGenerateBadgeAction(),
+                self::makeGenerateEditLinkAction(),
                 self::makeOpenBadgeAction(),
                 EditAction::make(),
             ]);
@@ -354,6 +450,30 @@ class ChurchWorkerResource extends Resource
                     ->title('Badge généré')
                     ->body(route('workers.badge.public', ['token' => $record->badge_token]))
                     ->success()
+                    ->send();
+            });
+    }
+
+    /**
+     * Génère un lien public pour que l’ouvrier mette à jour son dossier (OTP requis).
+     */
+    public static function makeGenerateEditLinkAction(): Action
+    {
+        return Action::make('generateEditLink')
+            ->label('Lien modification')
+            ->icon('heroicon-o-link')
+            ->color('gray')
+            ->requiresConfirmation()
+            ->modalHeading('Générer un lien de modification')
+            ->modalDescription('Un lien sécurisé (valable 14 jours) sera créé pour que l’ouvrier mette à jour ses informations et sa photo. La validation publique exigera un OTP e-mail.')
+            ->action(function (ChurchWorker $record): void {
+                $record->issueEditToken();
+                $url = $record->profileEditUrl() ?? '';
+                Notification::make()
+                    ->title('Lien de modification généré')
+                    ->body($url)
+                    ->success()
+                    ->persistent()
                     ->send();
             });
     }

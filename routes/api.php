@@ -119,6 +119,18 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
         ->middleware('throttle:20,1');
     Route::post('workers', [PublicChurchWorkerController::class, 'store'])
         ->middleware('throttle:10,1');
+    Route::get('workers/edit/{token}', [PublicChurchWorkerController::class, 'showForEdit'])
+        ->whereUuid('token')
+        ->middleware('throttle:60,1');
+    Route::post('workers/edit/{token}/otp/send', [PublicChurchWorkerController::class, 'sendEditOtp'])
+        ->whereUuid('token')
+        ->middleware('throttle:10,1');
+    Route::post('workers/edit/{token}/otp/verify', [PublicChurchWorkerController::class, 'verifyEditOtp'])
+        ->whereUuid('token')
+        ->middleware('throttle:20,1');
+    Route::post('workers/edit/{token}', [PublicChurchWorkerController::class, 'updateProfile'])
+        ->whereUuid('token')
+        ->middleware('throttle:10,1');
     Route::get('workers/badge/{token}', [PublicChurchWorkerController::class, 'badge'])
         ->middleware('throttle:60,1');
 });

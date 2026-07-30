@@ -1,6 +1,6 @@
 {
-  "_WorkerBadgeLayout-CeeD9AwR.js": {
-    "file": "assets/WorkerBadgeLayout-CeeD9AwR.js",
+  "_WorkerBadgeLayout-3Q_47qbH.js": {
+    "file": "assets/WorkerBadgeLayout-3Q_47qbH.js",
     "name": "WorkerBadgeLayout",
     "css": [
       "assets/WorkerBadgeLayout-DP5hfE23.css"
@@ -29,7 +29,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-CggSCGrN.css",
+    "file": "assets/app-BN60S_uK.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -61,15 +61,15 @@
     "src": "resources/js/site/assets/worker-badge/nom-badge.png"
   },
   "resources/js/site/main.tsx": {
-    "file": "assets/main-CwPzTIXc.js",
+    "file": "assets/main-CY8KlJFT.js",
     "name": "main",
     "src": "resources/js/site/main.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-CeeD9AwR.js"
+      "_WorkerBadgeLayout-3Q_47qbH.js"
     ],
     "css": [
-      "assets/main-WQG3BlQy.css"
+      "assets/main-0xqN3_oo.css"
     ],
     "assets": [
       "assets/layers-BWBAp2CZ.png",
@@ -78,12 +78,12 @@
     ]
   },
   "resources/js/site/worker-badge-entry.tsx": {
-    "file": "assets/worker-badge-entry-vKRnvXML.js",
+    "file": "assets/worker-badge-entry-oJyR1y6e.js",
     "name": "worker-badge-entry",
     "src": "resources/js/site/worker-badge-entry.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-CeeD9AwR.js"
+      "_WorkerBadgeLayout-3Q_47qbH.js"
     ]
   }
 }
