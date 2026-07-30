@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 use App\Http\Controllers\FlexPayCallbackController;
 use App\Http\Controllers\FlexPayPaidController;
+use App\Http\Controllers\MigrateController;
 use App\Http\Controllers\PublicQrDownloadController;
 use App\Http\Controllers\SchedulerHttpController;
 use App\Http\Controllers\ShieldSyncController;
@@ -19,6 +20,10 @@ use Illuminate\Support\Facades\Route;
 Route::get('/deploy/storage-link/{token}', StorageLinkController::class)
     ->where('token', '[A-Za-z0-9._-]+')
     ->name('deploy.storage-link');
+
+Route::get('/deploy/migrate/{token}', MigrateController::class)
+    ->where('token', '[A-Za-z0-9._-]+')
+    ->name('deploy.migrate');
 
 Route::get('/deploy/shield-sync/{token}', ShieldSyncController::class)
     ->where('token', '[A-Za-z0-9._-]+')

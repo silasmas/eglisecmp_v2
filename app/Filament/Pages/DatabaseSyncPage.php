@@ -46,9 +46,15 @@ class DatabaseSyncPage extends Page
      */
     protected function getViewData(): array
     {
+        $token = (string) config('app.deploy_token');
+        $migrateUrl = $token !== ''
+            ? url('/deploy/migrate/'.$token)
+            : null;
+
         return [
             'status' => DatabaseSyncRunner::status(),
             'lastOutput' => $this->lastOutput,
+            'migrateHttpUrl' => $migrateUrl,
         ];
     }
 

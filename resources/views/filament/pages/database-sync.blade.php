@@ -49,7 +49,7 @@
       <x-filament::section>
         <x-slot name="heading">Actions rapides</x-slot>
         <p class="mb-3 text-sm text-gray-600 dark:text-gray-400">
-          Équivalent de <code>php artisan migrate --force</code> pour appliquer les ajouts et modifications de schéma.
+          Applique les migrations une par une. Si une table/colonne existe déjà, elle est ignorée et la sync continue.
         </p>
         <x-filament::button
           wire:click="runMigrations"
@@ -89,11 +89,30 @@
     @endif
 
     <x-filament::section>
+      <x-slot name="heading">Lien HTTP (déploiement)</x-slot>
+      <x-slot name="description">
+        Même principe que Shield / storage-link : appel GET sécurisé par <code>DEPLOY_TOKEN</code>.
+      </x-slot>
+      @if (!empty($migrateHttpUrl))
+        <p class="break-all rounded-lg bg-gray-50 px-3 py-2 text-xs text-gray-700 dark:bg-gray-800 dark:text-gray-200">
+          {{ $migrateHttpUrl }}
+        </p>
+        <p class="mt-2 text-xs text-gray-500">
+          Ouvrez cette URL après un déploiement pour appliquer les migrations sans SSH.
+        </p>
+      @else
+        <p class="text-sm text-warning-600 dark:text-warning-400">
+          Définissez <code>DEPLOY_TOKEN</code> dans le <code>.env</code> pour activer le lien.
+        </p>
+      @endif
+    </x-filament::section>
+
+    <x-filament::section>
       <x-slot name="heading">Bonnes pratiques</x-slot>
       <div class="prose prose-sm dark:prose-invert max-w-none text-gray-600 dark:text-gray-400">
         <ol>
           <li>Déployez d’abord le code (nouveaux fichiers dans <code>database/migrations</code>).</li>
-          <li>Cliquez sur <strong>Exécuter les migrations</strong> pour synchroniser la structure.</li>
+          <li>Cliquez sur <strong>Exécuter les migrations</strong> ou appelez le lien HTTP ci-dessus.</li>
           <li>Si de nouveaux modules Filament ont été ajoutés, lancez aussi <strong>Sync permissions Shield</strong>.</li>
           <li>Évitez <code>migrate:fresh</code> en production : cela effacerait les données.</li>
         </ol>

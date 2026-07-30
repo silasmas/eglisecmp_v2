@@ -6,11 +6,16 @@ namespace App\Services;
 
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Schema;
 use Throwable;
 
 /**
  * Exécute et suit les migrations / synchronisations de schéma depuis l’admin.
+ *
+ * Si une table/colonne existe déjà (base partiellement synchronisée), la migration
+ * concernée est marquée comme appliquée et la suite continue au lieu de bloquer.
  */
 final class DatabaseSyncRunner
 {
@@ -30,7 +35,8 @@ final class DatabaseSyncRunner
             ->values();
 
         try {
-            $ran = collect(\Illuminate\Support\Facades\DB::table('migrations')->pluck('migration'));
+            self::ensureMigrationsTable();
+            $ran = collect(DB::table('migrations')->pluck('migration'));
         } catch (Throwable) {
             return $fileNames->all();
         }
@@ -64,7 +70,8 @@ final class DatabaseSyncRunner
 
         $ranCount = 0;
         try {
-            $ranCount = (int) \Illuminate\Support\Facades\DB::table('migrations')->count();
+            self::ensureMigrationsTable();
+            $ranCount = (int) DB::table('migrations')->count();
         } catch (Throwable) {
             $ranCount = 0;
         }
@@ -79,13 +86,104 @@ final class DatabaseSyncRunner
     }
 
     /**
-     * Lance `migrate --force` et enregistre le résultat.
+     * Applique les migrations en attente une par une.
+     * En cas de « déjà existant », marque la migration et continue.
      *
-     * @return array{success: bool, output: string, error: string|null, ran_at: string}
+     * @return array{success: bool, output: string, error: string|null, ran_at: string, source?: string, command?: string}
      */
     public static function migrate(string $source = 'filament'): array
     {
-        return self::runArtisan('migrate', ['--force' => true], $source, 'migrate');
+        $ranAt = now()->toIso8601String();
+        $log = [];
+        $skipped = [];
+        $applied = [];
+
+        try {
+            self::ensureMigrationsTable();
+        } catch (Throwable $throwable) {
+            return self::storeResult([
+                'success' => false,
+                'output' => $throwable->getMessage(),
+                'error' => $throwable->getMessage(),
+                'ran_at' => $ranAt,
+                'source' => $source,
+                'command' => 'migrate',
+            ]);
+        }
+
+        $pending = self::pendingMigrations();
+
+        if ($pending === []) {
+            return self::storeResult([
+                'success' => true,
+                'output' => 'Aucune à jour : aucune migration en attente.',
+                'error' => null,
+                'ran_at' => $ranAt,
+                'source' => $source,
+                'command' => 'migrate',
+            ]);
+        }
+
+        foreach ($pending as $migration) {
+            $relativePath = 'database/migrations/'.$migration.'.php';
+
+            if (! File::exists(base_path($relativePath))) {
+                $log[] = "[ignore] Fichier introuvable : {$migration}";
+                continue;
+            }
+
+            try {
+                $exitCode = Artisan::call('migrate', [
+                    '--force' => true,
+                    '--path' => $relativePath,
+                    '--no-interaction' => true,
+                ]);
+                $output = trim(Artisan::output());
+            } catch (Throwable $throwable) {
+                $exitCode = 1;
+                $output = $throwable->getMessage();
+            }
+
+            if ($exitCode === 0) {
+                $applied[] = $migration;
+                $log[] = "[ok] {$migration}".($output !== '' ? "\n{$output}" : '');
+                continue;
+            }
+
+            if (self::isAlreadyAppliedSchemaError($output)) {
+                self::markMigrationAsRan($migration);
+                $skipped[] = $migration;
+                $log[] = "[déjà présent — marqué comme appliqué] {$migration}\n{$output}";
+                continue;
+            }
+
+            $log[] = "[échec] {$migration}\n{$output}";
+
+            return self::storeResult([
+                'success' => false,
+                'output' => implode("\n\n", $log),
+                'error' => "Échec sur {$migration}. Les migrations précédentes ont été traitées.",
+                'ran_at' => $ranAt,
+                'source' => $source,
+                'command' => 'migrate',
+            ]);
+        }
+
+        $summary = sprintf(
+            "Synchronisation terminée.\nAppliquées : %d\nDéjà présentes (ignorées) : %d\nRestantes : %d",
+            count($applied),
+            count($skipped),
+            count(self::pendingMigrations()),
+        );
+
+        return self::storeResult([
+            'success' => true,
+            'output' => $summary."\n\n".implode("\n\n", $log),
+            'error' => null,
+            'ran_at' => $ranAt,
+            'source' => $source,
+            'command' => 'migrate',
+        ]);
     }
 
     /**
@@ -110,6 +208,56 @@ final class DatabaseSyncRunner
             '--panel' => 'admin',
             '--no-interaction' => true,
         ], $source, 'shield:generate');
+    }
+
+    /**
+     * Indique si l’erreur signifie que le schéma est déjà en place.
+     */
+    private static function isAlreadyAppliedSchemaError(string $output): bool
+    {
+        $haystack = strtolower($output);
+
+        return str_contains($haystack, 'already exists')
+            || str_contains($haystack, 'duplicate column')
+            || str_contains($haystack, 'duplicate key')
+            || str_contains($haystack, 'duplicate entry')
+            || str_contains($output, '42S01')
+            || str_contains($output, '42S21')
+            || str_contains($output, '1050')
+            || str_contains($output, '1060')
+            || str_contains($output, '1061');
+    }
+
+    /**
+     * Enregistre une migration comme déjà exécutée (sans rejouer le SQL).
+     */
+    private static function markMigrationAsRan(string $migration): void
+    {
+        self::ensureMigrationsTable();
+
+        $exists = DB::table('migrations')->where('migration', $migration)->exists();
+        if ($exists) {
+            return;
+        }
+
+        $batch = (int) (DB::table('migrations')->max('batch') ?? 0);
+
+        DB::table('migrations')->insert([
+            'migration' => $migration,
+            'batch' => max(1, $batch),
+        ]);
+    }
+
+    /**
+     * Garantit l’existence de la table `migrations`.
+     */
+    private static function ensureMigrationsTable(): void
+    {
+        if (Schema::hasTable('migrations')) {
+            return;
+        }
+
+        Artisan::call('migrate:install');
     }
 
     /**
@@ -144,6 +292,17 @@ final class DatabaseSyncRunner
             $result['output'] = $throwable->getMessage();
         }
 
+        return self::storeResult($result);
+    }
+
+    /**
+     * Persiste le résultat de sync pour l’UI admin.
+     *
+     * @param  array{success: bool, output: string, error: string|null, ran_at: string, source?: string, command?: string}  $result
+     * @return array{success: bool, output: string, error: string|null, ran_at: string, source?: string, command?: string}
+     */
+    private static function storeResult(array $result): array
+    {
         Cache::put(self::CACHE_KEY_LAST_RUN, $result, now()->addDays(30));
 
         return $result;
