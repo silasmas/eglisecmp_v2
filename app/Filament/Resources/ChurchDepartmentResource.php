@@ -7,7 +7,9 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\ChurchDepartmentResource\Pages;
 use App\Models\ChurchDepartment;
 use BackedEnum;
+use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -88,7 +90,18 @@ class ChurchDepartmentResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
-                DeleteAction::make(),
+                DeleteAction::make()
+                    ->modalHeading('Supprimer le département')
+                    ->modalDescription('Les ouvriers rattachés à ce département seront également supprimés. Cette action est irréversible.'),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->label('Supprimer la sélection')
+                        ->modalHeading('Supprimer les départements sélectionnés')
+                        ->modalDescription('Les ouvriers rattachés à ces départements seront également supprimés. Cette action est irréversible.')
+                        ->requiresConfirmation(),
+                ]),
             ]);
     }
 

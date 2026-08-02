@@ -12,6 +12,9 @@ use App\Services\ChurchWorkerApprovalService;
 use App\Support\FilamentImageUrl;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
 use Filament\Forms\Components\DatePicker;
@@ -385,6 +388,18 @@ class ChurchWorkerResource extends Resource
                 self::makeGenerateEditLinkAction(),
                 self::makeOpenBadgeAction(),
                 EditAction::make(),
+                DeleteAction::make()
+                    ->modalHeading('Supprimer l’ouvrier')
+                    ->modalDescription('Le dossier et les tokens associés seront définitivement supprimés.'),
+            ])
+            ->bulkActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()
+                        ->label('Supprimer la sélection')
+                        ->modalHeading('Supprimer les ouvriers sélectionnés')
+                        ->modalDescription('Les dossiers et tokens associés seront définitivement supprimés. Cette action est irréversible.')
+                        ->requiresConfirmation(),
+                ]),
             ]);
     }
 
