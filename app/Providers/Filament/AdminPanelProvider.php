@@ -95,7 +95,7 @@ class AdminPanelProvider extends PanelProvider
                     ->showTourButton(true)
                     ->tourButtonIcon('heroicon-o-academic-cap')
                     ->tourButtonColor('info')
-                    ->tourButtonTooltip(__('filament-tour::filament-tour.tooltip'))
+                    ->tourButtonTooltip('Visite guidée du panneau')
                     ->welcomeStep([
                         'id' => 'welcome',
                         'title' => 'Bienvenue dans l’administration CMP',

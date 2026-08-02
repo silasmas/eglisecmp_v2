@@ -8,6 +8,7 @@ use YacoubAlhaidari\FilamentTour\FilamentTourServiceProvider;
 return [
     AppServiceProvider::class,
     FilamentRecordWatcherServiceProvider::class,
-    AdminPanelProvider::class,
+    // Avant AdminPanelProvider : les __() du plugin Tour doivent résoudre les traductions FR.
     FilamentTourServiceProvider::class,
+    AdminPanelProvider::class,
 ];

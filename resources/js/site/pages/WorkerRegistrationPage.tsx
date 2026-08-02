@@ -372,30 +372,44 @@ export default function WorkerRegistrationPage() {
                 </div>
 
                 {step === 1 && meta !== null ? (
-                  <div className="space-y-3">
-                    <label className="relative block">
-                      <span className="sr-only">Rechercher un département</span>
-                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
-                      <input
-                        type="search"
-                        className={cn(INPUT, 'pl-10')}
-                        placeholder="Rechercher un département…"
-                        value={departmentSearch}
-                        onChange={(e) => setDepartmentSearch(e.target.value)}
-                        autoComplete="off"
-                      />
-                    </label>
-                    {selectedDepartment !== null ? (
-                      <p className="text-xs text-surface-500">
-                        Sélection : <span className="font-medium text-burgundy-800">{selectedDepartment.name}</span>
+                  <div className="space-y-4">
+                    <div className="rounded-2xl border border-burgundy-200 bg-burgundy-50/60 p-3 sm:p-4">
+                      <label htmlFor="worker-department-search" className="mb-1.5 block text-sm font-semibold text-burgundy-900">
+                        Rechercher un département
+                      </label>
+                      <div className="relative">
+                        <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-burgundy-700" aria-hidden />
+                        <input
+                          id="worker-department-search"
+                          type="search"
+                          className={cn(
+                            INPUT,
+                            'border border-burgundy-200 bg-white pl-10 shadow-sm placeholder:text-surface-500',
+                          )}
+                          placeholder="Ex. Protocole, Chorale, Accueil…"
+                          value={departmentSearch}
+                          onChange={(e) => setDepartmentSearch(e.target.value)}
+                          autoComplete="off"
+                          autoFocus
+                        />
+                      </div>
+                      <p className="mt-2 text-xs text-burgundy-800/80">
+                        {filteredDepartments.length} résultat{filteredDepartments.length > 1 ? 's' : ''}
+                        {' '}sur {meta.departments.length} département{meta.departments.length > 1 ? 's' : ''}
+                        {selectedDepartment !== null ? (
+                          <>
+                            {' · '}Sélection : <strong>{selectedDepartment.name}</strong>
+                          </>
+                        ) : null}
                       </p>
-                    ) : null}
+                    </div>
+
                     {filteredDepartments.length === 0 ? (
                       <p className="rounded-2xl border border-dashed border-surface-200 px-4 py-8 text-center text-sm text-surface-500">
                         Aucun département ne correspond à « {departmentSearch.trim()} ».
                       </p>
                     ) : (
-                      <div className="grid max-h-[22rem] gap-3 overflow-y-auto pe-1 sm:grid-cols-2">
+                      <div className="grid max-h-[min(22rem,50vh)] gap-3 overflow-y-auto pe-1 sm:grid-cols-2">
                         {filteredDepartments.map((dept) => (
                           <button
                             key={dept.id}
@@ -405,7 +419,7 @@ export default function WorkerRegistrationPage() {
                               'rounded-2xl border px-4 py-4 text-left transition',
                               departmentId === dept.id
                                 ? 'border-burgundy-600 bg-burgundy-50 ring-2 ring-burgundy-200'
-                                : 'border-surface-200 hover:border-burgundy-300',
+                                : 'border-surface-200 bg-white hover:border-burgundy-300',
                             )}
                           >
                             <span
@@ -420,10 +434,6 @@ export default function WorkerRegistrationPage() {
                         ))}
                       </div>
                     )}
-                    <p className="text-xs text-surface-400">
-                      {filteredDepartments.length} / {meta.departments.length} département
-                      {meta.departments.length > 1 ? 's' : ''}
-                    </p>
                   </div>
                 ) : null}
 
