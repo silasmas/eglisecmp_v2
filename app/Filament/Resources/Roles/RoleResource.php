@@ -18,12 +18,31 @@ use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Validation\Rule;
+use UnitEnum;
 
 /**
  * Rôles Shield (surcharge) : en édition, le nom n’est pas revalidé (uniquement les permissions).
  */
 class RoleResource extends ShieldRoleResource
 {
+    protected static string|UnitEnum|null $navigationGroup = 'Administration';
+
+    protected static ?string $navigationLabel = 'Rôles & permissions';
+
+    protected static ?string $pluralModelLabel = 'Rôles & permissions';
+
+    #[\Override]
+    public static function getNavigationLabel(): string
+    {
+        return 'Rôles & permissions';
+    }
+
+    #[\Override]
+    public static function getNavigationGroup(): string|\UnitEnum|null
+    {
+        return 'Administration';
+    }
+
     #[\Override]
     public static function form(Schema $schema): Schema
     {

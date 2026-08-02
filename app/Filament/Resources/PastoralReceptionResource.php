@@ -218,7 +218,12 @@ class PastoralReceptionResource extends Resource
                         TextEntry::make('reception_status')
                             ->label('Réception')
                             ->formatStateUsing(fn (?string $state): string => SiteInquiry::receptionStatusOptions()[$state] ?? ($state ?? '—'))
-                            ->columnSpan(4),
+                            ->columnSpan(3),
+                        TextEntry::make('received_at')
+                            ->label('Reçu le')
+                            ->dateTime('d/m/Y H:i')
+                            ->placeholder('Non reçu')
+                            ->columnSpan(3),
                         TextEntry::make('appointment_status')
                             ->label('Confirmation')
                             ->formatStateUsing(fn (string $state): string => match ($state) {
@@ -227,7 +232,7 @@ class PastoralReceptionResource extends Resource
                                 SiteInquiry::STATUS_DECLINED => 'Refusé',
                                 default => $state,
                             })
-                            ->columnSpan(4),
+                            ->columnSpan(3),
                         TextEntry::make('session_notes')->label('Notes')->placeholder('—')->columnSpanFull(),
                         TextEntry::make('session_conclusion')->label('Conclusion')->placeholder('—')->columnSpanFull(),
                         TextEntry::make('orientedFromMinister.fullname')
@@ -264,6 +269,11 @@ class PastoralReceptionResource extends Resource
                         SiteInquiry::RECEPTION_ORIENTED => 'info',
                         default => 'gray',
                     }),
+                TextColumn::make('received_at')
+                    ->label('Reçu le')
+                    ->dateTime('d/m/Y H:i')
+                    ->placeholder('Non reçu')
+                    ->toggleable(),
                 TextColumn::make('appointment_status')
                     ->label('Confirm.')
                     ->formatStateUsing(fn (string $state): string => match ($state) {
@@ -316,52 +326,127 @@ class PastoralReceptionResource extends Resource
 
                         return $data;
                     }),
+                Action::make('markReceived')
+                    ->label('Marquer reçu')
+                    ->icon('heroicon-o-hand-raised')
+                    ->color('success')
+                    ->requiresConfirmation()
+                    ->modalHeading('Accuser réception du fidèle')
+                    ->modalDescription('Confirmez que vous avez reçu ce fidèle. Vous pourrez ensuite saisir les notes de réception.')
+                    ->visible(fn (SiteInquiry $record): bool => $record->received_at === null
+                        && $record->reception_status !== SiteInquiry::RECEPTION_COMPLETED
+                        && PastoralAccess::canMarkReceived(
+                            auth()->user() instanceof User ? auth()->user() : null,
+                            (int) ($record->minister_id ?? 0),
+                        ))
+                    ->action(function (SiteInquiry $record): void {
+                        $record->update([
+                            'received_at' => now(),
+                            'reception_status' => SiteInquiry::RECEPTION_IN_PROGRESS,
+                        ]);
+
+                        Notification::make()
+                            ->title('Réception accusée')
+                            ->body('Le dossier est maintenant en cours.')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('adminRedirect')
+                    ->label('Rediriger (admin)')
+                    ->icon('heroicon-o-arrows-right-left')
+                    ->color('warning')
+                    ->visible(fn (SiteInquiry $record): bool => $record->received_at === null
+                        && $record->reception_status !== SiteInquiry::RECEPTION_COMPLETED
+                        && PastoralAccess::canAdminRedirect(auth()->user() instanceof User ? auth()->user() : null))
+                    ->form(fn (SiteInquiry $record): array => self::transferMinisterForm($record, 'Redirection administrative'))
+                    ->action(function (SiteInquiry $record, array $data): void {
+                        self::applyMinisterTransfer($record, $data, 'Redirection admin');
+
+                        Notification::make()
+                            ->title('Dossier redirigé')
+                            ->body('Le pasteur destinataire devra accuser réception.')
+                            ->success()
+                            ->send();
+                    }),
                 Action::make('orient')
                     ->label('Orienter')
                     ->icon('heroicon-o-arrow-right-circle')
-                    ->visible(fn (SiteInquiry $record): bool => PastoralAccess::canOrient(auth()->user())
+                    ->visible(fn (SiteInquiry $record): bool => PastoralAccess::canOrient(auth()->user() instanceof User ? auth()->user() : null)
+                        && $record->received_at !== null
                         && $record->reception_status !== SiteInquiry::RECEPTION_COMPLETED)
-                    ->form([
-                        Select::make('minister_id')
-                            ->label('Vers le pasteur')
-                            ->options(fn (SiteInquiry $record): array => Minister::query()
-                                ->where('is_active', true)
-                                ->where('id', '!=', $record->minister_id)
-                                ->orderBy('fullname')
-                                ->get()
-                                ->mapWithKeys(fn (Minister $m): array => [
-                                    $m->id => MinisterResource::normalizeLegacyValue($m->fullname) ?? (string) $m->id,
-                                ])
-                                ->all())
-                            ->required()
-                            ->searchable(),
-                        Textarea::make('orientation_note')
-                            ->label('Note d’orientation')
-                            ->rows(3),
-                    ])
+                    ->form(fn (SiteInquiry $record): array => self::transferMinisterForm($record, 'Note d’orientation'))
                     ->action(function (SiteInquiry $record, array $data): void {
                         $user = auth()->user();
                         $from = PastoralAccess::linkedMinister($user instanceof User ? $user : null);
 
-                        $note = trim((string) ($data['orientation_note'] ?? ''));
-                        $existingNotes = trim((string) ($record->session_notes ?? ''));
-                        $append = $note !== ''
-                            ? ($existingNotes !== '' ? $existingNotes."\n\n" : '').'[Orientation] '.$note
-                            : $existingNotes;
-
-                        $record->update([
-                            'oriented_from_minister_id' => $from?->id ?? $record->minister_id,
-                            'minister_id' => (int) $data['minister_id'],
-                            'reception_status' => SiteInquiry::RECEPTION_ORIENTED,
-                            'session_notes' => $append !== '' ? $append : null,
-                        ]);
+                        self::applyMinisterTransfer(
+                            $record,
+                            $data,
+                            'Orientation',
+                            $from?->id ?? $record->minister_id,
+                        );
 
                         Notification::make()
                             ->title('Fidèle orienté vers un autre pasteur')
+                            ->body('Le pasteur destinataire devra accuser réception.')
                             ->success()
                             ->send();
                     }),
             ]);
+    }
+
+    /**
+     * Formulaire commun de transfert / orientation vers un autre pasteur.
+     *
+     * @return array<int, Select|Textarea>
+     */
+    private static function transferMinisterForm(SiteInquiry $record, string $noteLabel): array
+    {
+        return [
+            Select::make('minister_id')
+                ->label('Vers le pasteur')
+                ->options(fn (): array => Minister::query()
+                    ->where('is_active', true)
+                    ->where('id', '!=', $record->minister_id)
+                    ->orderBy('fullname')
+                    ->get()
+                    ->mapWithKeys(fn (Minister $m): array => [
+                        $m->id => MinisterResource::normalizeLegacyValue($m->fullname) ?? (string) $m->id,
+                    ])
+                    ->all())
+                ->required()
+                ->searchable(),
+            Textarea::make('orientation_note')
+                ->label($noteLabel)
+                ->rows(3),
+        ];
+    }
+
+    /**
+     * Applique un transfert de pasteur et remet le dossier en attente de réception.
+     *
+     * @param  array{minister_id?: mixed, orientation_note?: mixed}  $data
+     */
+    private static function applyMinisterTransfer(
+        SiteInquiry $record,
+        array $data,
+        string $notePrefix,
+        ?int $fromMinisterId = null,
+    ): void {
+        $note = trim((string) ($data['orientation_note'] ?? ''));
+        $existingNotes = trim((string) ($record->session_notes ?? ''));
+        $append = $note !== ''
+            ? ($existingNotes !== '' ? $existingNotes."\n\n" : '').'['.$notePrefix.'] '.$note
+            : $existingNotes;
+
+        $record->update([
+            'oriented_from_minister_id' => $fromMinisterId ?? $record->minister_id,
+            'minister_id' => (int) $data['minister_id'],
+            'reception_status' => SiteInquiry::RECEPTION_ORIENTED,
+            'received_at' => null,
+            'completed_at' => null,
+            'session_notes' => $append !== '' ? $append : null,
+        ]);
     }
 
     public static function getWidgets(): array

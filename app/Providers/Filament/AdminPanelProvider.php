@@ -66,7 +66,10 @@ class AdminPanelProvider extends PanelProvider
                 DispatchServingFilamentEvent::class,
             ])
             ->plugins([
-                FilamentShieldPlugin::make(),
+                FilamentShieldPlugin::make()
+                    ->navigationGroup('Administration')
+                    ->navigationLabel('Rôles & permissions')
+                    ->navigationIcon('heroicon-o-shield-check'),
                 FilamentMenuManagerPlugin::make()
                     ->locations([
                         'primary' => 'Menu principal',

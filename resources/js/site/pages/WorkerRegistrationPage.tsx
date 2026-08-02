@@ -23,6 +23,54 @@ const INPUT =
 type Step = 1 | 2 | 3 | 4;
 
 /**
+ * Convertit une date ISO (YYYY-MM-DD) en affichage JJ/MM/AAAA.
+ */
+function isoToBirthDisplay(iso: string): string {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso.trim());
+  if (!match) {
+    return '';
+  }
+  return `${match[3]}/${match[2]}/${match[1]}`;
+}
+
+/**
+ * Formate la saisie utilisateur en JJ/MM/AAAA (chiffres + séparateurs).
+ */
+function maskBirthDisplay(raw: string): string {
+  const digits = raw.replace(/\D/g, '').slice(0, 8);
+  if (digits.length <= 2) {
+    return digits;
+  }
+  if (digits.length <= 4) {
+    return `${digits.slice(0, 2)}/${digits.slice(2)}`;
+  }
+  return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
+}
+
+/**
+ * Valide JJ/MM/AAAA et renvoie YYYY-MM-DD, ou chaîne vide si invalide.
+ */
+function birthDisplayToIso(display: string): string {
+  const match = /^(\d{2})\/(\d{2})\/(\d{4})$/.exec(display.trim());
+  if (!match) {
+    return '';
+  }
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  if (month < 1 || month > 12 || day < 1 || day > 31 || year < 1900 || year > new Date().getFullYear()) {
+    return '';
+  }
+  const date = new Date(year, month - 1, day);
+  if (date.getFullYear() !== year || date.getMonth() !== month - 1 || date.getDate() !== day) {
+    return '';
+  }
+  const mm = String(month).padStart(2, '0');
+  const dd = String(day).padStart(2, '0');
+  return `${year}-${mm}-${dd}`;
+}
+
+/**
  * Wizard public d'inscription / modification ouvrier (QR / lien admin).
  */
 export default function WorkerRegistrationPage() {
@@ -37,6 +85,7 @@ export default function WorkerRegistrationPage() {
   const [firstName, setFirstName] = useState('');
   const [gender, setGender] = useState('male');
   const [birthDate, setBirthDate] = useState('');
+  const [birthDateDisplay, setBirthDateDisplay] = useState('');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [city, setCity] = useState('Kinshasa');
@@ -100,6 +149,7 @@ export default function WorkerRegistrationPage() {
         setFirstName(profile.firstName);
         setGender(profile.gender);
         setBirthDate(profile.birthDate);
+        setBirthDateDisplay(isoToBirthDisplay(profile.birthDate));
         setPhone(profile.phone);
         setEmail(profile.email);
         setCity(profile.city || 'Kinshasa');
@@ -456,8 +506,45 @@ export default function WorkerRegistrationPage() {
                       </select>
                     </div>
                     <div>
-                      <label className="mb-1 block text-sm font-medium">Date de naissance *</label>
-                      <input type="date" className={INPUT} value={birthDate} onChange={(e) => setBirthDate(e.target.value)} required />
+                      <label className="mb-1 block text-sm font-medium" htmlFor="worker-birth-date">
+                        Date de naissance *
+                      </label>
+                      <input
+                        id="worker-birth-date"
+                        type="text"
+                        inputMode="numeric"
+                        autoComplete="bday"
+                        placeholder="JJ/MM/AAAA"
+                        className={INPUT}
+                        value={birthDateDisplay}
+                        onChange={(e) => {
+                          const masked = maskBirthDisplay(e.target.value);
+                          setBirthDateDisplay(masked);
+                          setBirthDate(birthDisplayToIso(masked));
+                        }}
+                        onBlur={() => {
+                          if (birthDateDisplay.trim() === '') {
+                            setBirthDate('');
+                            return;
+                          }
+                          const iso = birthDisplayToIso(birthDateDisplay);
+                          setBirthDate(iso);
+                          if (iso !== '') {
+                            setBirthDateDisplay(isoToBirthDisplay(iso));
+                          }
+                        }}
+                        required
+                        aria-invalid={birthDateDisplay !== '' && birthDate === ''}
+                      />
+                      <p className={cn(
+                        'mt-1 text-xs',
+                        birthDateDisplay !== '' && birthDate === '' ? 'text-red-600' : 'text-surface-500',
+                      )}
+                      >
+                        {birthDateDisplay !== '' && birthDate === ''
+                          ? 'Format invalide — utilisez JJ/MM/AAAA (ex. 15/03/1990).'
+                          : 'Saisissez la date au format JJ/MM/AAAA.'}
+                      </p>
                     </div>
                     <div>
                       <label className="mb-1 block text-sm font-medium">Téléphone *</label>

@@ -38,11 +38,51 @@ final class PastoralAccess
     }
 
     /**
-     * Seul le pasteur titulaire peut orienter un fidèle vers un autre pasteur.
+     * Seul le pasteur titulaire peut orienter un fidèle vers un autre pasteur
+     * (après accusée de réception uniquement — contrôlé côté UI).
      */
     public static function canOrient(?User $user): bool
     {
         return self::isTitular($user);
+    }
+
+    /**
+     * Admin : peut rediriger un dossier non encore reçu.
+     * Le titulaire n’utilise pas cette action (il oriente après réception).
+     */
+    public static function canAdminRedirect(?User $user): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if ($user->hasRole('super_admin')) {
+            return true;
+        }
+
+        if (self::isTitular($user)) {
+            return false;
+        }
+
+        return $user->can('ViewAny:SiteInquiry') || $user->can('Update:SiteInquiry');
+    }
+
+    /**
+     * Pasteur assigné (ou admin) peut accuser réception du fidèle.
+     */
+    public static function canMarkReceived(?User $user, int $assignedMinisterId): bool
+    {
+        if ($user === null) {
+            return false;
+        }
+
+        if (self::canAdminRedirect($user) || self::canViewAllAppointments($user)) {
+            return true;
+        }
+
+        $linked = self::linkedMinister($user);
+
+        return $linked !== null && (int) $linked->id === $assignedMinisterId;
     }
 
     /**
