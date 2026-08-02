@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\WorshipServiceReportResource\Pages;
 use App\Filament\Widgets\WorshipAttendanceStatsOverviewWidget;
 use App\Models\WorshipServiceReport;
@@ -31,6 +32,7 @@ use UnitEnum;
 class WorshipServiceReportResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = WorshipServiceReport::class;
 
@@ -139,5 +141,27 @@ class WorshipServiceReportResource extends Resource
             'view' => Pages\ViewWorshipServiceReport::route('/{record}'),
             'edit' => Pages\EditWorshipServiceReport::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Saisissez et consultez la fréquentation des cultes.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Enregistrer un rapport',
+            'Comparer semaine / mois',
+            'Exporter les tendances',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 36;
     }
 }

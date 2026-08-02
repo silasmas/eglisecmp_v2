@@ -24,13 +24,33 @@ use Filament\Widgets\StatsOverviewWidget\Stat;
  */
 class SiteResourcesOverviewWidget extends StatsOverviewWidget
 {
-    protected static ?int $sort = 1;
+    protected static ?int $sort = 20;
 
     protected ?string $heading = 'Ressources du site';
 
     protected ?string $description = 'Volumes actuels par module de l’administration.';
 
     protected int|string|array $columnSpan = 'full';
+
+    /**
+     * Réservé aux profils avec une vue large du contenu / admin.
+     */
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+        if ($user === null) {
+            return false;
+        }
+
+        if (method_exists($user, 'hasRole') && $user->hasRole('super_admin')) {
+            return true;
+        }
+
+        return $user->can('ViewAny:Post')
+            || $user->can('ViewAny:Event')
+            || $user->can('ViewAny:Gallery')
+            || $user->can('ViewAny:Minister');
+    }
 
     /**
      * @return array<Stat>

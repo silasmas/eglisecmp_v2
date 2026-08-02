@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\EventResource\Pages;
 use App\Models\Event;
 use App\Support\EventFeaturedGuard;
@@ -31,6 +32,7 @@ use UnitEnum;
 class EventResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = Event::class;
 
@@ -179,5 +181,27 @@ class EventResource extends Resource
         $fallback = config('app.fallback_locale', 'en');
 
         return (string) ($decoded[$locale] ?? $decoded[$fallback] ?? collect($decoded)->first() ?? '');
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Planifiez l’agenda public de l’église.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Créer un événement',
+            'Gérer les alertes',
+            'Mettre à jour les dates',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 21;
     }
 }

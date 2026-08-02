@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\OffrandeResource\Pages;
 use App\Models\Offrande;
 use BackedEnum;
@@ -21,6 +22,7 @@ use UnitEnum;
 class OffrandeResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = Offrande::class;
 
@@ -83,5 +85,27 @@ class OffrandeResource extends Resource
             'create' => Pages\CreateOffrande::route('/create'),
             'edit' => Pages\EditOffrande::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Configurez les projets d’offrandes et collectes.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Créer une offrande',
+            'Suivre les contributions',
+            'Lier aux paiements FlexPay',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 30;
     }
 }

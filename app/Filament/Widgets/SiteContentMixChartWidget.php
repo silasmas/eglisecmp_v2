@@ -15,7 +15,7 @@ use Filament\Widgets\ChartWidget;
  */
 class SiteContentMixChartWidget extends ChartWidget
 {
-    protected static ?int $sort = 4;
+    protected static ?int $sort = 23;
 
     protected ?string $heading = 'Répartition du contenu';
 
@@ -27,6 +27,21 @@ class SiteContentMixChartWidget extends ChartWidget
     ];
 
     protected ?string $maxHeight = '320px';
+
+    /**
+     * Visible pour les rôles contenu / site public.
+     */
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && (
+            $user->can('ViewAny:Post')
+            || $user->can('ViewAny:Event')
+            || $user->can('ViewAny:Gallery')
+            || (method_exists($user, 'hasRole') && $user->hasRole('super_admin'))
+        );
+    }
 
     protected function getType(): string
     {

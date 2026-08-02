@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\ChurchWorkerResource\Pages;
 use App\Models\ChurchDepartment;
 use App\Models\ChurchWorker;
@@ -44,6 +45,7 @@ use UnitEnum;
 class ChurchWorkerResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = ChurchWorker::class;
 
@@ -517,5 +519,27 @@ class ChurchWorkerResource extends Resource
             'index' => Pages\ListChurchWorkers::route('/'),
             'edit' => Pages\EditChurchWorker::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Validez les dossiers ouvriers et générez les badges.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Approuver ou rejeter une inscription',
+            'Générer un lien d’édition / badge',
+            'Exporter depuis le studio badges',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 11;
     }
 }

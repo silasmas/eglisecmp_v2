@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\TransactionResource\Pages;
 use App\Models\Transaction;
 use BackedEnum;
@@ -19,6 +20,7 @@ use UnitEnum;
 class TransactionResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = Transaction::class;
 
@@ -93,5 +95,27 @@ class TransactionResource extends Resource
             'create' => Pages\CreateTransaction::route('/create'),
             'edit' => Pages\EditTransaction::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Consultez les transactions de paiement.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Filtrer par statut',
+            'Vérifier une référence',
+            'Suivre les montants',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 31;
     }
 }

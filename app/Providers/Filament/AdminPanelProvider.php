@@ -28,6 +28,7 @@ use NoteBrainsLab\FilamentMenuManager\FilamentMenuManagerPlugin;
 use Slimani\MediaManager\MediaManagerPlugin;
 use Wezlo\FilamentRecordWatcher\FilamentRecordWatcherPlugin;
 use Wezlo\FilamentSearchSpotlight\FilamentSearchSpotlightPlugin;
+use YacoubAlhaidari\FilamentTour\FilamentTourPlugin;
 
 class AdminPanelProvider extends PanelProvider
 {
@@ -90,6 +91,29 @@ class AdminPanelProvider extends PanelProvider
                     ->enabled(app()->environment(['local', 'staging'])),
                 PinnableNavigationPlugin::make(),
                 TabbedPlugin::make(),
+                FilamentTourPlugin::make()
+                    ->showTourButton(true)
+                    ->tourButtonIcon('heroicon-o-academic-cap')
+                    ->tourButtonColor('info')
+                    ->tourButtonTooltip(__('filament-tour::filament-tour.tooltip'))
+                    ->welcomeStep([
+                        'id' => 'welcome',
+                        'title' => 'Bienvenue dans l’administration CMP',
+                        'text' => '<strong>Découvrez les menus principaux selon vos accès.</strong><br><br>Cette visite guide les sections utiles pour votre rôle.',
+                        'buttons' => [
+                            ['text' => 'Passer', 'action' => 'cancel', 'secondary' => true],
+                            ['text' => 'Commencer', 'action' => 'next', 'secondary' => false],
+                        ],
+                    ])
+                    ->finishStep([
+                        'id' => 'finish',
+                        'title' => 'Visite terminée',
+                        'text' => '<strong>Vous êtes prêt à utiliser le panneau.</strong><br><br>Relancez la visite via l’icône 🎓 du menu utilisateur.',
+                        'buttons' => [
+                            ['text' => 'Retour', 'action' => 'back', 'secondary' => true],
+                            ['text' => 'Terminer', 'action' => 'complete', 'secondary' => false],
+                        ],
+                    ]),
             ])
             ->authMiddleware([
                 Authenticate::class,

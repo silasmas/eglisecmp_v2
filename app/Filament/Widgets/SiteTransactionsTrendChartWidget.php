@@ -13,7 +13,7 @@ use Illuminate\Support\Carbon;
  */
 class SiteTransactionsTrendChartWidget extends ChartWidget
 {
-    protected static ?int $sort = 3;
+    protected static ?int $sort = 22;
 
     protected ?string $heading = 'Transactions d’offrandes (6 derniers mois)';
 
@@ -25,6 +25,20 @@ class SiteTransactionsTrendChartWidget extends ChartWidget
     ];
 
     protected ?string $maxHeight = '320px';
+
+    /**
+     * Visible pour les rôles paiement / offrandes.
+     */
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && (
+            $user->can('ViewAny:Transaction')
+            || $user->can('ViewAny:Offrande')
+            || (method_exists($user, 'hasRole') && $user->hasRole('super_admin'))
+        );
+    }
 
     protected function getType(): string
     {

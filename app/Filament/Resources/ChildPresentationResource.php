@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\ChildPresentationResource\Pages;
 use App\Models\ChildPresentation;
 use App\Models\PresentedChild;
@@ -34,6 +35,7 @@ use UnitEnum;
  */
 class ChildPresentationResource extends Resource
 {
+    use ProvidesAdminTourStep;
     protected static ?string $model = ChildPresentation::class;
 
     protected static ?string $navigationLabel = 'Présentation enfants';
@@ -364,5 +366,27 @@ class ChildPresentationResource extends Resource
             'index' => Pages\ListChildPresentations::route('/'),
             'view' => Pages\ViewChildPresentation::route('/{record}'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Traitez les demandes de présentation d’enfants.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Confirmer une présentation',
+            'Refuser une demande',
+            'Suivre les statistiques',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 35;
     }
 }

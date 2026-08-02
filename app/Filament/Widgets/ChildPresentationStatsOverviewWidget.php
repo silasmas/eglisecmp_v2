@@ -14,9 +14,23 @@ use Illuminate\Support\Carbon;
  */
 class ChildPresentationStatsOverviewWidget extends StatsOverviewWidget
 {
-    protected static ?int $sort = 1;
+    protected static ?int $sort = 7;
 
     protected int|string|array $columnSpan = 'full';
+
+    /**
+     * Visible si l’utilisateur peut gérer les présentations d’enfants.
+     */
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && (
+            $user->can('ViewAny:ChildPresentation')
+            || $user->can('ViewAny:PresentedChild')
+            || (method_exists($user, 'hasRole') && $user->hasRole('super_admin'))
+        );
+    }
 
     /**
      * Compte les enfants liés à des présentations confirmées sur une période.

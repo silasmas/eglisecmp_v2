@@ -13,7 +13,7 @@ use Illuminate\Support\Carbon;
  */
 class SiteInquiriesTrendChartWidget extends ChartWidget
 {
-    protected static ?int $sort = 2;
+    protected static ?int $sort = 21;
 
     protected ?string $heading = 'Demandes reçues (6 derniers mois)';
 
@@ -25,6 +25,19 @@ class SiteInquiriesTrendChartWidget extends ChartWidget
     ];
 
     protected ?string $maxHeight = '320px';
+
+    /**
+     * Visible si l’utilisateur peut voir les demandes du site.
+     */
+    public static function canView(): bool
+    {
+        $user = auth()->user();
+
+        return $user !== null && (
+            $user->can('ViewAny:SiteInquiry')
+            || (method_exists($user, 'hasRole') && $user->hasRole('super_admin'))
+        );
+    }
 
     protected function getType(): string
     {

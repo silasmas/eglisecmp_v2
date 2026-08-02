@@ -17,7 +17,17 @@ use Illuminate\Database\Eloquent\Builder;
  */
 class PastoralAppointmentStatsOverviewWidget extends StatsOverviewWidget
 {
+    protected static ?int $sort = 6;
+
     protected ?string $heading = 'Historique rendez-vous';
+
+    /**
+     * Visible pour pasteurs liés ou admins des demandes.
+     */
+    public static function canView(): bool
+    {
+        return \App\Filament\Resources\PastoralReceptionResource::canAccess();
+    }
 
     /**
      * @return array<Stat>

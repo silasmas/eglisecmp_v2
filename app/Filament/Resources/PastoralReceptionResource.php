@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\PastoralReceptionResource\Pages;
 use App\Filament\Widgets\PastoralAppointmentStatsOverviewWidget;
 use App\Models\Minister;
@@ -39,6 +40,7 @@ use UnitEnum;
 class PastoralReceptionResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = SiteInquiry::class;
 
@@ -376,5 +378,27 @@ class PastoralReceptionResource extends Resource
             'view' => Pages\ViewPastoralReception::route('/{record}'),
             'edit' => Pages\EditPastoralReception::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Gérez les rendez-vous de réception pastorale.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Voir les demandes du jour',
+            'Confirmer ou refuser un RDV',
+            'Suivre vos créneaux',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 15;
     }
 }

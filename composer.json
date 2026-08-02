@@ -27,7 +27,8 @@
         "slimani/filament-media-manager": "^0.11.0",
         "tinusg/filament-hover-image-column": "^1.0",
         "wezlo/filament-record-watcher": "^1.0",
-        "wezlo/filament-search-spotlight": "^1.0"
+        "wezlo/filament-search-spotlight": "^1.0",
+        "yacoubalhaidari/filament-tour": "^1.0"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

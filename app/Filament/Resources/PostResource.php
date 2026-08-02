@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\PostResource\Pages;
 use App\Models\Event;
 use App\Models\Minister;
@@ -42,6 +43,7 @@ use UnitEnum;
 class PostResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = Post::class;
 
@@ -405,5 +407,27 @@ class PostResource extends Resource
             'create' => Pages\CreatePost::route('/create'),
             'edit' => Pages\EditPost::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Publiez les enseignements et messages du site.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Créer une publication',
+            'Gérer la mise en avant',
+            'Publier / dépublier',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 20;
     }
 }

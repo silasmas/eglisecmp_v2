@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle2, ChevronLeft, ChevronRight, IdCard } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, IdCard, Search } from 'lucide-react';
 import PageHero from '../components/ui/PageHero';
 import PhotoCropField from '../components/workers/PhotoCropField';
 import { cn } from '../lib/utils';
@@ -32,6 +32,7 @@ export default function WorkerRegistrationPage() {
   const [meta, setMeta] = useState<WorkerRegistrationMeta | null>(null);
   const [step, setStep] = useState<Step>(1);
   const [departmentId, setDepartmentId] = useState<number | null>(null);
+  const [departmentSearch, setDepartmentSearch] = useState('');
   const [lastName, setLastName] = useState('');
   const [firstName, setFirstName] = useState('');
   const [gender, setGender] = useState('male');
@@ -133,6 +134,23 @@ export default function WorkerRegistrationPage() {
     }
     return meta.departments.find((d) => d.id === departmentId) ?? null;
   }, [departmentId, meta]);
+
+  /**
+   * Départements filtrés par la recherche (étape 1).
+   */
+  const filteredDepartments = useMemo(() => {
+    if (meta === null) {
+      return [] as WorkerDepartmentOption[];
+    }
+    const query = departmentSearch.trim().toLowerCase();
+    if (query === '') {
+      return meta.departments;
+    }
+    return meta.departments.filter((dept) => {
+      const haystack = `${dept.name} ${dept.description ?? ''}`.toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [departmentSearch, meta]);
 
   const hasPhoto = photoBlob !== null || existingPhotoUrl !== '';
 
@@ -354,29 +372,58 @@ export default function WorkerRegistrationPage() {
                 </div>
 
                 {step === 1 && meta !== null ? (
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    {meta.departments.map((dept) => (
-                      <button
-                        key={dept.id}
-                        type="button"
-                        onClick={() => setDepartmentId(dept.id)}
-                        className={cn(
-                          'rounded-2xl border px-4 py-4 text-left transition',
-                          departmentId === dept.id
-                            ? 'border-burgundy-600 bg-burgundy-50 ring-2 ring-burgundy-200'
-                            : 'border-surface-200 hover:border-burgundy-300',
-                        )}
-                      >
-                        <span
-                          className="mb-2 inline-block h-2.5 w-2.5 rounded-full"
-                          style={{ background: dept.color }}
-                        />
-                        <div className="font-semibold text-surface-900">{dept.name}</div>
-                        {dept.description !== '' ? (
-                          <p className="mt-1 text-xs text-surface-500 line-clamp-2">{dept.description}</p>
-                        ) : null}
-                      </button>
-                    ))}
+                  <div className="space-y-3">
+                    <label className="relative block">
+                      <span className="sr-only">Rechercher un département</span>
+                      <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-surface-400" />
+                      <input
+                        type="search"
+                        className={cn(INPUT, 'pl-10')}
+                        placeholder="Rechercher un département…"
+                        value={departmentSearch}
+                        onChange={(e) => setDepartmentSearch(e.target.value)}
+                        autoComplete="off"
+                      />
+                    </label>
+                    {selectedDepartment !== null ? (
+                      <p className="text-xs text-surface-500">
+                        Sélection : <span className="font-medium text-burgundy-800">{selectedDepartment.name}</span>
+                      </p>
+                    ) : null}
+                    {filteredDepartments.length === 0 ? (
+                      <p className="rounded-2xl border border-dashed border-surface-200 px-4 py-8 text-center text-sm text-surface-500">
+                        Aucun département ne correspond à « {departmentSearch.trim()} ».
+                      </p>
+                    ) : (
+                      <div className="grid max-h-[22rem] gap-3 overflow-y-auto pe-1 sm:grid-cols-2">
+                        {filteredDepartments.map((dept) => (
+                          <button
+                            key={dept.id}
+                            type="button"
+                            onClick={() => setDepartmentId(dept.id)}
+                            className={cn(
+                              'rounded-2xl border px-4 py-4 text-left transition',
+                              departmentId === dept.id
+                                ? 'border-burgundy-600 bg-burgundy-50 ring-2 ring-burgundy-200'
+                                : 'border-surface-200 hover:border-burgundy-300',
+                            )}
+                          >
+                            <span
+                              className="mb-2 inline-block h-2.5 w-2.5 rounded-full"
+                              style={{ background: dept.color }}
+                            />
+                            <div className="font-semibold text-surface-900">{dept.name}</div>
+                            {dept.description !== '' ? (
+                              <p className="mt-1 text-xs text-surface-500 line-clamp-2">{dept.description}</p>
+                            ) : null}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                    <p className="text-xs text-surface-400">
+                      {filteredDepartments.length} / {meta.departments.length} département
+                      {meta.departments.length > 1 ? 's' : ''}
+                    </p>
                   </div>
                 ) : null}
 

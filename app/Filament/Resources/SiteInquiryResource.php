@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\SiteInquiryResource\Pages;
 use App\Models\SiteInquiry;
 use App\Services\AppointmentConfirmationService;
@@ -32,6 +33,7 @@ use UnitEnum;
 class SiteInquiryResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     public static function canAccess(): bool
     {
@@ -624,5 +626,27 @@ class SiteInquiryResource extends Resource
             'index' => Pages\ListSiteInquiries::route('/'),
             'view' => Pages\ViewSiteInquiry::route('/{record}'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Suivez les demandes de prière et de rendez-vous du site.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Filtrer par type de demande',
+            'Traiter les dossiers en attente',
+            'Consulter l’historique',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 16;
     }
 }

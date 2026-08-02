@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\ChurchDepartmentResource\Pages;
 use App\Models\ChurchDepartment;
 use BackedEnum;
@@ -30,6 +31,7 @@ use UnitEnum;
 class ChurchDepartmentResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = ChurchDepartment::class;
 
@@ -112,5 +114,27 @@ class ChurchDepartmentResource extends Resource
             'create' => Pages\CreateChurchDepartment::route('/create'),
             'edit' => Pages\EditChurchDepartment::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Organisez les départements ministériels et leurs responsables.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Créer / modifier un département',
+            'Assigner un responsable',
+            'Définir la couleur badge',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 10;
     }
 }

@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\Role;
 use App\Models\User;
@@ -27,6 +28,7 @@ use UnitEnum;
 class UserResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     protected static ?string $model = User::class;
 
@@ -149,5 +151,27 @@ class UserResource extends Resource
             'create' => Pages\CreateUser::route('/create'),
             'edit' => Pages\EditUser::route('/{record}/edit'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Administrez les comptes et leurs rôles.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Créer un utilisateur',
+            'Assigner des rôles Shield',
+            'Révoquer un accès',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 90;
     }
 }

@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace App\Filament\Resources;
 
+use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\TestimonyResource\Pages;
 use App\Models\Testimony;
 use App\Services\TestimonyNotificationService;
@@ -38,6 +39,7 @@ use UnitEnum;
 class TestimonyResource extends Resource
 {
     use HasTabbedActions;
+    use ProvidesAdminTourStep;
 
     public const LIST_TAB_ALL = 'all';
 
@@ -342,5 +344,27 @@ class TestimonyResource extends Resource
             'index' => Pages\ListTestimonies::route('/'),
             'view' => Pages\ViewTestimony::route('/{record}'),
         ];
+    }
+
+    public static function getTourStepDescription(): ?string
+    {
+        return 'Modérez le mur de témoignages publics.';
+    }
+
+    /**
+     * @return list<string>
+     */
+    public static function getTourStepFeatures(): array
+    {
+        return [
+            'Approuver un témoignage',
+            'Rejeter un contenu',
+            'Gérer les médias associés',
+        ];
+    }
+
+    public static function getTourStepSort(): int
+    {
+        return 25;
     }
 }
