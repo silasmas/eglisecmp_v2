@@ -24,7 +24,8 @@ class PastoralReceptionPolicy
 
     public function view(AuthUser $authUser, SiteInquiry $siteInquiry): bool
     {
-        return $this->canManage($authUser, $siteInquiry);
+        return $authUser instanceof User
+            && PastoralAccess::canAccessDossier($authUser, $siteInquiry);
     }
 
     public function create(AuthUser $authUser): bool
@@ -34,7 +35,8 @@ class PastoralReceptionPolicy
 
     public function update(AuthUser $authUser, SiteInquiry $siteInquiry): bool
     {
-        return $this->canManage($authUser, $siteInquiry);
+        return $authUser instanceof User
+            && PastoralAccess::canEditDossier($authUser, $siteInquiry);
     }
 
     public function delete(AuthUser $authUser, SiteInquiry $siteInquiry): bool
@@ -63,21 +65,4 @@ class PastoralReceptionPolicy
         return PastoralAccess::linkedMinister($authUser) !== null;
     }
 
-    /**
-     * Vérifie le droit sur un dossier précis.
-     */
-    private function canManage(AuthUser $authUser, SiteInquiry $siteInquiry): bool
-    {
-        if (! $authUser instanceof User || $siteInquiry->kind !== SiteInquiry::KIND_APPOINTMENT) {
-            return false;
-        }
-
-        if ($authUser->can('View:SiteInquiry') || $authUser->hasRole('super_admin') || PastoralAccess::canViewAllAppointments($authUser)) {
-            return true;
-        }
-
-        $minister = PastoralAccess::linkedMinister($authUser);
-
-        return $minister !== null && (int) $siteInquiry->minister_id === (int) $minister->id;
-    }
 }

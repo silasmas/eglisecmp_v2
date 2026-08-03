@@ -86,7 +86,7 @@ final class PastoralAccess
     }
 
     /**
-     * Indique si l'utilisateur voit tous les rendez-vous (admin ou titulaire).
+     * Indique si l'utilisateur voit tous les rendez-vous (titulaire ou super_admin uniquement).
      */
     public static function canViewAllAppointments(?User $user): bool
     {
@@ -102,7 +102,9 @@ final class PastoralAccess
     }
 
     /**
-     * ID du pasteur auquel limiter la liste (null = pas de filtre).
+     * ID du pasteur auquel limiter la liste.
+     * null = vue globale (titulaire / super_admin).
+     * 0 = aucun accès liste (pas de pasteur lié et pas de vue globale).
      */
     public static function scopedMinisterId(?User $user): ?int
     {
@@ -110,6 +112,68 @@ final class PastoralAccess
             return null;
         }
 
-        return self::linkedMinister($user)?->id;
+        $linkedId = self::linkedMinister($user)?->id;
+
+        return $linkedId !== null ? (int) $linkedId : 0;
+    }
+
+    /**
+     * Peut consulter un dossier (pasteur assigné, titulaire ou super_admin uniquement).
+     * Après clôture, seul le titulaire / super_admin peut rouvrir pour voir le dossier.
+     */
+    public static function canAccessDossier(?User $user, \App\Models\SiteInquiry $record): bool
+    {
+        if ($user === null || $record->kind !== \App\Models\SiteInquiry::KIND_APPOINTMENT) {
+            return false;
+        }
+
+        if (self::isDossierClosed($record) && ! self::canViewAllAppointments($user)) {
+            return false;
+        }
+
+        if (self::canViewAllAppointments($user)) {
+            return true;
+        }
+
+        $linked = self::linkedMinister($user);
+
+        return $linked !== null && (int) $record->minister_id === (int) $linked->id;
+    }
+
+    /**
+     * Indique si le dossier est clôturé.
+     */
+    public static function isDossierClosed(\App\Models\SiteInquiry $record): bool
+    {
+        return ($record->dossier_status ?? null) === \App\Models\SiteInquiry::DOSSIER_CLOSED;
+    }
+
+    /**
+     * Édition active : interdit si clos/suspendu (sauf réouverture titulaire).
+     */
+    public static function canEditDossier(?User $user, \App\Models\SiteInquiry $record): bool
+    {
+        if (! self::canAccessDossier($user, $record)) {
+            return false;
+        }
+
+        if (self::isDossierClosed($record)) {
+            return false;
+        }
+
+        if (($record->dossier_status ?? null) === \App\Models\SiteInquiry::DOSSIER_SUSPENDED
+            && ! self::canViewAllAppointments($user)) {
+            return false;
+        }
+
+        return true;
+    }
+
+    /**
+     * Seul le titulaire (ou super_admin) peut réouvrir un dossier clos.
+     */
+    public static function canReopen(?User $user): bool
+    {
+        return self::canViewAllAppointments($user);
     }
 }

@@ -181,20 +181,43 @@ async function buildStudioQrDataUrl(content) {
  * @param {HTMLElement} root
  * @param {object} participant
  */
-async function fillBadgeQr(root, participant) {
-  const img = root.querySelector('[data-badge-qr]');
-  if (!img || !participant) {
+/**
+ * Remplit le QR en bas à droite du badge DOM (anti-course sur re-render).
+ *
+ * @param {HTMLElement} root
+ * @param {object} participant
+ * @param {number} [renderGeneration]
+ */
+async function fillBadgeQr(root, participant, renderGeneration) {
+  if (!root || !participant) {
     return;
   }
   const token = ensureBadgeToken(participant);
   const url = getBadgePublicUrl(token);
   try {
     const dataUrl = await buildStudioQrDataUrl(url);
-    if (dataUrl) {
-      img.src = dataUrl;
-      img.alt = 'QR code badge ouvrier';
+    if (!dataUrl) {
+      return;
     }
-  } catch (e) { /* ignore */ }
+    // Abandonne si un nouveau rendu a remplacé le HTML entre-temps.
+    if (typeof renderGeneration === 'number' && root.__badgeRenderGeneration !== renderGeneration) {
+      return;
+    }
+    const img = root.querySelector('[data-badge-qr]');
+    if (!img || !root.contains(img)) {
+      return;
+    }
+    img.src = dataUrl;
+    img.alt = 'QR code badge ouvrier';
+    img.classList.add('is-ready');
+    const wrap = img.closest('.retreat-badge-qr');
+    if (wrap) {
+      wrap.classList.add('is-ready');
+      wrap.setAttribute('title', 'QR prêt — scanner pour ouvrir le badge');
+    }
+  } catch (e) {
+    console.warn('QR badge indisponible', e);
+  }
 }
 
 function getDefaultBadgeCategory(key) {
@@ -735,8 +758,9 @@ function renderRetreatBadge(target, participant, options = {}) {
           </div>
         ` : ''}
       ` : ''}
-      <div class="retreat-badge-qr" title="Scanner pour ouvrir le badge">
+      <div class="retreat-badge-qr is-loading" title="Génération du QR…">
         <img data-badge-qr alt="QR code badge ouvrier" width="128" height="128">
+        <span class="retreat-badge-qr-label" aria-hidden="true">QR</span>
       </div>
     </div>
   `;
@@ -745,8 +769,28 @@ function renderRetreatBadge(target, participant, options = {}) {
   ensureBadgeToken(participant);
   root.__badgeParticipant = { ...participant };
   root.__badgeOptions = { ...options };
+  root.__badgeRenderGeneration = (root.__badgeRenderGeneration || 0) + 1;
+  const generation = root.__badgeRenderGeneration;
   requestAnimationFrame(() => fitBadgeName(root));
-  void fillBadgeQr(root, participant);
+  void fillBadgeQr(root, participant, generation);
+  updateStudioBadgeSizeLabel();
+}
+
+/** Dimensions print du badge (A4 @ ~300 dpi) pour le designer. */
+const BADGE_PRINT_WIDTH_PX = 2480;
+const BADGE_PRINT_HEIGHT_PX = 3508;
+const BADGE_PRINT_WIDTH_MM = 210;
+const BADGE_PRINT_HEIGHT_MM = 297;
+
+/**
+ * Affiche la taille print du badge dans le studio (aide designer).
+ */
+function updateStudioBadgeSizeLabel() {
+  const el = document.getElementById('studioBadgeSizeLabel');
+  if (!el) {
+    return;
+  }
+  el.textContent = `${BADGE_PRINT_WIDTH_PX} × ${BADGE_PRINT_HEIGHT_PX} px · A4 (${BADGE_PRINT_WIDTH_MM} × ${BADGE_PRINT_HEIGHT_MM} mm) · ~300 dpi`;
 }
 
 function submitForm() {

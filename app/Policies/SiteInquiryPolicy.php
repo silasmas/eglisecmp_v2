@@ -81,16 +81,10 @@ class SiteInquiryPolicy
 
     private function canPastoralManage(AuthUser $authUser, SiteInquiry $siteInquiry): bool
     {
-        if (! $authUser instanceof User || $siteInquiry->kind !== SiteInquiry::KIND_APPOINTMENT) {
+        if (! $authUser instanceof User) {
             return false;
         }
 
-        if (PastoralAccess::canViewAllAppointments($authUser)) {
-            return true;
-        }
-
-        $minister = PastoralAccess::linkedMinister($authUser);
-
-        return $minister !== null && (int) $siteInquiry->minister_id === (int) $minister->id;
+        return PastoralAccess::canAccessDossier($authUser, $siteInquiry);
     }
 }

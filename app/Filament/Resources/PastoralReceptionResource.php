@@ -10,6 +10,8 @@ use App\Filament\Widgets\PastoralAppointmentStatsOverviewWidget;
 use App\Models\Minister;
 use App\Models\SiteInquiry;
 use App\Models\User;
+use App\Services\PastoralSessionService;
+use App\Services\PastoralTransferNotificationService;
 use App\Support\AppointmentReasons;
 use App\Support\PastoralAccess;
 use BackedEnum;
@@ -35,7 +37,7 @@ use JibayMcs\Tabbed\Traits\HasTabbedActions;
 use UnitEnum;
 
 /**
- * Module pasteurs : réception des fidèles, notes, conclusion, orientation (titulaire).
+ * Module pasteurs : réception des fidèles, chrono, clôture, orientation, historique.
  */
 class PastoralReceptionResource extends Resource
 {
@@ -61,7 +63,7 @@ class PastoralReceptionResource extends Resource
     protected static ?int $navigationSort = 5;
 
     /**
-     * Visible pour les comptes pasteurs liés ou les admins.
+     * Visible pour les comptes pasteurs liés ou les admins Shield.
      */
     public static function canAccess(): bool
     {
@@ -89,39 +91,25 @@ class PastoralReceptionResource extends Resource
     }
 
     /**
-     * Indique si un utilisateur pasteur lié peut gérer ce dossier.
+     * Consultation : pasteur assigné, titulaire ou super_admin uniquement.
      */
     public static function canView(Model $record): bool
     {
-        return static::canManageRecord($record);
-    }
+        $user = auth()->user();
 
-    public static function canEdit(Model $record): bool
-    {
-        return static::canManageRecord($record);
+        return $record instanceof SiteInquiry
+            && PastoralAccess::canAccessDossier($user instanceof User ? $user : null, $record);
     }
 
     /**
-     * Autorise admin / titulaire / pasteur assigné.
+     * Édition : dossier non clos (sauf droits titulaire après réouverture).
      */
-    private static function canManageRecord(Model $record): bool
+    public static function canEdit(Model $record): bool
     {
-        if (! $record instanceof SiteInquiry) {
-            return false;
-        }
-
         $user = auth()->user();
-        if (! $user instanceof User) {
-            return false;
-        }
 
-        if ($user->can('View:SiteInquiry') || $user->hasRole('super_admin') || PastoralAccess::canViewAllAppointments($user)) {
-            return true;
-        }
-
-        $minister = PastoralAccess::linkedMinister($user);
-
-        return $minister !== null && (int) $record->minister_id === (int) $minister->id;
+        return $record instanceof SiteInquiry
+            && PastoralAccess::canEditDossier($user instanceof User ? $user : null, $record);
     }
 
     public static function getEloquentQuery(): Builder
@@ -136,6 +124,9 @@ class PastoralReceptionResource extends Resource
         }
 
         $scopedId = PastoralAccess::scopedMinisterId($user);
+        if ($scopedId === 0) {
+            return $query->whereRaw('1 = 0');
+        }
         if ($scopedId !== null) {
             $query->where('minister_id', $scopedId);
         }
@@ -171,8 +162,19 @@ class PastoralReceptionResource extends Resource
                             ->options(SiteInquiry::receptionStatusOptions())
                             ->required()
                             ->columnSpan(4),
+                        TextInput::make('session_duration_minutes')
+                            ->label('Durée session (min)')
+                            ->numeric()
+                            ->minValue(5)
+                            ->maxValue(240)
+                            ->helperText('Chrono démarré à « Marquer reçu ». Ajustable par le pasteur.')
+                            ->columnSpan(4),
                         DateTimePicker::make('preferred_at')
                             ->label('Créneau')
+                            ->disabled()
+                            ->columnSpan(4),
+                        DateTimePicker::make('next_appointment_at')
+                            ->label('Prochain RDV')
                             ->disabled()
                             ->columnSpan(4),
                         Textarea::make('session_notes')
@@ -214,7 +216,18 @@ class PastoralReceptionResource extends Resource
                         TextEntry::make('appointment_reason')
                             ->label('Classification')
                             ->formatStateUsing(fn (?string $state): string => AppointmentReasons::label($state))
-                            ->columnSpan(4),
+                            ->columnSpan(3),
+                        TextEntry::make('dossier_status')
+                            ->label('Dossier')
+                            ->formatStateUsing(fn (?string $state): string => SiteInquiry::dossierStatusOptions()[$state] ?? ($state ?? '—'))
+                            ->badge()
+                            ->color(fn (?string $state): string => match ($state) {
+                                SiteInquiry::DOSSIER_CLOSED => 'gray',
+                                SiteInquiry::DOSSIER_SUSPENDED => 'danger',
+                                SiteInquiry::DOSSIER_FOLLOW_UP => 'warning',
+                                default => 'success',
+                            })
+                            ->columnSpan(3),
                         TextEntry::make('reception_status')
                             ->label('Réception')
                             ->formatStateUsing(fn (?string $state): string => SiteInquiry::receptionStatusOptions()[$state] ?? ($state ?? '—'))
@@ -224,14 +237,29 @@ class PastoralReceptionResource extends Resource
                             ->dateTime('d/m/Y H:i')
                             ->placeholder('Non reçu')
                             ->columnSpan(3),
-                        TextEntry::make('appointment_status')
-                            ->label('Confirmation')
-                            ->formatStateUsing(fn (string $state): string => match ($state) {
-                                SiteInquiry::STATUS_PENDING => 'En attente',
-                                SiteInquiry::STATUS_CONFIRMED => 'Confirmé',
-                                SiteInquiry::STATUS_DECLINED => 'Refusé',
-                                default => $state,
+                        TextEntry::make('session_duration_minutes')
+                            ->label('Durée prévue')
+                            ->suffix(' min')
+                            ->placeholder('—')
+                            ->columnSpan(3),
+                        TextEntry::make('time_respected')
+                            ->label('Temps respecté')
+                            ->formatStateUsing(fn (?bool $state): string => match ($state) {
+                                true => 'Oui',
+                                false => 'Non (dépassement)',
+                                default => '—',
                             })
+                            ->badge()
+                            ->color(fn (?bool $state): string => match ($state) {
+                                true => 'success',
+                                false => 'danger',
+                                default => 'gray',
+                            })
+                            ->columnSpan(3),
+                        TextEntry::make('next_appointment_at')
+                            ->label('Prochain RDV')
+                            ->dateTime('d/m/Y H:i')
+                            ->placeholder('—')
                             ->columnSpan(3),
                         TextEntry::make('session_notes')->label('Notes')->placeholder('—')->columnSpanFull(),
                         TextEntry::make('session_conclusion')->label('Conclusion')->placeholder('—')->columnSpanFull(),
@@ -258,7 +286,18 @@ class PastoralReceptionResource extends Resource
                 TextColumn::make('minister.fullname')
                     ->label('Pasteur')
                     ->formatStateUsing(fn ($state): string => MinisterResource::normalizeLegacyValue($state) ?? '—')
-                    ->toggleable(),
+                    ->toggleable()
+                    ->visible(fn (): bool => PastoralAccess::canViewAllAppointments(auth()->user())),
+                TextColumn::make('dossier_status')
+                    ->label('Dossier')
+                    ->formatStateUsing(fn (?string $state): string => SiteInquiry::dossierStatusOptions()[$state ?? SiteInquiry::DOSSIER_OPEN] ?? '—')
+                    ->badge()
+                    ->color(fn (?string $state): string => match ($state) {
+                        SiteInquiry::DOSSIER_CLOSED => 'gray',
+                        SiteInquiry::DOSSIER_SUSPENDED => 'danger',
+                        SiteInquiry::DOSSIER_FOLLOW_UP => 'warning',
+                        default => 'success',
+                    }),
                 TextColumn::make('reception_status')
                     ->label('Réception')
                     ->formatStateUsing(fn (?string $state): string => SiteInquiry::receptionStatusOptions()[$state] ?? '—')
@@ -269,24 +308,33 @@ class PastoralReceptionResource extends Resource
                         SiteInquiry::RECEPTION_ORIENTED => 'info',
                         default => 'gray',
                     }),
+                TextColumn::make('time_respected')
+                    ->label('Temps')
+                    ->formatStateUsing(fn (?bool $state): string => match ($state) {
+                        true => 'OK',
+                        false => 'Dépassé',
+                        default => '—',
+                    })
+                    ->badge()
+                    ->color(fn (?bool $state): string => match ($state) {
+                        true => 'success',
+                        false => 'danger',
+                        default => 'gray',
+                    })
+                    ->toggleable(),
                 TextColumn::make('received_at')
                     ->label('Reçu le')
                     ->dateTime('d/m/Y H:i')
                     ->placeholder('Non reçu')
                     ->toggleable(),
-                TextColumn::make('appointment_status')
-                    ->label('Confirm.')
-                    ->formatStateUsing(fn (string $state): string => match ($state) {
-                        SiteInquiry::STATUS_PENDING => 'Attente',
-                        SiteInquiry::STATUS_CONFIRMED => 'OK',
-                        SiteInquiry::STATUS_DECLINED => 'Refusé',
-                        default => $state,
-                    }),
             ])
             ->filters([
                 SelectFilter::make('appointment_reason')
                     ->label('Motif')
                     ->options(AppointmentReasons::options()),
+                SelectFilter::make('dossier_status')
+                    ->label('Dossier')
+                    ->options(SiteInquiry::dossierStatusOptions()),
                 SelectFilter::make('reception_status')
                     ->label('Réception')
                     ->options(SiteInquiry::receptionStatusOptions()),
@@ -306,65 +354,131 @@ class PastoralReceptionResource extends Resource
                     ->label('Cette semaine')
                     ->query(fn (Builder $query): Builder => $query
                         ->whereBetween('preferred_at', [now()->startOfWeek(), now()->endOfWeek()])),
-                Filter::make('this_month')
-                    ->label('Ce mois')
-                    ->query(fn (Builder $query): Builder => $query
-                        ->whereBetween('preferred_at', [now()->startOfMonth(), now()->endOfMonth()])),
+                Filter::make('overruns')
+                    ->label('Temps dépassé')
+                    ->query(fn (Builder $query): Builder => $query->where('time_respected', false)),
             ])
             ->actions([
                 ViewAction::make(),
                 EditAction::make()
                     ->label('Dossier')
-                    ->mutateFormDataUsing(function (array $data, SiteInquiry $record): array {
-                        if (($data['reception_status'] ?? null) === SiteInquiry::RECEPTION_IN_PROGRESS
-                            && $record->received_at === null) {
-                            $data['received_at'] = now();
-                        }
-                        if (($data['reception_status'] ?? null) === SiteInquiry::RECEPTION_COMPLETED) {
-                            $data['completed_at'] = now();
-                        }
-
-                        return $data;
-                    }),
+                    ->visible(fn (SiteInquiry $record): bool => static::canEdit($record)),
                 Action::make('markReceived')
                     ->label('Marquer reçu')
                     ->icon('heroicon-o-hand-raised')
                     ->color('success')
                     ->requiresConfirmation()
                     ->modalHeading('Accuser réception du fidèle')
-                    ->modalDescription('Confirmez que vous avez reçu ce fidèle. Vous pourrez ensuite saisir les notes de réception.')
+                    ->modalDescription('Le chrono de séance démarre immédiatement selon la durée du créneau.')
                     ->visible(fn (SiteInquiry $record): bool => $record->received_at === null
-                        && $record->reception_status !== SiteInquiry::RECEPTION_COMPLETED
+                        && ! PastoralAccess::isDossierClosed($record)
                         && PastoralAccess::canMarkReceived(
                             auth()->user() instanceof User ? auth()->user() : null,
                             (int) ($record->minister_id ?? 0),
                         ))
                     ->action(function (SiteInquiry $record): void {
-                        $record->update([
-                            'received_at' => now(),
-                            'reception_status' => SiteInquiry::RECEPTION_IN_PROGRESS,
-                        ]);
+                        app(PastoralSessionService::class)->markReceived($record);
 
                         Notification::make()
                             ->title('Réception accusée')
-                            ->body('Le dossier est maintenant en cours.')
+                            ->body('Chrono démarré. Gérez le temps dans le dossier.')
                             ->success()
                             ->send();
+                    }),
+                Action::make('suspendDossier')
+                    ->label('Suspendre')
+                    ->icon('heroicon-o-pause-circle')
+                    ->color('warning')
+                    ->requiresConfirmation()
+                    ->visible(fn (SiteInquiry $record): bool => static::canEdit($record)
+                        && ($record->dossier_status ?? SiteInquiry::DOSSIER_OPEN) === SiteInquiry::DOSSIER_OPEN
+                        && $record->received_at !== null)
+                    ->action(function (SiteInquiry $record): void {
+                        app(PastoralSessionService::class)->suspend($record);
+                        Notification::make()->title('Dossier suspendu')->warning()->send();
+                    }),
+                Action::make('closeDossier')
+                    ->label('Clôturer')
+                    ->icon('heroicon-o-lock-closed')
+                    ->color('danger')
+                    ->requiresConfirmation()
+                    ->modalHeading('Clôturer le dossier')
+                    ->modalDescription('Le respect du temps sera enregistré. Seul le pasteur titulaire pourra réouvrir.')
+                    ->visible(fn (SiteInquiry $record): bool => static::canEdit($record)
+                        && ! PastoralAccess::isDossierClosed($record)
+                        && $record->received_at !== null)
+                    ->action(function (SiteInquiry $record): void {
+                        app(PastoralSessionService::class)->close($record);
+                        $ok = $record->fresh()?->time_respected;
+                        Notification::make()
+                            ->title('Dossier clôturé')
+                            ->body($ok === false
+                                ? 'Temps dépassé — noté dans l’historique (point à améliorer).'
+                                : 'Temps respecté enregistré.')
+                            ->success()
+                            ->send();
+                    }),
+                Action::make('scheduleNext')
+                    ->label('Prochain RDV')
+                    ->icon('heroicon-o-calendar-days')
+                    ->color('warning')
+                    ->visible(fn (SiteInquiry $record): bool => static::canEdit($record)
+                        && $record->received_at !== null
+                        && ! PastoralAccess::isDossierClosed($record))
+                    ->form([
+                        DateTimePicker::make('next_appointment_at')
+                            ->label('Date du prochain rendez-vous')
+                            ->required()
+                            ->native(false)
+                            ->seconds(false),
+                        Textarea::make('follow_up_note')
+                            ->label('Note de suivi')
+                            ->rows(2),
+                    ])
+                    ->action(function (SiteInquiry $record, array $data): void {
+                        $note = trim((string) ($data['follow_up_note'] ?? ''));
+                        if ($note !== '') {
+                            $existing = trim((string) ($record->session_notes ?? ''));
+                            $record->session_notes = ($existing !== '' ? $existing."\n\n" : '').'[Prochain RDV] '.$note;
+                            $record->save();
+                        }
+
+                        app(PastoralSessionService::class)->scheduleNext($record, $data['next_appointment_at']);
+
+                        Notification::make()
+                            ->title('Prochain RDV planifié')
+                            ->body('Le dossier reste ouvert (couleur suivi).')
+                            ->warning()
+                            ->send();
+                    }),
+                Action::make('reopenDossier')
+                    ->label('Réouvrir')
+                    ->icon('heroicon-o-lock-open')
+                    ->color('gray')
+                    ->requiresConfirmation()
+                    ->visible(fn (SiteInquiry $record): bool => PastoralAccess::isDossierClosed($record)
+                        && PastoralAccess::canReopen(auth()->user() instanceof User ? auth()->user() : null))
+                    ->action(function (SiteInquiry $record): void {
+                        $user = auth()->user();
+                        if (! $user instanceof User) {
+                            return;
+                        }
+                        app(PastoralSessionService::class)->reopen($record, $user);
+                        Notification::make()->title('Dossier réouvert')->success()->send();
                     }),
                 Action::make('adminRedirect')
                     ->label('Rediriger (admin)')
                     ->icon('heroicon-o-arrows-right-left')
                     ->color('warning')
                     ->visible(fn (SiteInquiry $record): bool => $record->received_at === null
-                        && $record->reception_status !== SiteInquiry::RECEPTION_COMPLETED
+                        && ! PastoralAccess::isDossierClosed($record)
                         && PastoralAccess::canAdminRedirect(auth()->user() instanceof User ? auth()->user() : null))
                     ->form(fn (SiteInquiry $record): array => self::transferMinisterForm($record, 'Redirection administrative'))
                     ->action(function (SiteInquiry $record, array $data): void {
                         self::applyMinisterTransfer($record, $data, 'Redirection admin');
-
                         Notification::make()
                             ->title('Dossier redirigé')
-                            ->body('Le pasteur destinataire devra accuser réception.')
+                            ->body('Le pasteur destinataire a été notifié (mail / SMS).')
                             ->success()
                             ->send();
                     }),
@@ -373,7 +487,7 @@ class PastoralReceptionResource extends Resource
                     ->icon('heroicon-o-arrow-right-circle')
                     ->visible(fn (SiteInquiry $record): bool => PastoralAccess::canOrient(auth()->user() instanceof User ? auth()->user() : null)
                         && $record->received_at !== null
-                        && $record->reception_status !== SiteInquiry::RECEPTION_COMPLETED)
+                        && ! PastoralAccess::isDossierClosed($record))
                     ->form(fn (SiteInquiry $record): array => self::transferMinisterForm($record, 'Note d’orientation'))
                     ->action(function (SiteInquiry $record, array $data): void {
                         $user = auth()->user();
@@ -387,8 +501,8 @@ class PastoralReceptionResource extends Resource
                         );
 
                         Notification::make()
-                            ->title('Fidèle orienté vers un autre pasteur')
-                            ->body('Le pasteur destinataire devra accuser réception.')
+                            ->title('Fidèle orienté')
+                            ->body('Le pasteur destinataire a été notifié (mail / SMS).')
                             ->success()
                             ->send();
                     }),
@@ -423,7 +537,7 @@ class PastoralReceptionResource extends Resource
     }
 
     /**
-     * Applique un transfert de pasteur et remet le dossier en attente de réception.
+     * Applique un transfert de pasteur, remet en attente et notifie le destinataire.
      *
      * @param  array{minister_id?: mixed, orientation_note?: mixed}  $data
      */
@@ -443,10 +557,17 @@ class PastoralReceptionResource extends Resource
             'oriented_from_minister_id' => $fromMinisterId ?? $record->minister_id,
             'minister_id' => (int) $data['minister_id'],
             'reception_status' => SiteInquiry::RECEPTION_ORIENTED,
+            'dossier_status' => SiteInquiry::DOSSIER_OPEN,
             'received_at' => null,
+            'session_started_at' => null,
+            'session_duration_minutes' => null,
             'completed_at' => null,
+            'closed_at' => null,
             'session_notes' => $append !== '' ? $append : null,
         ]);
+
+        app(PastoralTransferNotificationService::class)
+            ->notifyDestinationMinister($record->fresh() ?? $record, $notePrefix);
     }
 
     public static function getWidgets(): array
@@ -460,6 +581,7 @@ class PastoralReceptionResource extends Resource
     {
         return [
             'index' => Pages\ListPastoralReceptions::route('/'),
+            'history' => Pages\PastoralReceptionHistory::route('/history'),
             'view' => Pages\ViewPastoralReception::route('/{record}'),
             'edit' => Pages\EditPastoralReception::route('/{record}/edit'),
         ];
@@ -476,9 +598,9 @@ class PastoralReceptionResource extends Resource
     public static function getTourStepFeatures(): array
     {
         return [
-            'Voir les demandes du jour',
-            'Confirmer ou refuser un RDV',
-            'Suivre vos créneaux',
+            'Accuser réception et démarrer le chrono',
+            'Clôturer, suspendre ou planifier un prochain RDV',
+            'Suivre le respect du temps dans l’historique',
         ];
     }
 

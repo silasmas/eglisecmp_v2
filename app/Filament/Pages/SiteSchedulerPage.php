@@ -4,7 +4,9 @@ declare(strict_types=1);
 
 namespace App\Filament\Pages;
 
+use App\Models\User;
 use App\Services\SiteSchedulerRunner;
+use App\Support\AdminPanelAccess;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
@@ -29,6 +31,19 @@ class SiteSchedulerPage extends Page
     protected string $view = 'filament.pages.site-scheduler';
 
     public bool $httpCronEnabled = false;
+
+    /**
+     * Accès réservé aux rôles ayant View:SiteSchedulerPage (ou super_admin).
+     */
+    public static function canAccess(): bool
+    {
+        $user = auth()->user();
+
+        return AdminPanelAccess::canViewPage(
+            $user instanceof User ? $user : null,
+            'View:SiteSchedulerPage',
+        );
+    }
 
     /**
      * Charge l’état du cron HTTP depuis le cache.

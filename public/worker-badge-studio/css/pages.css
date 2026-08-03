@@ -1384,6 +1384,35 @@
   opacity: 0.45;
   cursor: not-allowed;
 }
+.studio-badge-size {
+  margin: 0.55rem 0 0;
+  text-align: center;
+  color: #d4dbe8;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+}
+.studio-badge-size-hint {
+  margin: 0.2rem 0 0;
+  text-align: center;
+  color: #93a0b4;
+  font-size: 0.7rem;
+}
+.studio-badge-spec {
+  display: grid;
+  gap: 0.25rem;
+  margin: 0 0 0.85rem;
+  padding: 0.7rem 0.8rem;
+  border: 1px solid rgba(234, 126, 45, 0.35);
+  border-radius: 12px;
+  background: rgba(234, 126, 45, 0.08);
+  color: #e8edf6;
+  font-size: 0.74rem;
+}
+.studio-badge-spec strong {
+  color: #fdba74;
+  font-size: 0.78rem;
+}
 .studio-canvas {
   position: relative;
   z-index: 1;

@@ -177,6 +177,10 @@
         <div class="badge-scene">
           <div class="retreat-badge-shell" id="adminBadgePreview"></div>
         </div>
+        <p class="studio-badge-size" id="studioBadgeSizeLabel" title="Taille d’export pour le designer">
+          2480 × 3508 px · A4 (210 × 297 mm) · ~300 dpi
+        </p>
+        <p class="studio-badge-size-hint">Zone QR (bas droite) générée automatiquement — visible sur le badge.</p>
       </div>
     </section>
 
@@ -235,6 +239,12 @@
               <h3>Composition</h3>
               <p>Catégorie, affectation et image.</p>
             </div>
+          </div>
+          <div class="studio-badge-spec" aria-label="Spécifications print">
+            <strong>Taille print (designer)</strong>
+            <span>2480 × 3508 px</span>
+            <span>A4 · 210 × 297 mm · ~300 dpi</span>
+            <span>Zone QR : bas droite · ~16 % de la largeur (~397 px)</span>
           </div>
           <div class="fields-grid compact">
             <div class="field full">

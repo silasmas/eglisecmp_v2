@@ -33,6 +33,15 @@ use Illuminate\Support\Carbon;
  * @property string|null $session_conclusion
  * @property Carbon|null $received_at
  * @property Carbon|null $completed_at
+ * @property string|null $dossier_status
+ * @property Carbon|null $closed_at
+ * @property Carbon|null $suspended_at
+ * @property Carbon|null $session_started_at
+ * @property int|null $session_duration_minutes
+ * @property bool|null $time_respected
+ * @property Carbon|null $next_appointment_at
+ * @property int|null $reopened_by
+ * @property Carbon|null $reopened_at
  * @property string|null $confirmation_sms_status
  * @property Carbon|null $confirmation_sms_sent_at
  * @property string|null $confirmation_sms_response
@@ -56,6 +65,14 @@ class SiteInquiry extends Model
     public const RECEPTION_COMPLETED = 'completed';
 
     public const RECEPTION_ORIENTED = 'oriented';
+
+    public const DOSSIER_OPEN = 'open';
+
+    public const DOSSIER_SUSPENDED = 'suspended';
+
+    public const DOSSIER_CLOSED = 'closed';
+
+    public const DOSSIER_FOLLOW_UP = 'follow_up';
 
     public const SMS_STATUS_SENT = 'sent';
 
@@ -97,6 +114,15 @@ class SiteInquiry extends Model
         'oriented_from_minister_id',
         'received_at',
         'completed_at',
+        'dossier_status',
+        'closed_at',
+        'suspended_at',
+        'session_started_at',
+        'session_duration_minutes',
+        'time_respected',
+        'next_appointment_at',
+        'reopened_by',
+        'reopened_at',
         'confirmation_sms_status',
         'confirmation_sms_sent_at',
         'confirmation_sms_response',
@@ -113,6 +139,13 @@ class SiteInquiry extends Model
             'prayer_team_notified_at' => 'datetime',
             'received_at' => 'datetime',
             'completed_at' => 'datetime',
+            'closed_at' => 'datetime',
+            'suspended_at' => 'datetime',
+            'session_started_at' => 'datetime',
+            'next_appointment_at' => 'datetime',
+            'reopened_at' => 'datetime',
+            'session_duration_minutes' => 'integer',
+            'time_respected' => 'boolean',
             'is_anonymous' => 'boolean',
         ];
     }
@@ -150,6 +183,31 @@ class SiteInquiry extends Model
             self::RECEPTION_COMPLETED => 'Terminé',
             self::RECEPTION_ORIENTED => 'Orienté',
         ];
+    }
+
+    /**
+     * Libellés des statuts de dossier pastoral.
+     *
+     * @return array<string, string>
+     */
+    public static function dossierStatusOptions(): array
+    {
+        return [
+            self::DOSSIER_OPEN => 'Ouvert',
+            self::DOSSIER_SUSPENDED => 'Suspendu',
+            self::DOSSIER_CLOSED => 'Clôturé',
+            self::DOSSIER_FOLLOW_UP => 'Prochain RDV',
+        ];
+    }
+
+    /**
+     * Compte utilisateur qui a réouvert le dossier.
+     *
+     * @return BelongsTo<User, $this>
+     */
+    public function reopenedByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'reopened_by');
     }
 
     /**

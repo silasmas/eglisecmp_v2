@@ -4,6 +4,9 @@ namespace App\Providers\Filament;
 
 use AhmedAbdelrhman\FilamentMediaGallery\FilamentMediaGalleryPlugin;
 use App\Filament\Pages\Dashboard;
+use App\Filament\PluginPages\GuardedMediaManagerPage;
+use App\Filament\PluginPages\GuardedMyWatchesPage;
+use App\Filament\Plugins\GuardedMenuManagerPlugin;
 use App\Models\Gallery;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use CmsMulti\FilamentClearCache\FilamentClearCachePlugin;
@@ -16,6 +19,7 @@ use Filament\Panel;
 use Filament\PanelProvider;
 use Filament\Support\Colors\Color;
 use Flexpik\FilamentStudio\FilamentStudioPlugin;
+use Hammadzafar05\FilamentMobilePreset\FilamentMobilePresetPlugin;
 use Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse;
 use Illuminate\Cookie\Middleware\EncryptCookies;
 use Illuminate\Foundation\Http\Middleware\VerifyCsrfToken;
@@ -24,7 +28,6 @@ use Illuminate\Session\Middleware\StartSession;
 use Illuminate\View\Middleware\ShareErrorsFromSession;
 use JibayMcs\Tabbed\TabbedPlugin;
 use MrAdder\FilamentLogger\Resources\ActivityResource;
-use NoteBrainsLab\FilamentMenuManager\FilamentMenuManagerPlugin;
 use Slimani\MediaManager\MediaManagerPlugin;
 use Wezlo\FilamentRecordWatcher\FilamentRecordWatcherPlugin;
 use Wezlo\FilamentSearchSpotlight\FilamentSearchSpotlightPlugin;
@@ -51,6 +54,7 @@ class AdminPanelProvider extends PanelProvider
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\Filament\Pages')
             ->pages([
                 Dashboard::class,
+                GuardedMyWatchesPage::class,
             ])
             ->discoverWidgets(in: app_path('Filament/Widgets'), for: 'App\Filament\Widgets')
             ->widgets([])
@@ -70,7 +74,7 @@ class AdminPanelProvider extends PanelProvider
                     ->navigationGroup('Administration')
                     ->navigationLabel('Rôles & permissions')
                     ->navigationIcon('heroicon-o-shield-check'),
-                FilamentMenuManagerPlugin::make()
+                GuardedMenuManagerPlugin::make()
                     ->locations([
                         'primary' => 'Menu principal',
                         'footer' => 'Pied de page',
@@ -85,8 +89,11 @@ class AdminPanelProvider extends PanelProvider
                 FilamentStudioPlugin::make()
                     ->navigationGroup('Studio'),
                 FilamentSearchSpotlightPlugin::make(),
-                FilamentRecordWatcherPlugin::make(),
+                FilamentRecordWatcherPlugin::make()
+                    ->registerMyWatchesPage(false)
+                    ->navigationGroup('Mes suivis'),
                 MediaManagerPlugin::make()
+                    ->mediaManagerPage(GuardedMediaManagerPage::class)
                     ->navigationGroup('Médias')
                     ->navigationLabel('Médiathèque')
                     ->navigationIcon('heroicon-o-photo'),
@@ -94,6 +101,7 @@ class AdminPanelProvider extends PanelProvider
                     ->enabled(app()->environment(['local', 'staging'])),
                 PinnableNavigationPlugin::make(),
                 TabbedPlugin::make(),
+                FilamentMobilePresetPlugin::make(),
                 FilamentTourPlugin::make()
                     ->showTourButton(true)
                     ->tourButtonIcon('heroicon-o-academic-cap')
