@@ -27,6 +27,8 @@ import WorshipStatsReportPage from '../pages/WorshipStatsReportPage';
 import WorkerRegistrationPage from '../pages/WorkerRegistrationPage';
 import WorkerBadgePage from '../pages/WorkerBadgePage';
 import WorkerBadgeLayout from '../components/workers/WorkerBadgeLayout';
+import GuestInviteFormPage from '../pages/GuestInviteFormPage';
+import GuestFormResponsesPage from '../pages/GuestFormResponsesPage';
 
 /**
  * Le badge est déclaré AVANT le Layout site pour éviter que le splat `*`
@@ -41,6 +43,16 @@ export const router = createBrowserRouter(
       children: [
         { index: true, element: <WorkerBadgePage /> },
       ],
+    },
+    {
+      path: 'accueil-invite/reponses/:submissionToken',
+      element: <GuestFormResponsesPage />,
+      errorElement: <SiteErrorPage />,
+    },
+    {
+      path: 'accueil-invite/:token',
+      element: <GuestInviteFormPage />,
+      errorElement: <SiteErrorPage />,
     },
     {
       element: <Layout />,

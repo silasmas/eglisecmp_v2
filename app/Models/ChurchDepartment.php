@@ -19,6 +19,8 @@ use Illuminate\Support\Str;
  * @property string|null $description
  * @property string $color
  * @property int|null $manager_user_id
+ * @property string|null $contact_phone
+ * @property string|null $contact_email
  * @property bool $is_active
  * @property int $sort_order
  */
@@ -30,6 +32,8 @@ class ChurchDepartment extends Model
         'description',
         'color',
         'manager_user_id',
+        'contact_phone',
+        'contact_email',
         'is_active',
         'sort_order',
     ];

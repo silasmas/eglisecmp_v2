@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\Site\PublicDailyVerseController;
 use App\Http\Controllers\Api\Site\PublicEventController;
 use App\Http\Controllers\Api\Site\PublicFeaturedPostController;
 use App\Http\Controllers\Api\Site\PublicGalleryController;
+use App\Http\Controllers\Api\Site\PublicGuestFormController;
 use App\Http\Controllers\Api\Site\PublicHeroMetaController;
 use App\Http\Controllers\Api\Site\PublicMinisterController;
 use App\Http\Controllers\Api\Site\PublicOffrandePaymentController;
@@ -116,6 +117,13 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
     Route::post('workers/otp/send', [PublicChurchWorkerController::class, 'sendEmailOtp'])
         ->middleware('throttle:10,1');
     Route::post('workers/otp/verify', [PublicChurchWorkerController::class, 'verifyEmailOtp'])
+        ->middleware('throttle:20,1');
+
+    Route::post('guest-forms/responses/unlock', [PublicGuestFormController::class, 'unlockResponses'])
+        ->middleware('throttle:30,1');
+    Route::get('guest-forms/{token}', [PublicGuestFormController::class, 'show'])
+        ->middleware('throttle:60,1');
+    Route::post('guest-forms/{token}/submit', [PublicGuestFormController::class, 'submit'])
         ->middleware('throttle:20,1');
     Route::post('workers', [PublicChurchWorkerController::class, 'store'])
         ->middleware('throttle:10,1');

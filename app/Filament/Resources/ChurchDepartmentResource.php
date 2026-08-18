@@ -67,8 +67,18 @@ class ChurchDepartmentResource extends Resource
                             ->relationship('manager', 'name')
                             ->searchable()
                             ->preload()
-                            ->helperText('Peut valider les inscriptions de ce département.')
+                            ->helperText('Peut valider les inscriptions et voir les réponses d’accueil invités de ce département.')
                             ->columnSpan(6),
+                        TextInput::make('contact_phone')
+                            ->label('Téléphone')
+                            ->tel()
+                            ->maxLength(40)
+                            ->columnSpan(3),
+                        TextInput::make('contact_email')
+                            ->label('E-mail')
+                            ->email()
+                            ->maxLength(120)
+                            ->columnSpan(3),
                         TextInput::make('sort_order')->label('Ordre')->numeric()->default(0)->columnSpan(3),
                         Toggle::make('is_active')->label('Actif')->default(true)->columnSpan(3),
                     ]),
@@ -86,6 +96,8 @@ class ChurchDepartmentResource extends Resource
                     ->formatStateUsing(fn (string $state): string => $state)
                     ->color(fn (string $state): string => 'gray'),
                 TextColumn::make('manager.name')->label('Responsable')->placeholder('—'),
+                TextColumn::make('contact_phone')->label('Tél.')->placeholder('—')->toggleable(),
+                TextColumn::make('contact_email')->label('E-mail')->placeholder('—')->toggleable(),
                 TextColumn::make('workers_count')->counts('workers')->label('Ouvriers'),
                 IconColumn::make('is_active')->label('Actif')->boolean(),
                 TextColumn::make('sort_order')->label('Ordre')->sortable(),

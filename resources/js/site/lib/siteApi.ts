@@ -9,9 +9,9 @@ import type {
 } from '../data/types';
 
 /**
- * Construit l'URL de base des endpoints `/api/site/*` consommés par la SPA.
+ * Construit l'URL de base des endpoints `/api/site/*` consommÃ©s par la SPA.
  *
- * @returns Chaîne sans slash final (ex. `/api/site`).
+ * @returns ChaÃ®ne sans slash final (ex. `/api/site`).
  */
 function siteApiBase(): string {
   const raw = import.meta.env.VITE_SITE_API_BASE as string | undefined;
@@ -21,9 +21,9 @@ function siteApiBase(): string {
 }
 
 /**
- * Assemble l'URL complète d'un endpoint relatif au site public.
+ * Assemble l'URL complÃ¨te d'un endpoint relatif au site public.
  *
- * @param route Chemin relatif commençant ou non par `/` (ex. `/events` ou `events`).
+ * @param route Chemin relatif commenÃ§ant ou non par `/` (ex. `/events` ou `events`).
  * @returns URL absolue sur l'origine courante (ex. `https://exemple.test/api/site/events`).
  */
 export function siteApiUrl(route: string): string {
@@ -37,10 +37,10 @@ type SiteListResponse<T> = {
 };
 
 /**
- * Extrait un message lisible depuis une réponse JSON d’erreur Laravel / FlexPay.
+ * Extrait un message lisible depuis une rÃ©ponse JSON dâerreur Laravel / FlexPay.
  *
- * @param parsed Corps JSON déjà parsé (peut être null).
- * @returns Message utilisateur ou chaîne vide si introuvable.
+ * @param parsed Corps JSON dÃ©jÃ  parsÃ© (peut Ãªtre null).
+ * @returns Message utilisateur ou chaÃ®ne vide si introuvable.
  */
 export function extractApiErrorMessage(parsed: unknown): string {
   if (parsed === null || typeof parsed !== 'object') {
@@ -79,7 +79,7 @@ export function extractApiErrorMessage(parsed: unknown): string {
  * Effectue un GET JSON vers l'API site public.
  *
  * @param route Chemin relatif sous la base API (ex. `events?limit=10`).
- * @returns Corps JSON typé.
+ * @returns Corps JSON typÃ©.
  * @throws Error si le statut HTTP n'est pas 2xx.
  */
 export async function fetchSiteJson<T>(route: string): Promise<T> {
@@ -91,17 +91,17 @@ export async function fetchSiteJson<T>(route: string): Promise<T> {
   if (!response.ok) {
     const parsed: unknown = await response.json().catch(() => null);
     const message = extractApiErrorMessage(parsed);
-    throw new Error(message !== '' ? message : `Requête API échouée (${response.status})`);
+    throw new Error(message !== '' ? message : `RequÃªte API Ã©chouÃ©e (${response.status})`);
   }
 
   return response.json() as Promise<T>;
 }
 
 /**
- * Lit la propriété `data` d'une enveloppe API `{ data: T }`.
+ * Lit la propriÃ©tÃ© `data` d'une enveloppe API `{ data: T }`.
  *
  * @param path Chemin sous la base API (ex. `hero-meta`).
- * @returns Valeur `data` typée.
+ * @returns Valeur `data` typÃ©e.
  */
 export async function fetchSiteData<T>(path: string): Promise<T> {
   const body = await fetchSiteJson<{ data: T }>(path);
@@ -110,7 +110,7 @@ export async function fetchSiteData<T>(path: string): Promise<T> {
 }
 
 /**
- * Récupère un tableau `data` depuis une liste paginée simple `{ data: T[] }`.
+ * RÃ©cupÃ¨re un tableau `data` depuis une liste paginÃ©e simple `{ data: T[] }`.
  *
  * @param route Chemin relatif (ex. `events?limit=5`).
  * @returns Tableau extrait ou tableau vide si absent.
@@ -122,11 +122,11 @@ export async function fetchSiteList<T>(route: string): Promise<T[]> {
 }
 
 /**
- * Effectue un POST JSON vers l'API site public (réactions, etc.).
+ * Effectue un POST JSON vers l'API site public (rÃ©actions, etc.).
  *
  * @param route Chemin relatif (ex. `reactions`).
- * @param body Corps JSON sérialisable.
- * @returns Corps typé.
+ * @param body Corps JSON sÃ©rialisable.
+ * @returns Corps typÃ©.
  */
 export async function fetchSitePostJson<T>(route: string, body: Record<string, unknown>): Promise<T> {
   const url = siteApiUrl(route.startsWith('/') ? route : `/${route}`);
@@ -142,7 +142,7 @@ export async function fetchSitePostJson<T>(route: string, body: Record<string, u
   if (!response.ok) {
     const parsed: unknown = await response.json().catch(() => null);
     const message = extractApiErrorMessage(parsed);
-    throw new Error(message !== '' ? message : `Requête API échouée (${response.status})`);
+    throw new Error(message !== '' ? message : `RequÃªte API Ã©chouÃ©e (${response.status})`);
   }
 
   return response.json() as Promise<T>;
@@ -157,7 +157,7 @@ type PostsPageResponse = {
  * Charge une page de publications pour un onglet Enseignements.
  *
  * @param tab sermons | meditations | playlists.
- * @param page Numéro de page (1-based).
+ * @param page NumÃ©ro de page (1-based).
  * @param perPage Taille de page.
  */
 export async function fetchSitePostsPage(
@@ -191,7 +191,7 @@ export async function fetchSitePostsPage(
 }
 
 /**
- * Cultes hebdomadaires (playlists YouTube configurées).
+ * Cultes hebdomadaires (playlists YouTube configurÃ©es).
  */
 export async function fetchTeachingsMeditations(): Promise<import('../data/types').TeachingsPlaylistGroup[]> {
   const body = await fetchSiteJson<{ data: import('../data/types').TeachingsPlaylistGroup[] }>(
@@ -206,10 +206,10 @@ type PlaylistsPageResponse = {
 };
 
 /**
- * Playlists YouTube paginées (hors cultes hebdomadaires).
+ * Playlists YouTube paginÃ©es (hors cultes hebdomadaires).
  *
- * @param page Numéro de page (1-based).
- * @param perPage Nombre de playlists par page (défaut 15).
+ * @param page NumÃ©ro de page (1-based).
+ * @param perPage Nombre de playlists par page (dÃ©faut 15).
  */
 export async function fetchTeachingsPlaylistsPage(
   page = 1,
@@ -224,7 +224,7 @@ export async function fetchTeachingsPlaylistsPage(
 }
 
 /**
- * Détail playlist (messages + identifiant YouTube).
+ * DÃ©tail playlist (messages + identifiant YouTube).
  */
 export async function fetchSitePlaylistDetail(
   eventId: string,
@@ -236,7 +236,7 @@ export async function fetchSitePlaylistDetail(
 }
 
 /**
- * Recherche globale site (pasteurs, messages, événements, pages).
+ * Recherche globale site (pasteurs, messages, Ã©vÃ©nements, pages).
  */
 export async function fetchSiteSearch(q: string): Promise<import('../data/types').SiteSearchHit[]> {
   const query = new URLSearchParams({ q: q.trim() });
@@ -247,14 +247,14 @@ export async function fetchSiteSearch(q: string): Promise<import('../data/types'
 }
 
 /**
- * Données page Bunda (dernière édition, archives, annonce).
+ * DonnÃ©es page Bunda (derniÃ¨re Ã©dition, archives, annonce).
  */
 export async function fetchSiteBunda(): Promise<import('../data/types').BundaPageData> {
   const body = await fetchSiteJson<{ data: import('../data/types').BundaPageData | null }>('bunda');
   const fallbackYear = new Date().getFullYear();
   const fallback: import('../data/types').BundaPageData = {
     intro: {
-      title: 'Conférence Bunda',
+      title: 'ConfÃ©rence Bunda',
       subtitle: '',
       body: '',
       heroImage: '',
@@ -300,9 +300,9 @@ export async function fetchSiteBunda(): Promise<import('../data/types').BundaPag
 }
 
 /**
- * Détail JSON d’un message par identifiant (page de lecture avec liste latérale).
+ * DÃ©tail JSON dâun message par identifiant (page de lecture avec liste latÃ©rale).
  *
- * @param postId Identifiant numérique du post Laravel.
+ * @param postId Identifiant numÃ©rique du post Laravel.
  */
 export async function fetchSiteSermonById(postId: string): Promise<Sermon> {
   const body = await fetchSiteJson<{ data: Sermon }>(`/posts/${encodeURIComponent(postId)}`);
@@ -311,11 +311,11 @@ export async function fetchSiteSermonById(postId: string): Promise<Sermon> {
 }
 
 /**
- * Charge toutes les pages d'une playlist donnée (filtrage serveur par `event_id`).
+ * Charge toutes les pages d'une playlist donnÃ©e (filtrage serveur par `event_id`).
  *
- * @param eventId Identifiant événement lié aux messages.
+ * @param eventId Identifiant Ã©vÃ©nement liÃ© aux messages.
  * @param options Options de filtrage (jour de culte, recherche).
- * @param perPage Taille de pagination (32–48 recommandé pour limiter les requêtes).
+ * @param perPage Taille de pagination (32â48 recommandÃ© pour limiter les requÃªtes).
  */
 export async function fetchSitePlaylistPosts(
   eventId: string,
@@ -357,7 +357,7 @@ export async function fetchSitePlaylistPosts(
 }
 
 /**
- * Charge tous les messages d’un jour de culte hebdomadaire (méditations).
+ * Charge tous les messages dâun jour de culte hebdomadaire (mÃ©ditations).
  *
  * @param weeklyServiceDay Jour (`mercredi`, `jeudi`, `dimanche`).
  * @param search Filtre texte optionnel.
@@ -408,19 +408,19 @@ export async function fetchReactionKeyLabels(): Promise<Record<string, string>> 
   return body.data?.reactionKeys ?? {};
 }
 
-/** Ligne type d’offrande (Filament / table `offrandes`). */
+/** Ligne type dâoffrande (Filament / table `offrandes`). */
 export type SiteOffrandeRow = {
   id: number;
   nom: string;
   description: string | null;
 };
 
-/** Charge les types d’offrandes actifs pour la page « Offrandes ». */
+/** Charge les types dâoffrandes actifs pour la page Â«â¯Offrandesâ¯Â». */
 export async function fetchOffrandesList(): Promise<SiteOffrandeRow[]> {
   return fetchSiteList<SiteOffrandeRow>('offrandes');
 }
 
-/** Opérateur Mobile Money (validation UI — le type API FlexPay reste "1"). */
+/** OpÃ©rateur Mobile Money (validation UI â le type API FlexPay reste "1"). */
 export type SiteMobileMoneyProvider = {
   type: string;
   code: string;
@@ -428,7 +428,7 @@ export type SiteMobileMoneyProvider = {
   msisdn_regex: string;
 };
 
-/** Liste les opérateurs Mobile Money configurés (M-Pesa, Airtel, Orange, Afri…). */
+/** Liste les opÃ©rateurs Mobile Money configurÃ©s (M-Pesa, Airtel, Orange, Afriâ¦). */
 export async function fetchOffrandeMobileProviders(): Promise<SiteMobileMoneyProvider[]> {
   const body = await fetchSiteJson<{ data: SiteMobileMoneyProvider[] }>('offrandes/mobile-providers');
   return body.data ?? [];
@@ -450,7 +450,7 @@ export type InitOffrandeResponse = {
   currency: string;
 };
 
-/** Crée une transaction locale avant paiement FlexPay. */
+/** CrÃ©e une transaction locale avant paiement FlexPay. */
 export async function initOffrandeTransaction(payload: InitOffrandePayload): Promise<InitOffrandeResponse> {
   const body = await fetchSitePostJson<{ data: InitOffrandeResponse }>(
     'offrandes/init',
@@ -466,7 +466,7 @@ export type ProcessOffrandePayload = {
   provider_code?: string;
 };
 
-/** Lance le paiement mobile ou carte (URL de redirection pour la carte si succès). */
+/** Lance le paiement mobile ou carte (URL de redirection pour la carte si succÃ¨s). */
 export async function processOffrandePayment(payload: ProcessOffrandePayload): Promise<{
   channel: string;
   success: boolean;
@@ -489,7 +489,7 @@ export async function processOffrandePayment(payload: ProcessOffrandePayload): P
   };
 }
 
-/** Polling FlexPay après initiation mobile money. */
+/** Polling FlexPay aprÃ¨s initiation mobile money. */
 export async function fetchOffrandePaymentStatus(reference: string): Promise<{
   paid: boolean;
   pending: boolean;
@@ -515,10 +515,10 @@ export async function fetchOffrandePaymentStatus(reference: string): Promise<{
 export type SiteInquiryKind = 'prayer_request' | 'appointment';
 
 /**
- * Envoie une demande publique (prière ou rendez-vous) vers le serveur Laravel.
+ * Envoie une demande publique (priÃ¨re ou rendez-vous) vers le serveur Laravel.
  *
- * @param payload Corps validé côté API (`kind`, `name`, `message`, champs optionnels).
- * @returns Confirmation `{ ok: true }` si l’enregistrement a réussi.
+ * @param payload Corps validÃ© cÃ´tÃ© API (`kind`, `name`, `message`, champs optionnels).
+ * @returns Confirmation `{ ok: true }` si lâenregistrement a rÃ©ussi.
  */
 export type AppointmentMinisterRow = {
   id: number;
@@ -547,7 +547,7 @@ export async function fetchPublicMinisters(): Promise<LeadershipMinisterRow[]> {
   return fetchSiteList<LeadershipMinisterRow>('ministers');
 }
 
-/** Pasteurs avec horaires de réception pour les rendez-vous. */
+/** Pasteurs avec horaires de rÃ©ception pour les rendez-vous. */
 export async function fetchAppointmentMinisters(): Promise<AppointmentMinisterRow[]> {
   return fetchSiteList<AppointmentMinisterRow>('appointments/ministers');
 }
@@ -559,7 +559,7 @@ export async function fetchAppointmentDates(ministerId: number): Promise<string[
   return Array.isArray(body.dates) ? body.dates : [];
 }
 
-/** Créneaux disponibles pour un pasteur à une date. */
+/** CrÃ©neaux disponibles pour un pasteur Ã  une date. */
 export async function fetchAppointmentSlots(ministerId: number, date: string): Promise<AppointmentSlotRow[]> {
   const query = new URLSearchParams({ minister_id: String(ministerId), date });
   const body = await fetchSiteData<{ slots: AppointmentSlotRow[] }>(`appointments/slots?${query.toString()}`);
@@ -615,7 +615,7 @@ type WallTestimoniesPageResponse = {
 };
 
 /**
- * Charge une page du mur de témoignages approuvés.
+ * Charge une page du mur de tÃ©moignages approuvÃ©s.
  */
 export async function fetchWallTestimoniesPage(
   page: number,
@@ -637,14 +637,14 @@ export async function fetchWallTestimoniesPage(
 }
 
 /**
- * Témoignages mis en avant pour la page d’accueil.
+ * TÃ©moignages mis en avant pour la page dâaccueil.
  */
 export async function fetchFeaturedTestimonies(): Promise<Testimony[]> {
   return fetchSiteList<Testimony>('testimonies/featured');
 }
 
 /**
- * Configuration du mur (catégories, couleurs, polices).
+ * Configuration du mur (catÃ©gories, couleurs, polices).
  */
 export async function fetchWallConfig(): Promise<{
   wall: WallConfig;
@@ -677,7 +677,7 @@ export async function fetchWallConfig(): Promise<{
 }
 
 /**
- * Témoignages pour le carrousel hero.
+ * TÃ©moignages pour le carrousel hero.
  */
 export async function fetchWallCarousel(limit = 24): Promise<WallTestimony[]> {
   return fetchSiteList<WallTestimony>(`testimonies/carousel?limit=${limit}`);
@@ -691,17 +691,17 @@ export async function fetchWallStats(): Promise<import('../data/types').WallStat
 }
 
 /**
- * Enregistre un partage social pour un témoignage.
+ * Enregistre un partage social pour un tÃ©moignage.
  */
 export async function recordTestimonyShare(testimonyId: string): Promise<void> {
   await fetchSitePostJson<{ data: { shareCount: number } }>(`testimonies/${testimonyId}/share`, {});
 }
 
 /**
- * Envoie un témoignage (multipart) en attente de modération.
+ * Envoie un tÃ©moignage (multipart) en attente de modÃ©ration.
  */
 /**
- * Envoie un témoignage avec suivi de progression upload (XHR).
+ * Envoie un tÃ©moignage avec suivi de progression upload (XHR).
  */
 export function submitTestimony(
   payload: TestimonySubmitPayload,
@@ -788,12 +788,12 @@ export function submitTestimony(
       onProgress?.(100);
       resolve({
         ok: Boolean(res.data?.ok),
-        message: res.data?.message ?? 'Merci pour votre témoignage.',
+        message: res.data?.message ?? 'Merci pour votre tÃ©moignage.',
       });
     });
 
     xhr.addEventListener('error', () => {
-      reject(new Error('Erreur réseau lors de l’envoi.'));
+      reject(new Error('Erreur rÃ©seau lors de lâenvoi.'));
     });
 
     xhr.send(form);
@@ -810,7 +810,7 @@ export type AlertSubscribePayload = {
 };
 
 /**
- * Inscription opt-in aux alertes live et événements.
+ * Inscription opt-in aux alertes live et Ã©vÃ©nements.
  */
 export async function subscribeToAlerts(payload: AlertSubscribePayload): Promise<{ message: string }> {
   const response = await fetch(siteApiUrl('/alert-subscriptions'), {
@@ -849,7 +849,7 @@ export async function subscribeToAlerts(payload: AlertSubscribePayload): Promise
 }
 
 /**
- * Désabonnement via le jeton reçu par e-mail.
+ * DÃ©sabonnement via le jeton reÃ§u par e-mail.
  */
 export async function unsubscribeFromAlerts(token: string): Promise<{ message: string }> {
   const response = await fetch(siteApiUrl(`/alert-subscriptions/unsubscribe/${encodeURIComponent(token)}`), {
@@ -866,13 +866,13 @@ export async function unsubscribeFromAlerts(token: string): Promise<{ message: s
 
   if (!response.ok) {
     const message = extractApiErrorMessage(parsed);
-    throw new Error(message !== '' ? message : 'Lien invalide ou expiré.');
+    throw new Error(message !== '' ? message : 'Lien invalide ou expirÃ©.');
   }
 
   const res = parsed as { data?: { message?: string } };
 
   return {
-    message: res.data?.message ?? 'Vous êtes désabonné(e) des alertes.',
+    message: res.data?.message ?? 'Vous Ãªtes dÃ©sabonnÃ©(e) des alertes.',
   };
 }
 
@@ -895,14 +895,14 @@ export type ChildPresentationPayload = {
 };
 
 /**
- * Charge les dates disponibles et les consignes de présentation d'enfants.
+ * Charge les dates disponibles et les consignes de prÃ©sentation d'enfants.
  */
 export async function fetchChildPresentationMeta(): Promise<ChildPresentationMeta> {
   return fetchSiteData<ChildPresentationMeta>('child-presentations/meta');
 }
 
 /**
- * Message ECODIM selon l'âge saisi (temps restant avant l'école du dimanche).
+ * Message ECODIM selon l'Ã¢ge saisi (temps restant avant l'Ã©cole du dimanche).
  */
 export async function getEcodimHint(
   ageYears: number,
@@ -914,7 +914,7 @@ export async function getEcodimHint(
 }
 
 /**
- * Envoie un code OTP SMS pour authentifier le numéro du parent.
+ * Envoie un code OTP SMS pour authentifier le numÃ©ro du parent.
  */
 export async function sendChildPresentationOtp(phone: string): Promise<{ ok: boolean; message: string }> {
   const body = await fetchSitePostJson<{ data: { ok: boolean; message: string } }>(
@@ -926,7 +926,7 @@ export async function sendChildPresentationOtp(phone: string): Promise<{ ok: boo
 }
 
 /**
- * Vérifie le code OTP reçu par SMS.
+ * VÃ©rifie le code OTP reÃ§u par SMS.
  */
 export async function verifyChildPresentationOtp(
   phone: string,
@@ -941,7 +941,7 @@ export async function verifyChildPresentationOtp(
 }
 
 /**
- * Soumet une demande de présentation d'enfants (multipart).
+ * Soumet une demande de prÃ©sentation d'enfants (multipart).
  */
 export async function submitChildPresentation(
   payload: ChildPresentationPayload,
@@ -984,7 +984,7 @@ export async function submitChildPresentation(
   return {
     ok: res.data?.ok === true,
     id: res.data?.id ?? 0,
-    message: res.data?.message ?? 'Demande envoyée.',
+    message: res.data?.message ?? 'Demande envoyÃ©e.',
   };
 }
 
@@ -1041,7 +1041,7 @@ export async function fetchWorshipReportMeta(): Promise<{ service_types: Worship
 }
 
 /**
- * Vérifie qu'un numéro est enregistré dans l'équipe protocole.
+ * VÃ©rifie qu'un numÃ©ro est enregistrÃ© dans l'Ã©quipe protocole.
  */
 export async function lookupWorshipReporterPhone(
   phone: string,
@@ -1067,7 +1067,7 @@ export async function sendWorshipReportOtp(phone: string): Promise<{ ok: boolean
 }
 
 /**
- * Vérifie le code OTP du rapporteur protocole.
+ * VÃ©rifie le code OTP du rapporteur protocole.
  */
 export async function verifyWorshipReportOtp(
   phone: string,
@@ -1082,7 +1082,7 @@ export async function verifyWorshipReportOtp(
 }
 
 /**
- * Envoie un rapport de présence de culte (OTP déjà vérifié).
+ * Envoie un rapport de prÃ©sence de culte (OTP dÃ©jÃ  vÃ©rifiÃ©).
  */
 export async function submitWorshipReport(payload: {
   service_date: string;
@@ -1134,7 +1134,7 @@ export type WorkerBadgeData = {
   city: string;
 };
 
-/** M�tadonn�es wizard inscription ouvrier. */
+/** Métadonnées wizard inscription ouvrier. */
 export async function fetchWorkerRegistrationMeta(): Promise<WorkerRegistrationMeta> {
   return fetchSiteData<WorkerRegistrationMeta>('workers/meta');
 }
@@ -1145,7 +1145,7 @@ export async function sendWorkerEmailOtp(email: string): Promise<{ ok: boolean; 
   return body.data;
 }
 
-/** V�rifie l OTP e-mail ouvrier. */
+/** Vérifie l OTP e-mail ouvrier. */
 export async function verifyWorkerEmailOtp(
   email: string,
   otpCode: string,
@@ -1181,11 +1181,11 @@ export async function submitWorkerRegistration(form: FormData): Promise<{ ok: bo
   return {
     ok: res.data?.ok === true,
     id: res.data?.id ?? 0,
-    message: res.data?.message ?? 'Inscription envoy�e.',
+    message: res.data?.message ?? 'Inscription envoyée.',
   };
 }
 
-/** Donn�es publiques du badge ouvrier. */
+/** Données publiques du badge ouvrier. */
 export async function fetchWorkerBadge(token: string): Promise<WorkerBadgeData> {
   return fetchSiteData<WorkerBadgeData>(`workers/badge/${encodeURIComponent(token)}`);
 }
@@ -1218,7 +1218,7 @@ export type WorkerEditableProfile = {
 /**
  * Charge le dossier ouvrier pour modification via jeton.
  *
- * @param token Jeton d?�dition public.
+ * @param token Jeton d?édition public.
  */
 export async function fetchWorkerEditableProfile(token: string): Promise<WorkerEditableProfile> {
   return fetchSiteData<WorkerEditableProfile>(`workers/edit/${encodeURIComponent(token)}`);
@@ -1227,8 +1227,8 @@ export async function fetchWorkerEditableProfile(token: string): Promise<WorkerE
 /**
  * Envoie l?OTP pour une modification de dossier (adresse saisie = actuelle ou nouvelle).
  *
- * @param token Jeton d?�dition public.
- * @param email Adresse e-mail � v�rifier.
+ * @param token Jeton d?édition public.
+ * @param email Adresse e-mail à vérifier.
  */
 export async function sendWorkerEditOtp(
   token: string,
@@ -1242,11 +1242,11 @@ export async function sendWorkerEditOtp(
 }
 
 /**
- * V�rifie l?OTP de modification de dossier.
+ * Vérifie l?OTP de modification de dossier.
  *
- * @param token Jeton d?�dition public.
- * @param email Adresse e-mail concern�e.
- * @param otpCode Code re�u par e-mail.
+ * @param token Jeton d?édition public.
+ * @param email Adresse e-mail concernée.
+ * @param otpCode Code reçu par e-mail.
  */
 export async function verifyWorkerEditOtp(
   token: string,
@@ -1263,8 +1263,8 @@ export async function verifyWorkerEditOtp(
 /**
  * Enregistre les modifications du dossier ouvrier (multipart, OTP requis).
  *
- * @param token Jeton d?�dition public.
- * @param form Donn�es du formulaire.
+ * @param token Jeton d?édition public.
+ * @param form Données du formulaire.
  */
 export async function submitWorkerProfileUpdate(
   token: string,
@@ -1292,6 +1292,97 @@ export async function submitWorkerProfileUpdate(
   return {
     ok: res.data?.ok === true,
     id: res.data?.id ?? 0,
-    message: res.data?.message ?? 'Dossier mis � jour.',
+    message: res.data?.message ?? 'Dossier mis à jour.',
   };
 }
+
+/** Structure publique d’un formulaire d’accueil invité. */
+export type GuestInfoFormPublic = {
+  id: number;
+  title: string;
+  intro_html: string | null;
+  cmp_info_html: string | null;
+  design: {
+    banner_url: string | null;
+    primary_color: string;
+    accent_color: string;
+    radius: number;
+  };
+  sections: Array<{
+    id: number;
+    title: string;
+    description: string | null;
+    fields: Array<{
+      key: string;
+      label: string;
+      type: string;
+      required: boolean;
+      help_text: string | null;
+      options: Record<string, unknown> | null;
+    }>;
+  }>;
+};
+
+export type GuestFormShowResponse = {
+  pastor: {
+    full_name: string;
+    church_name: string | null;
+    arrival_at: string | null;
+    ministry_at: string | null;
+  };
+  project: { title: string | null };
+  form: GuestInfoFormPublic;
+  already_submitted: boolean;
+  headline: string;
+};
+
+/**
+ * Charge le formulaire public pour un token d’invitation pasteur.
+ *
+ * @param token Token court d’invitation.
+ */
+export async function fetchGuestInviteForm(token: string): Promise<GuestFormShowResponse> {
+  return fetchSiteJson<GuestFormShowResponse>(`/guest-forms/${encodeURIComponent(token)}`);
+}
+
+/**
+ * Envoie les réponses du pasteur invité.
+ *
+ * @param token Token d’invitation.
+ * @param answers Map clé champ → valeur.
+ */
+export async function submitGuestInviteForm(
+  token: string,
+  answers: Record<string, unknown>,
+): Promise<{ message: string }> {
+  return fetchSitePostJson<{ message: string }>(`/guest-forms/${encodeURIComponent(token)}/submit`, {
+    answers,
+  });
+}
+
+export type GuestFormUnlockResponse = {
+  pastor: { full_name: string | null; church_name: string | null };
+  project_title: string | null;
+  submitted_at: string | null;
+  answers: Array<{ key: string; label: string; type: string; value: unknown }>;
+};
+
+/**
+ * Déverrouille le portail réponses département.
+ *
+ * @param accessToken Token de la soumission.
+ * @param password Mot de passe du formulaire.
+ * @param departmentId ID du département (filtre).
+ */
+export async function unlockGuestFormResponses(
+  accessToken: string,
+  password: string,
+  departmentId: number,
+): Promise<GuestFormUnlockResponse> {
+  return fetchSitePostJson<GuestFormUnlockResponse>('/guest-forms/responses/unlock', {
+    access_token: accessToken,
+    password,
+    department_id: departmentId,
+  });
+}
+

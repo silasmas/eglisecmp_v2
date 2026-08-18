@@ -1,10 +1,6 @@
 {
-  "_WorkerBadgeLayout-Duc2n7nh.css": {
-    "file": "assets/WorkerBadgeLayout-Duc2n7nh.css",
-    "src": "_WorkerBadgeLayout-Duc2n7nh.css"
-  },
-  "_WorkerBadgeLayout-cI7iktzm.js": {
-    "file": "assets/WorkerBadgeLayout-cI7iktzm.js",
+  "_WorkerBadgeLayout-DuZOzBCJ.js": {
+    "file": "assets/WorkerBadgeLayout-DuZOzBCJ.js",
     "name": "WorkerBadgeLayout",
     "css": [
       "assets/WorkerBadgeLayout-Duc2n7nh.css"
@@ -15,6 +11,10 @@
       "assets/nom-badge-DUU25ZnV.png",
       "assets/Chambre-CfWZX87R.png"
     ]
+  },
+  "_WorkerBadgeLayout-Duc2n7nh.css": {
+    "file": "assets/WorkerBadgeLayout-Duc2n7nh.css",
+    "src": "_WorkerBadgeLayout-Duc2n7nh.css"
   },
   "node_modules/leaflet/dist/images/layers-2x.png": {
     "file": "assets/layers-2x-Bpkbi35X.png",
@@ -29,12 +29,12 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-DqCsNha0.css",
+    "file": "assets/app-eVMLGf9r.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
   "resources/css/filament/admin/theme.css": {
-    "file": "assets/theme-CnYVVSs0.css",
+    "file": "assets/theme-B4VTW4bH.css",
     "src": "resources/css/filament/admin/theme.css",
     "isEntry": true
   },
@@ -61,15 +61,15 @@
     "src": "resources/js/site/assets/worker-badge/nom-badge.png"
   },
   "resources/js/site/main.tsx": {
-    "file": "assets/main-CU3NKiHQ.js",
+    "file": "assets/main-g0ekPYQZ.js",
     "name": "main",
     "src": "resources/js/site/main.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-cI7iktzm.js"
+      "_WorkerBadgeLayout-DuZOzBCJ.js"
     ],
     "css": [
-      "assets/main-CCdo3man.css"
+      "assets/main-C2HgVDUg.css"
     ],
     "assets": [
       "assets/layers-BWBAp2CZ.png",
@@ -78,12 +78,12 @@
     ]
   },
   "resources/js/site/worker-badge-entry.tsx": {
-    "file": "assets/worker-badge-entry-BFRkQvDo.js",
+    "file": "assets/worker-badge-entry-DQTHuXLl.js",
     "name": "worker-badge-entry",
     "src": "resources/js/site/worker-badge-entry.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-cI7iktzm.js"
+      "_WorkerBadgeLayout-DuZOzBCJ.js"
     ]
   }
 }
