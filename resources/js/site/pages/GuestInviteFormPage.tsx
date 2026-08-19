@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle2, Loader2, Send } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react';
 import {
   fetchGuestInviteForm,
   submitGuestInviteForm,
@@ -23,6 +23,34 @@ function toggleListValue(current: unknown, item: string): string[] {
 }
 
 /**
+ * Vérifie les champs obligatoires d’une rubrique.
+ *
+ * @param section Rubrique à valider.
+ * @param answers Réponses courantes.
+ * @returns Message d’erreur ou null.
+ */
+function validateSection(
+  section: GuestInfoFormPublic['sections'][number],
+  answers: AnswersMap,
+): string | null {
+  for (const field of section.fields) {
+    if (!field.required) {
+      continue;
+    }
+    const value = answers[field.key];
+    const empty =
+      value === null ||
+      value === undefined ||
+      value === '' ||
+      (Array.isArray(value) && value.length === 0);
+    if (empty) {
+      return `Veuillez renseigner : ${field.label}`;
+    }
+  }
+  return null;
+}
+
+/**
  * Page publique : fiche de renseignements pour un pasteur invité.
  */
 export default function GuestInviteFormPage() {
@@ -33,6 +61,7 @@ export default function GuestInviteFormPage() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
+  const [step, setStep] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -43,6 +72,7 @@ export default function GuestInviteFormPage() {
         if (!cancelled) {
           setData(res);
           setDone(res.already_submitted);
+          setStep(0);
         }
       })
       .catch((err: unknown) => {
@@ -69,6 +99,11 @@ export default function GuestInviteFormPage() {
     };
   }, [data]);
 
+  const isWizard = data?.form.layout_mode === 'wizard';
+  const sections = data?.form.sections ?? [];
+  const currentSection = sections[step] ?? null;
+  const isLastStep = step >= sections.length - 1;
+
   /**
    * Met à jour une réponse.
    *
@@ -77,6 +112,30 @@ export default function GuestInviteFormPage() {
    */
   const setAnswer = (key: string, value: unknown) => {
     setAnswers((prev) => ({ ...prev, [key]: value }));
+  };
+
+  /**
+   * Passe à l’étape suivante après validation locale.
+   */
+  const goNext = () => {
+    if (!currentSection) {
+      return;
+    }
+    const sectionError = validateSection(currentSection, answers);
+    if (sectionError) {
+      setError(sectionError);
+      return;
+    }
+    setError(null);
+    setStep((prev) => Math.min(prev + 1, sections.length - 1));
+  };
+
+  /**
+   * Revient à l’étape précédente.
+   */
+  const goPrev = () => {
+    setError(null);
+    setStep((prev) => Math.max(prev - 1, 0));
   };
 
   /**
@@ -89,6 +148,15 @@ export default function GuestInviteFormPage() {
     if (!token || busy || done) {
       return;
     }
+
+    if (isWizard && currentSection) {
+      const sectionError = validateSection(currentSection, answers);
+      if (sectionError) {
+        setError(sectionError);
+        return;
+      }
+    }
+
     setBusy(true);
     setError(null);
     try {
@@ -145,7 +213,16 @@ export default function GuestInviteFormPage() {
           <p className="text-xs font-semibold uppercase tracking-wider" style={{ color: 'var(--guest-accent)' }}>
             {data.project.title ?? 'Accueil CMP'}
           </p>
-          <h1 className="mt-2 text-2xl font-bold text-surface-900 dark:text-white sm:text-3xl">{data.headline}</h1>
+          <div className="mt-3 flex items-start gap-4">
+            {data.pastor.photo_url ? (
+              <img
+                src={data.pastor.photo_url}
+                alt={data.pastor.full_name}
+                className="h-16 w-16 rounded-full object-cover ring-2 ring-orange-300 sm:h-20 sm:w-20"
+              />
+            ) : null}
+            <h1 className="text-2xl font-bold text-surface-900 dark:text-white sm:text-3xl">{data.headline}</h1>
+          </div>
           {form.intro_html ? (
             <div
               className="prose prose-sm mt-4 max-w-none text-surface-700 dark:prose-invert"
@@ -160,7 +237,27 @@ export default function GuestInviteFormPage() {
             </div>
           ) : (
             <form onSubmit={onSubmit} className="mt-8 space-y-8">
-              {form.sections.map((section) => (
+              {isWizard && sections.length > 0 ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-xs text-surface-500">
+                    <span>
+                      Étape {step + 1} / {sections.length}
+                    </span>
+                    <span>{Math.round(((step + 1) / sections.length) * 100)} %</span>
+                  </div>
+                  <div className="h-2 overflow-hidden rounded-full bg-surface-200 dark:bg-surface-800">
+                    <div
+                      className="h-full transition-all"
+                      style={{
+                        width: `${((step + 1) / sections.length) * 100}%`,
+                        background: 'var(--guest-accent)',
+                      }}
+                    />
+                  </div>
+                </div>
+              ) : null}
+
+              {(isWizard ? (currentSection ? [currentSection] : []) : sections).map((section) => (
                 <section key={section.id} className="space-y-4 border-t border-surface-200 pt-6 dark:border-surface-700">
                   <div>
                     <h2 className="text-lg font-semibold text-surface-900 dark:text-white">{section.title}</h2>
@@ -179,7 +276,7 @@ export default function GuestInviteFormPage() {
                 </section>
               ))}
 
-              {form.cmp_info_html ? (
+              {(!isWizard || isLastStep) && form.cmp_info_html ? (
                 <aside
                   className="border border-surface-200 bg-surface-50 p-4 text-sm dark:border-surface-700 dark:bg-surface-800/50"
                   style={{ borderRadius: 'var(--guest-radius)' }}
@@ -194,15 +291,41 @@ export default function GuestInviteFormPage() {
 
               {error ? <p className="text-sm text-red-600">{error}</p> : null}
 
-              <button
-                type="submit"
-                disabled={busy}
-                className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
-                style={{ background: 'var(--guest-primary)', borderRadius: 'var(--guest-radius)' }}
-              >
-                {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
-                Envoyer la fiche
-              </button>
+              <div className="flex flex-wrap items-center gap-3">
+                {isWizard && step > 0 ? (
+                  <button
+                    type="button"
+                    onClick={goPrev}
+                    className="inline-flex items-center gap-2 border border-surface-300 px-4 py-2.5 text-sm font-medium text-surface-800 dark:border-surface-600 dark:text-surface-100"
+                    style={{ borderRadius: 'var(--guest-radius)' }}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Précédent
+                  </button>
+                ) : null}
+
+                {isWizard && !isLastStep ? (
+                  <button
+                    type="button"
+                    onClick={goNext}
+                    className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white"
+                    style={{ background: 'var(--guest-primary)', borderRadius: 'var(--guest-radius)' }}
+                  >
+                    Suivant
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                ) : (
+                  <button
+                    type="submit"
+                    disabled={busy}
+                    className="inline-flex items-center gap-2 px-6 py-3 text-sm font-semibold text-white disabled:opacity-60"
+                    style={{ background: 'var(--guest-primary)', borderRadius: 'var(--guest-radius)' }}
+                  >
+                    {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                    Envoyer la fiche
+                  </button>
+                )}
+              </div>
             </form>
           )}
         </div>
@@ -333,15 +456,6 @@ function FieldRenderer({ field, value, onChange }: FieldProps) {
               </div>
             </div>
           ))}
-          <input
-            type="text"
-            className={inputClass}
-            placeholder="Autre…"
-            value={typeof (value as { other?: string } | undefined)?.other === 'string' ? '' : ''}
-            onChange={() => {
-              /* Autre saisi via champ séparé si besoin — conserve la liste */
-            }}
-          />
         </div>
       ) : null}
     </div>

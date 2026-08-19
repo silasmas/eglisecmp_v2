@@ -36,17 +36,33 @@ class GuestPastorInviteMail extends Mailable
     }
 
     /**
-     * Contenu Blade.
+     * Contenu HTML brandé CMP.
      */
     public function content(): Content
     {
         return new Content(
-            markdown: 'mail.guest-pastor-invite',
+            html: 'mail.guest-branded',
             with: [
+                'subjectLine' => 'Fiche de renseignements CMP',
+                'heading' => 'Bienvenue au CMP',
+                'introHtml' => 'Bonjour <strong>'.e($this->guestPastor->full_name).'</strong>,<br>afin de mieux préparer votre accueil, merci de remplir la fiche&nbsp;: <em>'.e($this->formTitle).'</em>.',
                 'pastorName' => $this->guestPastor->full_name,
-                'formUrl' => $this->formUrl,
-                'formTitle' => $this->formTitle,
                 'projectTitle' => $this->guestPastor->project?->title ?? '—',
+                'metaRows' => array_values(array_filter([
+                    filled($this->guestPastor->church_name)
+                        ? ['label' => 'Église', 'value' => (string) $this->guestPastor->church_name]
+                        : null,
+                    $this->guestPastor->arrival_at
+                        ? ['label' => 'Arrivée', 'value' => $this->guestPastor->arrival_at->timezone(config('app.timezone'))->format('d/m/Y H:i')]
+                        : null,
+                ])),
+                'passwordHint' => null,
+                'ctaUrl' => $this->formUrl,
+                'ctaLabel' => 'Remplir la fiche',
+                'logoPath' => public_path('images/logo-cmp.png'),
+                'logoUrl' => asset('images/logo-cmp.png'),
+                'pastorPhotoPath' => $this->guestPastor->photoAbsolutePath(),
+                'pastorPhotoUrl' => $this->guestPastor->photoPublicUrl(),
             ],
         );
     }

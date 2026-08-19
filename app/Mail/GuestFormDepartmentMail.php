@@ -46,19 +46,31 @@ class GuestFormDepartmentMail extends Mailable
     }
 
     /**
-     * Contenu Blade.
+     * Contenu HTML brandé CMP.
      */
     public function content(): Content
     {
+        $pastor = $this->submission->guestPastor;
+
         return new Content(
-            markdown: 'mail.guest-form-department',
+            html: 'mail.guest-branded',
             with: [
-                'pastorName' => $this->submission->guestPastor?->full_name ?? '—',
-                'departmentName' => $this->department->name,
+                'subjectLine' => 'Fiche renseignement reçue',
+                'heading' => 'Fiche renseignement reçue',
+                'introHtml' => 'Bonjour <strong>'.e($this->department->name).'</strong>,<br>le pasteur invité a rempli sa fiche. Consultez les réponses liées à votre département.',
+                'pastorName' => $pastor?->full_name ?? '—',
                 'projectTitle' => $this->submission->form?->project?->title ?? '—',
-                'portalUrl' => $this->portalUrl,
+                'metaRows' => [
+                    ['label' => 'Département', 'value' => $this->department->name],
+                    ['label' => 'Reçu le', 'value' => $this->submission->submitted_at?->timezone(config('app.timezone'))->format('d/m/Y H:i') ?? '—'],
+                ],
                 'passwordHint' => $this->passwordHint,
-                'submittedAt' => $this->submission->submitted_at?->timezone(config('app.timezone'))->format('d/m/Y H:i'),
+                'ctaUrl' => $this->portalUrl,
+                'ctaLabel' => 'Voir les réponses',
+                'logoPath' => public_path('images/logo-cmp.png'),
+                'logoUrl' => asset('images/logo-cmp.png'),
+                'pastorPhotoPath' => $pastor?->photoAbsolutePath(),
+                'pastorPhotoUrl' => $pastor?->photoPublicUrl(),
             ],
         );
     }

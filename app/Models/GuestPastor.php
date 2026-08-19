@@ -16,6 +16,7 @@ use Illuminate\Support\Str;
  * @property int $id
  * @property int $project_id
  * @property string $full_name
+ * @property string|null $photo_path
  * @property string|null $church_name
  * @property string|null $email
  * @property string|null $phone
@@ -32,6 +33,7 @@ class GuestPastor extends Model
     protected $fillable = [
         'project_id',
         'full_name',
+        'photo_path',
         'church_name',
         'email',
         'phone',
@@ -84,6 +86,42 @@ class GuestPastor extends Model
     public function publicFormUrl(): string
     {
         return url('/accueil-invite/'.$this->invite_token);
+    }
+
+    /**
+     * URL publique de la photo (ou null).
+     */
+    public function photoPublicUrl(): ?string
+    {
+        if (blank($this->photo_path)) {
+            return null;
+        }
+
+        $path = (string) $this->photo_path;
+        if (str_starts_with($path, 'http')) {
+            return $path;
+        }
+
+        return \Illuminate\Support\Facades\Storage::disk('public')->url($path);
+    }
+
+    /**
+     * Chemin disque local pour embed e-mail (si fichier public).
+     */
+    public function photoAbsolutePath(): ?string
+    {
+        if (blank($this->photo_path)) {
+            return null;
+        }
+
+        $path = (string) $this->photo_path;
+        if (str_starts_with($path, 'http')) {
+            return null;
+        }
+
+        $absolute = storage_path('app/public/'.ltrim($path, '/'));
+
+        return is_file($absolute) ? $absolute : null;
     }
 
     /**

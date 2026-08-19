@@ -54,6 +54,7 @@ final class PublicGuestFormController extends Controller
             'pastor' => [
                 'full_name' => $pastor->full_name,
                 'church_name' => $pastor->church_name,
+                'photo_url' => $pastor->photoPublicUrl(),
                 'arrival_at' => $pastor->arrival_at?->toIso8601String(),
                 'ministry_at' => $pastor->ministry_at?->toIso8601String(),
             ],
@@ -168,6 +169,7 @@ final class PublicGuestFormController extends Controller
             'pastor' => [
                 'full_name' => $submission->guestPastor?->full_name,
                 'church_name' => $submission->guestPastor?->church_name,
+                'photo_url' => $submission->guestPastor?->photoPublicUrl(),
             ],
             'project_title' => $form->project?->title,
             'submitted_at' => $submission->submitted_at?->toIso8601String(),
@@ -189,6 +191,7 @@ final class PublicGuestFormController extends Controller
         return [
             'id' => $form->id,
             'title' => $form->title,
+            'layout_mode' => $form->layout_mode ?: GuestInfoForm::LAYOUT_SINGLE,
             'intro_html' => $form->intro_html,
             'cmp_info_html' => $form->cmp_info_html,
             'design' => [

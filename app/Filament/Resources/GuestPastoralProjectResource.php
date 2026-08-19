@@ -13,6 +13,7 @@ use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\DateTimePicker;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -99,20 +100,30 @@ class GuestPastoralProjectResource extends Resource
                             ->label('Invités')
                             ->columnSpanFull()
                             ->schema([
-                                TextInput::make('full_name')->label('Nom complet')->required()->columnSpan(4),
-                                TextInput::make('church_name')->label('Église')->columnSpan(4),
+                                FileUpload::make('photo_path')
+                                    ->label('Photo du pasteur')
+                                    ->image()
+                                    ->avatar()
+                                    ->disk('public')
+                                    ->directory('guest-pastors')
+                                    ->visibility('public')
+                                    ->imageEditor()
+                                    ->columnSpanFull()
+                                    ->helperText('Affichée dans le mail, le formulaire public et les réponses départements.'),
+                                TextInput::make('full_name')->label('Nom complet')->required()->columnSpan(6),
+                                TextInput::make('church_name')->label('Église')->columnSpan(6),
                                 TextInput::make('email')->label('E-mail')->email()->columnSpan(4),
-                                TextInput::make('phone')->label('Téléphone')->tel()->columnSpan(3),
-                                TextInput::make('country')->label('Pays')->columnSpan(3),
-                                TextInput::make('city')->label('Ville')->columnSpan(3),
-                                DateTimePicker::make('arrival_at')->label('Arrivée probable')->seconds(false)->columnSpan(3),
-                                DateTimePicker::make('ministry_at')->label('Date de prestation')->seconds(false)->columnSpan(3),
+                                TextInput::make('phone')->label('Téléphone')->tel()->columnSpan(4),
+                                TextInput::make('country')->label('Pays')->columnSpan(4),
+                                TextInput::make('city')->label('Ville')->columnSpan(4),
+                                DateTimePicker::make('arrival_at')->label('Arrivée probable')->seconds(false)->columnSpan(4),
+                                DateTimePicker::make('ministry_at')->label('Date de prestation')->seconds(false)->columnSpan(4),
                                 TextInput::make('invite_token')
                                     ->label('Token lien')
                                     ->disabled()
                                     ->dehydrated(false)
                                     ->helperText('Généré automatiquement à l’enregistrement')
-                                    ->columnSpan(3),
+                                    ->columnSpanFull(),
                             ])
                             ->columns(12)
                             ->collapsible()

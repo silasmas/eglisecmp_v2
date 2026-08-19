@@ -99,12 +99,23 @@ export default function GuestFormResponsesPage() {
       ) : (
         <div className="mt-8 space-y-4 rounded-2xl border border-surface-200 bg-white p-6 dark:border-surface-700 dark:bg-surface-900">
           <div>
-            <p className="text-xs uppercase tracking-wide text-surface-500">Pasteur</p>
-            <p className="text-lg font-semibold text-surface-900 dark:text-white">{data.pastor.full_name}</p>
-            {data.pastor.church_name ? (
-              <p className="text-sm text-surface-600">{data.pastor.church_name}</p>
-            ) : null}
-            <p className="mt-1 text-xs text-surface-500">
+            <div className="flex items-start gap-3">
+              {data.pastor.photo_url ? (
+                <img
+                  src={data.pastor.photo_url}
+                  alt={data.pastor.full_name ?? ''}
+                  className="h-14 w-14 rounded-full object-cover ring-2 ring-orange-300"
+                />
+              ) : null}
+              <div>
+                <p className="text-xs uppercase tracking-wide text-surface-500">Pasteur</p>
+                <p className="text-lg font-semibold text-surface-900 dark:text-white">{data.pastor.full_name}</p>
+                {data.pastor.church_name ? (
+                  <p className="text-sm text-surface-600">{data.pastor.church_name}</p>
+                ) : null}
+              </div>
+            </div>
+            <p className="mt-2 text-xs text-surface-500">
               Projet : {data.project_title ?? '—'}
               {data.submitted_at ? ` · Reçu le ${new Date(data.submitted_at).toLocaleString('fr-FR')}` : ''}
             </p>

@@ -19,6 +19,7 @@ use Illuminate\Support\Str;
  * @property string $title
  * @property string $slug
  * @property bool $is_published
+ * @property string $layout_mode
  * @property Carbon|null $visible_from
  * @property Carbon|null $visible_until
  * @property string|null $access_password
@@ -28,11 +29,16 @@ use Illuminate\Support\Str;
  */
 class GuestInfoForm extends Model
 {
+    public const LAYOUT_SINGLE = 'single';
+
+    public const LAYOUT_WIZARD = 'wizard';
+
     protected $fillable = [
         'project_id',
         'title',
         'slug',
         'is_published',
+        'layout_mode',
         'visible_from',
         'visible_until',
         'access_password',
@@ -57,6 +63,14 @@ class GuestInfoForm extends Model
             'visible_until' => 'datetime',
             'design' => 'array',
         ];
+    }
+
+    /**
+     * Indique si le formulaire public s’affiche en assistant multi-étapes.
+     */
+    public function isWizardLayout(): bool
+    {
+        return ($this->layout_mode ?? self::LAYOUT_SINGLE) === self::LAYOUT_WIZARD;
     }
 
     protected static function booted(): void
