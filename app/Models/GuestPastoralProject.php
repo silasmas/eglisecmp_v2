@@ -106,4 +106,14 @@ class GuestPastoralProject extends Model
     {
         return $this->hasOne(GuestInfoForm::class, 'project_id');
     }
+
+    /**
+     * Historique des envois d’invitation (tous canaux).
+     *
+     * @return HasMany<GuestInviteDispatch, $this>
+     */
+    public function inviteDispatches(): HasMany
+    {
+        return $this->hasMany(GuestInviteDispatch::class, 'guest_pastoral_project_id');
+    }
 }

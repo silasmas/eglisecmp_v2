@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
 
@@ -78,5 +79,15 @@ class GuestInfoSubmission extends Model
     public function form(): BelongsTo
     {
         return $this->belongsTo(GuestInfoForm::class, 'form_id');
+    }
+
+    /**
+     * Notifications envoyées aux départements pour cette soumission.
+     *
+     * @return HasMany<GuestDepartmentNotification, $this>
+     */
+    public function departmentNotifications(): HasMany
+    {
+        return $this->hasMany(GuestDepartmentNotification::class, 'guest_info_submission_id');
     }
 }

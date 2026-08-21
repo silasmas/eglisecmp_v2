@@ -1367,14 +1367,21 @@ export type GuestFormUnlockResponse = {
   project_title: string | null;
   submitted_at: string | null;
   answers: Array<{ key: string; label: string; type: string; value: unknown }>;
+  department_id?: number;
+  acknowledgment?: {
+    acknowledged: boolean;
+    acknowledged_at: string | null;
+    acknowledged_by_name: string | null;
+    sent_count: number;
+  };
 };
 
 /**
- * DÃÂ©verrouille le portail rÃÂ©ponses dÃÂ©partement.
+ * Déverrouille le portail réponses département.
  *
  * @param accessToken Token de la soumission.
  * @param password Mot de passe du formulaire.
- * @param departmentId ID du dÃÂ©partement (filtre).
+ * @param departmentId ID du département (filtre).
  */
 export async function unlockGuestFormResponses(
   accessToken: string,
@@ -1385,6 +1392,28 @@ export async function unlockGuestFormResponses(
     access_token: accessToken,
     password,
     department_id: departmentId,
+  });
+}
+
+/**
+ * Accuse réception des réponses pour un département.
+ *
+ * @param accessToken Token de la soumission.
+ * @param password Mot de passe du formulaire.
+ * @param departmentId ID du département.
+ * @param acknowledgerName Nom de la personne qui accuse réception.
+ */
+export async function acknowledgeGuestFormResponses(
+  accessToken: string,
+  password: string,
+  departmentId: number,
+  acknowledgerName?: string,
+): Promise<{ ok: boolean; acknowledged_at: string | null; message: string }> {
+  return fetchSitePostJson('/guest-forms/responses/acknowledge', {
+    access_token: accessToken,
+    password,
+    department_id: departmentId,
+    acknowledger_name: acknowledgerName ?? null,
   });
 }
 

@@ -5,15 +5,20 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\GuestPastoralProjectResource\Pages;
-use App\Mail\GuestPastorInviteMail;
-use App\Models\GuestPastor;
+use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\GuestPastorsRelationManager;
+use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\InviteDispatchesRelationManager;
+use App\Models\GuestInviteDispatch;
 use App\Models\GuestPastoralProject;
+use App\Models\User;
+use App\Services\GuestInviteDispatchService;
 use BackedEnum;
 use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -21,10 +26,10 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
-use Illuminate\Support\Facades\Mail;
 use UnitEnum;
 
 /**
@@ -134,6 +139,113 @@ class GuestPastoralProjectResource extends Resource
             ]);
     }
 
+    /**
+     * Formulaire d’action « Envoyer les invitations ».
+     *
+     * @return array<int, mixed>
+     */
+    public static function sendInvitesForm(GuestPastoralProject $record): array
+    {
+        $pastorOptions = $record->guestPastors()
+            ->orderBy('full_name')
+            ->get()
+            ->mapWithKeys(function ($pastor): array {
+                $contacts = collect([$pastor->email, $pastor->phone])->filter()->implode(' · ');
+
+                return [
+                    $pastor->id => $pastor->full_name.($contacts !== '' ? ' ('.$contacts.')' : ' — sans contact'),
+                ];
+            })
+            ->all();
+
+        return [
+            Radio::make('recipient_mode')
+                ->label('Destinataires')
+                ->options([
+                    'all' => 'Tous les pasteurs du projet',
+                    'selected' => 'Sélectionner certains pasteurs',
+                ])
+                ->default('all')
+                ->required()
+                ->live(),
+            CheckboxList::make('pastor_ids')
+                ->label('Pasteurs')
+                ->options($pastorOptions)
+                ->columns(1)
+                ->required()
+                ->visible(fn (Get $get): bool => $get('recipient_mode') === 'selected')
+                ->helperText('Cochez les pasteurs à qui envoyer le lien.'),
+            CheckboxList::make('channels')
+                ->label('Canaux d’envoi')
+                ->options(GuestInviteDispatch::channelOptions())
+                ->default([GuestInviteDispatch::CHANNEL_EMAIL])
+                ->required()
+                ->columns(3)
+                ->helperText('WhatsApp ouvre un lien wa.me à valider manuellement. SMS utilise la passerelle configurée.'),
+        ];
+    }
+
+    /**
+     * Exécute l’envoi multi-canal et affiche le résultat.
+     *
+     * @param  array<string, mixed>  $data
+     */
+    public static function runSendInvites(GuestPastoralProject $record, array $data): void
+    {
+        $form = $record->form;
+        if ($form === null || ! $form->is_published) {
+            Notification::make()
+                ->title('Formulaire manquant ou non publié')
+                ->body('Créez et publiez d’abord un formulaire pour ce projet.')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $mode = (string) ($data['recipient_mode'] ?? 'all');
+        $pastorIds = $mode === 'selected'
+            ? array_map('intval', (array) ($data['pastor_ids'] ?? []))
+            : [];
+        $channels = array_values(array_map('strval', (array) ($data['channels'] ?? [])));
+
+        if ($mode === 'selected' && $pastorIds === []) {
+            Notification::make()
+                ->title('Aucun pasteur sélectionné')
+                ->danger()
+                ->send();
+
+            return;
+        }
+
+        $actor = auth()->user() instanceof User ? auth()->user() : null;
+        $result = app(GuestInviteDispatchService::class)->dispatch($record, $pastorIds, $channels, $actor);
+
+        $bodyParts = [
+            "Réussis / prêts : {$result['sent']}",
+            "Échecs : {$result['failed']}",
+            "Ignorés : {$result['skipped']}",
+        ];
+
+        if ($result['whatsapp_links'] !== []) {
+            $bodyParts[] = 'Liens WhatsApp à ouvrir :';
+            foreach ($result['whatsapp_links'] as $link) {
+                $bodyParts[] = '• '.$link['name'].' : '.$link['url'];
+            }
+        }
+
+        if ($result['messages'] !== []) {
+            $bodyParts[] = implode("\n", array_slice($result['messages'], 0, 8));
+        }
+
+        Notification::make()
+            ->title('Invitations traitées')
+            ->body(implode("\n", $bodyParts))
+            ->success()
+            ->persistent()
+            ->send();
+    }
+
     public static function table(Table $table): Table
     {
         return $table
@@ -155,41 +267,22 @@ class GuestPastoralProjectResource extends Resource
                     ->label('Envoyer les liens')
                     ->icon('heroicon-o-paper-airplane')
                     ->color('success')
-                    ->requiresConfirmation()
-                    ->modalHeading('Envoyer les liens aux pasteurs invités')
-                    ->modalDescription('Un e-mail avec le lien du formulaire sera envoyé à chaque invité ayant une adresse e-mail.')
-                    ->action(function (GuestPastoralProject $record): void {
-                        $form = $record->form;
-                        if ($form === null || ! $form->is_published) {
-                            Notification::make()
-                                ->title('Formulaire manquant ou non publié')
-                                ->body('Créez et publiez d’abord un formulaire pour ce projet.')
-                                ->danger()
-                                ->send();
-
-                            return;
-                        }
-
-                        $sent = 0;
-                        foreach ($record->guestPastors as $pastor) {
-                            if (! filled($pastor->email)) {
-                                continue;
-                            }
-                            Mail::to($pastor->email)->send(new GuestPastorInviteMail(
-                                $pastor,
-                                $pastor->publicFormUrl(),
-                                $form->title,
-                            ));
-                            $sent++;
-                        }
-
-                        Notification::make()
-                            ->title($sent > 0 ? "{$sent} invitation(s) envoyée(s)" : 'Aucun e-mail envoyé')
-                            ->success()
-                            ->send();
+                    ->modalHeading('Envoyer les invitations')
+                    ->modalDescription('Choisissez les pasteurs et les canaux (e-mail, SMS, WhatsApp).')
+                    ->form(fn (GuestPastoralProject $record): array => self::sendInvitesForm($record))
+                    ->action(function (GuestPastoralProject $record, array $data): void {
+                        self::runSendInvites($record, $data);
                     }),
                 DeleteAction::make(),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            GuestPastorsRelationManager::class,
+            InviteDispatchesRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

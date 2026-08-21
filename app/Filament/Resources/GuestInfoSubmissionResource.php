@@ -5,6 +5,7 @@ declare(strict_types=1);
 namespace App\Filament\Resources;
 
 use App\Filament\Resources\GuestInfoSubmissionResource\Pages;
+use App\Filament\Resources\GuestInfoSubmissionResource\RelationManagers\DepartmentNotificationsRelationManager;
 use App\Models\GuestInfoFormField;
 use App\Models\GuestInfoSubmission;
 use App\Models\User;
@@ -138,10 +139,44 @@ class GuestInfoSubmissionResource extends Resource
                 TextColumn::make('guestPastor.full_name')->label('Pasteur')->searchable(),
                 TextColumn::make('form.title')->label('Formulaire'),
                 TextColumn::make('form.project.title')->label('Projet'),
+                TextColumn::make('dept_ack')
+                    ->label('Accusés dépts')
+                    ->state(function (GuestInfoSubmission $record): string {
+                        $rows = $record->departmentNotifications()
+                            ->where('status', \App\Models\GuestDepartmentNotification::STATUS_SENT)
+                            ->get()
+                            ->groupBy('church_department_id');
+                        if ($rows->isEmpty()) {
+                            return 'Aucun envoi';
+                        }
+                        $acked = $rows->filter(
+                            fn ($group) => $group->contains(fn ($n) => $n->acknowledged_at !== null)
+                        )->count();
+
+                        return $acked.'/'.$rows->count().' reçus';
+                    })
+                    ->badge()
+                    ->color(function (string $state): string {
+                        if (str_starts_with($state, 'Aucun')) {
+                            return 'gray';
+                        }
+                        if (preg_match('/^(\d+)\/(\d+)/', $state, $m) === 1 && $m[1] === $m[2]) {
+                            return 'success';
+                        }
+
+                        return 'warning';
+                    }),
             ])
             ->actions([
                 \Filament\Actions\ViewAction::make(),
             ]);
+    }
+
+    public static function getRelations(): array
+    {
+        return [
+            DepartmentNotificationsRelationManager::class,
+        ];
     }
 
     public static function getPages(): array

@@ -121,6 +121,8 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
 
     Route::post('guest-forms/responses/unlock', [PublicGuestFormController::class, 'unlockResponses'])
         ->middleware('throttle:30,1');
+    Route::post('guest-forms/responses/acknowledge', [PublicGuestFormController::class, 'acknowledgeResponses'])
+        ->middleware('throttle:30,1');
     Route::get('guest-forms/{token}', [PublicGuestFormController::class, 'show'])
         ->middleware('throttle:60,1');
     Route::post('guest-forms/{token}/submit', [PublicGuestFormController::class, 'submit'])

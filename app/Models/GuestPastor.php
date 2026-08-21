@@ -6,6 +6,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Str;
@@ -142,5 +143,30 @@ class GuestPastor extends Model
     public function submission(): HasOne
     {
         return $this->hasOne(GuestInfoSubmission::class, 'guest_pastor_id');
+    }
+
+    /**
+     * Historique des invitations envoyées à ce pasteur.
+     *
+     * @return HasMany<GuestInviteDispatch, $this>
+     */
+    public function inviteDispatches(): HasMany
+    {
+        return $this->hasMany(GuestInviteDispatch::class, 'guest_pastor_id');
+    }
+
+    /**
+     * Libellé de suivi (ouvert / répondu / en attente).
+     */
+    public function responseStatusLabel(): string
+    {
+        if ($this->form_submitted_at !== null) {
+            return 'A répondu';
+        }
+        if ($this->form_opened_at !== null) {
+            return 'A ouvert le formulaire';
+        }
+
+        return 'Pas encore répondu';
     }
 }

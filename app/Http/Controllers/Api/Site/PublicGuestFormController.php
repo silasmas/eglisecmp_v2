@@ -174,7 +174,48 @@ final class PublicGuestFormController extends Controller
             'project_title' => $form->project?->title,
             'submitted_at' => $submission->submitted_at?->toIso8601String(),
             'answers' => $answers,
+            'acknowledgment' => app(GuestFormSubmissionService::class)->departmentAckStatus($submission, $departmentId),
+            'department_id' => $departmentId,
         ]);
+    }
+
+    /**
+     * Accusé de réception département sur le portail public.
+     */
+    public function acknowledgeResponses(Request $request, GuestFormSubmissionService $service): JsonResponse
+    {
+        $validator = Validator::make($request->all(), [
+            'access_token' => ['required', 'string'],
+            'password' => ['required', 'string'],
+            'department_id' => ['required', 'integer'],
+            'acknowledger_name' => ['nullable', 'string', 'max:120'],
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['message' => 'Données invalides.', 'errors' => $validator->errors()], 422);
+        }
+
+        $submission = GuestInfoSubmission::query()
+            ->with('form')
+            ->where('access_token', $request->string('access_token')->toString())
+            ->first();
+
+        if ($submission === null) {
+            return response()->json(['message' => 'Soumission introuvable.'], 404);
+        }
+
+        $form = $submission->form;
+        if ($form === null || ! $form->checkAccessPassword($request->string('password')->toString())) {
+            return response()->json(['message' => 'Mot de passe incorrect.'], 403);
+        }
+
+        $result = $service->acknowledgeDepartment(
+            $submission,
+            $request->integer('department_id'),
+            $request->string('acknowledger_name')->toString() ?: null,
+        );
+
+        return response()->json($result);
     }
 
     /**

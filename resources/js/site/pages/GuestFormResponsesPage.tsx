@@ -1,7 +1,11 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
-import { Loader2, Lock } from 'lucide-react';
-import { unlockGuestFormResponses, type GuestFormUnlockResponse } from '../lib/siteApi';
+import { CheckCircle2, Loader2, Lock } from 'lucide-react';
+import {
+  acknowledgeGuestFormResponses,
+  unlockGuestFormResponses,
+  type GuestFormUnlockResponse,
+} from '../lib/siteApi';
 
 /**
  * Portail département : consultation des réponses filtrées d’une fiche d’accueil.
@@ -13,13 +17,18 @@ export default function GuestFormResponsesPage() {
 
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
+  const [ackBusy, setAckBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [ackMessage, setAckMessage] = useState<string | null>(null);
+  const [acknowledgerName, setAcknowledgerName] = useState('');
   const [data, setData] = useState<GuestFormUnlockResponse | null>(null);
 
   const canUnlock = useMemo(
     () => submissionToken !== '' && departmentId > 0 && password.trim() !== '',
     [submissionToken, departmentId, password],
   );
+
+  const isAcknowledged = Boolean(data?.acknowledgment?.acknowledged);
 
   /**
    * Vérifie le mot de passe et charge les réponses du département.
@@ -33,6 +42,7 @@ export default function GuestFormResponsesPage() {
     }
     setBusy(true);
     setError(null);
+    setAckMessage(null);
     try {
       const res = await unlockGuestFormResponses(submissionToken, password.trim(), departmentId);
       setData(res);
@@ -41,6 +51,39 @@ export default function GuestFormResponsesPage() {
       setData(null);
     } finally {
       setBusy(false);
+    }
+  };
+
+  /**
+   * Enregistre l’accusé de réception pour ce département.
+   */
+  const onAcknowledge = async () => {
+    if (!data || ackBusy || isAcknowledged || !canUnlock) {
+      return;
+    }
+    setAckBusy(true);
+    setAckMessage(null);
+    try {
+      const res = await acknowledgeGuestFormResponses(
+        submissionToken,
+        password.trim(),
+        departmentId,
+        acknowledgerName.trim() || undefined,
+      );
+      setAckMessage(res.message);
+      setData({
+        ...data,
+        acknowledgment: {
+          acknowledged: true,
+          acknowledged_at: res.acknowledged_at,
+          acknowledged_by_name: acknowledgerName.trim() || data.acknowledgment?.acknowledged_by_name || null,
+          sent_count: data.acknowledgment?.sent_count ?? 0,
+        },
+      });
+    } catch (err: unknown) {
+      setAckMessage(err instanceof Error ? err.message : 'Impossible d’accuser réception.');
+    } finally {
+      setAckBusy(false);
     }
   };
 
@@ -132,12 +175,58 @@ export default function GuestFormResponsesPage() {
               ))
             )}
           </ul>
+
+          <div className="rounded-xl border border-surface-200 bg-surface-50 p-4 dark:border-surface-700 dark:bg-surface-950">
+            {isAcknowledged ? (
+              <p className="flex items-start gap-2 text-sm text-emerald-700 dark:text-emerald-300">
+                <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0" />
+                <span>
+                  Réception accusée
+                  {data.acknowledgment?.acknowledged_at
+                    ? ` le ${new Date(data.acknowledgment.acknowledged_at).toLocaleString('fr-FR')}`
+                    : ''}
+                  {data.acknowledgment?.acknowledged_by_name
+                    ? ` par ${data.acknowledgment.acknowledged_by_name}`
+                    : ''}
+                  .
+                </span>
+              </p>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm font-medium text-surface-800 dark:text-surface-200">
+                  Confirmez que votre département a bien pris connaissance de ces informations.
+                </p>
+                <label className="block text-sm text-surface-700 dark:text-surface-300">
+                  Votre nom (optionnel)
+                  <input
+                    type="text"
+                    className="mt-1.5 w-full rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm dark:border-surface-700 dark:bg-surface-900"
+                    value={acknowledgerName}
+                    onChange={(e) => setAcknowledgerName(e.target.value)}
+                    placeholder="Ex. Responsable CREA"
+                  />
+                </label>
+                <button
+                  type="button"
+                  disabled={ackBusy}
+                  onClick={onAcknowledge}
+                  className="inline-flex items-center gap-2 rounded-xl bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white disabled:opacity-50"
+                >
+                  {ackBusy ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                  Accuser réception
+                </button>
+              </div>
+            )}
+            {ackMessage ? <p className="mt-2 text-sm text-surface-600 dark:text-surface-400">{ackMessage}</p> : null}
+          </div>
+
           <button
             type="button"
             className="text-sm text-burgundy-700 underline dark:text-burgundy-300"
             onClick={() => {
               setData(null);
               setPassword('');
+              setAckMessage(null);
             }}
           >
             Verrouiller à nouveau

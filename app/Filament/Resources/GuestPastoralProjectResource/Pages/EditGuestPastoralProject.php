@@ -6,6 +6,7 @@ namespace App\Filament\Resources\GuestPastoralProjectResource\Pages;
 
 use App\Filament\Resources\GuestPastoralProjectResource;
 use App\Models\GuestPastor;
+use App\Models\GuestPastoralProject;
 use Filament\Actions\Action;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\EditRecord;
@@ -18,11 +19,28 @@ class EditGuestPastoralProject extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('sendInvites')
+                ->label('Envoyer les invitations')
+                ->icon('heroicon-o-paper-airplane')
+                ->color('success')
+                ->modalHeading('Envoyer les invitations')
+                ->modalDescription('Tous les pasteurs ou une sélection — e-mail, SMS et/ou WhatsApp.')
+                ->form(function (): array {
+                    /** @var GuestPastoralProject $record */
+                    $record = $this->getRecord();
+
+                    return GuestPastoralProjectResource::sendInvitesForm($record);
+                })
+                ->action(function (array $data): void {
+                    /** @var GuestPastoralProject $record */
+                    $record = $this->getRecord();
+                    GuestPastoralProjectResource::runSendInvites($record, $data);
+                }),
             Action::make('copyLinks')
                 ->label('Copier les liens')
                 ->icon('heroicon-o-link')
                 ->action(function (): void {
-                    /** @var \App\Models\GuestPastoralProject $record */
+                    /** @var GuestPastoralProject $record */
                     $record = $this->getRecord();
                     $lines = $record->guestPastors->map(
                         fn (GuestPastor $p): string => $p->full_name.': '.$p->publicFormUrl()
