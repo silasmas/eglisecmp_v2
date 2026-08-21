@@ -235,6 +235,9 @@ final class PublicGuestFormController extends Controller
             'layout_mode' => $form->layout_mode ?: GuestInfoForm::LAYOUT_SINGLE,
             'intro_html' => $form->intro_html,
             'cmp_info_html' => $form->cmp_info_html,
+            'visible_from' => $form->visible_from?->toIso8601String(),
+            'visible_until' => $form->visible_until?->toIso8601String(),
+            'seconds_remaining' => $form->secondsUntilClose(),
             'design' => [
                 'banner_url' => $banner,
                 'primary_color' => $design['primary_color'] ?? '#7b1d3e',

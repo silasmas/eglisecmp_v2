@@ -1296,13 +1296,16 @@ export async function submitWorkerProfileUpdate(
   };
 }
 
-/** Structure publique dÃ¢ÂÂun formulaire dÃ¢ÂÂaccueil invitÃÂ©. */
+/** Structure publique d’un formulaire d’accueil invité. */
 export type GuestInfoFormPublic = {
   id: number;
   title: string;
   layout_mode: 'single' | 'wizard';
   intro_html: string | null;
   cmp_info_html: string | null;
+  visible_from: string | null;
+  visible_until: string | null;
+  seconds_remaining: number | null;
   design: {
     banner_url: string | null;
     primary_color: string;

@@ -16,6 +16,7 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\ColorPicker;
 use Filament\Forms\Components\DateTimePicker;
 use Filament\Forms\Components\FileUpload;
+use Filament\Forms\Components\Placeholder;
 use Filament\Forms\Components\Radio;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
@@ -26,10 +27,12 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Components\Utilities\Get;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Support\HtmlString;
 use UnitEnum;
 
 /**
@@ -195,7 +198,44 @@ class GuestInfoFormResource extends Resource
                         DateTimePicker::make('visible_until')
                             ->label('Visible jusqu’au')
                             ->seconds(false)
+                            ->live()
                             ->columnSpan(1),
+                        Placeholder::make('remaining_time')
+                            ->label('Temps restant avant blocage')
+                            ->content(function (?GuestInfoForm $record, Get $get): HtmlString|string {
+                                $until = $get('visible_until');
+                                if (blank($until) && $record === null) {
+                                    return 'Définissez « Visible jusqu’au » pour activer le compte à rebours.';
+                                }
+
+                                if (filled($until)) {
+                                    $temp = new GuestInfoForm();
+                                    $temp->visible_until = \Illuminate\Support\Carbon::parse($until);
+                                    $label = $temp->remainingTimeLabel() ?? '—';
+                                    $seconds = $temp->secondsUntilClose() ?? 0;
+                                    $color = $seconds <= 0 ? '#b91c1c' : ($seconds < 3600 ? '#b45309' : '#047857');
+
+                                    return new HtmlString(
+                                        '<span style="font-weight:700;color:'.$color.';font-size:1.05rem;">'
+                                        .e($label).'</span>'
+                                        .'<br><span style="color:#6b7280;font-size:0.85rem;">Fermeture le '
+                                        .e($temp->visible_until->timezone(config('app.timezone'))->format('d/m/Y H:i'))
+                                        .'</span>'
+                                    );
+                                }
+
+                                if ($record instanceof GuestInfoForm) {
+                                    $label = $record->remainingTimeLabel();
+                                    if ($label === null) {
+                                        return 'Aucune date de fin — le formulaire ne se bloquera pas automatiquement.';
+                                    }
+
+                                    return $label;
+                                }
+
+                                return '—';
+                            })
+                            ->columnSpanFull(),
                         TextInput::make('plain_password')
                             ->label('Mot de passe départements')
                             ->password()
@@ -312,6 +352,24 @@ class GuestInfoFormResource extends Resource
                 IconColumn::make('is_published')->label('Publié')->boolean(),
                 TextColumn::make('visible_from')->label('Du')->dateTime('d/m/Y H:i')->placeholder('—'),
                 TextColumn::make('visible_until')->label('Au')->dateTime('d/m/Y H:i')->placeholder('—'),
+                TextColumn::make('remaining')
+                    ->label('Temps restant')
+                    ->state(fn (GuestInfoForm $record): string => $record->remainingTimeLabel() ?? 'Illimité')
+                    ->badge()
+                    ->color(function (GuestInfoForm $record): string {
+                        $seconds = $record->secondsUntilClose();
+                        if ($seconds === null) {
+                            return 'gray';
+                        }
+                        if ($seconds <= 0) {
+                            return 'danger';
+                        }
+                        if ($seconds < 3600) {
+                            return 'warning';
+                        }
+
+                        return 'success';
+                    }),
                 TextColumn::make('sections_count')->counts('sections')->label('Étapes'),
             ])
             ->actions([

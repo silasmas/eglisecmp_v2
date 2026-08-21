@@ -407,9 +407,13 @@ class GuestPastoralProjectResource extends Resource
             $stats .= "\n".implode("\n", array_slice($result['messages'], 0, 6));
         }
 
-        $body = $result['whatsapp_html'] instanceof HtmlString
-            ? new HtmlString('<p>'.e($stats).'</p>'.$result['whatsapp_html']->toHtml())
-            : $stats;
+        $body = $stats;
+        if ($result['whatsapp_links'] !== []) {
+            $body .= "\n\nLiens WhatsApp (copiez ou ouvrez depuis l’aperçu) :";
+            foreach ($result['whatsapp_links'] as $link) {
+                $body .= "\n• ".$link['name'].' : '.$link['url'];
+            }
+        }
 
         Notification::make()
             ->title($channelLabel.' traité')

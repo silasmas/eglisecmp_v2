@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useParams } from 'react-router-dom';
-import { CheckCircle2, ChevronLeft, ChevronRight, Loader2, Send } from 'lucide-react';
+import { CheckCircle2, ChevronLeft, ChevronRight, Clock, Loader2, Send } from 'lucide-react';
 import {
   fetchGuestInviteForm,
   submitGuestInviteForm,
@@ -9,6 +9,30 @@ import {
 } from '../lib/siteApi';
 
 type AnswersMap = Record<string, unknown>;
+
+/**
+ * Formate un nombre de secondes en libellé FR (j / h / min / s).
+ *
+ * @param totalSeconds Secondes restantes (>= 0).
+ */
+function formatRemaining(totalSeconds: number): string {
+  const seconds = Math.max(0, Math.floor(totalSeconds));
+  const days = Math.floor(seconds / 86400);
+  const hours = Math.floor((seconds % 86400) / 3600);
+  const minutes = Math.floor((seconds % 3600) / 60);
+  const secs = seconds % 60;
+
+  if (days > 0) {
+    return `${days} j ${String(hours).padStart(2, '0')} h ${String(minutes).padStart(2, '0')} min`;
+  }
+  if (hours > 0) {
+    return `${hours} h ${String(minutes).padStart(2, '0')} min ${String(secs).padStart(2, '0')} s`;
+  }
+  if (minutes > 0) {
+    return `${minutes} min ${String(secs).padStart(2, '0')} s`;
+  }
+  return `${secs} s`;
+}
 
 /**
  * Formate une valeur de case à cocher / grille pour l’état local.
@@ -62,6 +86,7 @@ export default function GuestInviteFormPage() {
   const [error, setError] = useState<string | null>(null);
   const [done, setDone] = useState(false);
   const [step, setStep] = useState(0);
+  const [secondsLeft, setSecondsLeft] = useState<number | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -89,6 +114,21 @@ export default function GuestInviteFormPage() {
       cancelled = true;
     };
   }, [token]);
+
+  useEffect(() => {
+    const until = data?.form.visible_until;
+    if (!until || done) {
+      setSecondsLeft(null);
+      return;
+    }
+    const tick = () => {
+      const end = new Date(until).getTime();
+      setSecondsLeft(Math.max(0, Math.floor((end - Date.now()) / 1000)));
+    };
+    tick();
+    const timer = window.setInterval(tick, 1000);
+    return () => window.clearInterval(timer);
+  }, [data?.form.visible_until, done]);
 
   const cssVars = useMemo(() => {
     const design = data?.form.design;
@@ -223,6 +263,39 @@ export default function GuestInviteFormPage() {
             ) : null}
             <h1 className="text-2xl font-bold text-surface-900 dark:text-white sm:text-3xl">{data.headline}</h1>
           </div>
+
+          {secondsLeft !== null && !done ? (
+            <div
+              className={`mt-4 flex items-start gap-3 rounded-xl border p-3 text-sm ${
+                secondsLeft <= 0
+                  ? 'border-red-200 bg-red-50 text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200'
+                  : secondsLeft < 3600
+                    ? 'border-amber-200 bg-amber-50 text-amber-950 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-100'
+                    : 'border-orange-200 bg-orange-50 text-orange-950 dark:border-orange-900 dark:bg-orange-950/30 dark:text-orange-100'
+              }`}
+            >
+              <Clock className="mt-0.5 h-4 w-4 shrink-0" />
+              <div>
+                {secondsLeft <= 0 ? (
+                  <p className="font-semibold">Formulaire bloqué — la période de saisie est terminée.</p>
+                ) : (
+                  <>
+                    <p className="font-semibold">Temps restant avant blocage : {formatRemaining(secondsLeft)}</p>
+                    {form.visible_until ? (
+                      <p className="mt-0.5 text-xs opacity-80">
+                        Fermeture le{' '}
+                        {new Date(form.visible_until).toLocaleString('fr-FR', {
+                          dateStyle: 'medium',
+                          timeStyle: 'short',
+                        })}
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            </div>
+          ) : null}
+
           {form.intro_html ? (
             <div
               className="prose prose-sm mt-4 max-w-none text-surface-700 dark:prose-invert"
@@ -234,6 +307,10 @@ export default function GuestInviteFormPage() {
             <div className="mt-8 flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
               <p>Merci. Votre fiche a bien été enregistrée. Nos départements préparent votre accueil.</p>
+            </div>
+          ) : secondsLeft !== null && secondsLeft <= 0 ? (
+            <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
+              Ce formulaire n’accepte plus de réponses : la période de saisie est terminée.
             </div>
           ) : (
             <form onSubmit={onSubmit} className="mt-8 space-y-8">

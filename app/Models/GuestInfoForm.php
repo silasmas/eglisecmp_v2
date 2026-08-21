@@ -105,6 +105,54 @@ class GuestInfoForm extends Model
     }
 
     /**
+     * Secondes restantes avant fermeture automatique (null = pas de date de fin).
+     */
+    public function secondsUntilClose(): ?int
+    {
+        if (! $this->visible_until instanceof Carbon) {
+            return null;
+        }
+
+        $seconds = (int) now()->diffInSeconds($this->visible_until, false);
+
+        return max(0, $seconds);
+    }
+
+    /**
+     * Libellé humain du temps restant avant blocage.
+     */
+    public function remainingTimeLabel(): ?string
+    {
+        $seconds = $this->secondsUntilClose();
+        if ($seconds === null) {
+            return null;
+        }
+
+        if ($seconds <= 0) {
+            return 'Formulaire bloqué (période terminée)';
+        }
+
+        $days = intdiv($seconds, 86400);
+        $hours = intdiv($seconds % 86400, 3600);
+        $minutes = intdiv($seconds % 3600, 60);
+        $secs = $seconds % 60;
+
+        if ($days > 0) {
+            return sprintf('%d j %02d h %02d min', $days, $hours, $minutes);
+        }
+
+        if ($hours > 0) {
+            return sprintf('%d h %02d min %02d s', $hours, $minutes, $secs);
+        }
+
+        if ($minutes > 0) {
+            return sprintf('%d min %02d s', $minutes, $secs);
+        }
+
+        return sprintf('%d s', $secs);
+    }
+
+    /**
      * Hash et enregistre le mot de passe d’accès département.
      */
     public function setAccessPasswordPlain(string $plain): void
