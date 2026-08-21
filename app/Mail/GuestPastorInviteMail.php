@@ -23,6 +23,8 @@ class GuestPastorInviteMail extends Mailable
         public GuestPastor $guestPastor,
         public string $formUrl,
         public string $formTitle,
+        public ?string $customSubject = null,
+        public ?string $customIntroHtml = null,
     ) {}
 
     /**
@@ -31,7 +33,9 @@ class GuestPastorInviteMail extends Mailable
     public function envelope(): Envelope
     {
         return new Envelope(
-            subject: 'Fiche de renseignements — Centre Missionnaire Philadelphie',
+            subject: filled($this->customSubject)
+                ? (string) $this->customSubject
+                : 'Fiche de renseignements — Centre Missionnaire Philadelphie',
         );
     }
 
@@ -40,12 +44,18 @@ class GuestPastorInviteMail extends Mailable
      */
     public function content(): Content
     {
+        $introHtml = filled($this->customIntroHtml)
+            ? (string) $this->customIntroHtml
+            : 'Bonjour <strong>'.e($this->guestPastor->full_name).'</strong>,<br>afin de mieux préparer votre accueil, merci de remplir la fiche&nbsp;: <em>'.e($this->formTitle).'</em>.';
+
         return new Content(
             html: 'mail.guest-branded',
             with: [
-                'subjectLine' => 'Fiche de renseignements CMP',
+                'subjectLine' => filled($this->customSubject)
+                    ? (string) $this->customSubject
+                    : 'Fiche de renseignements CMP',
                 'heading' => 'Bienvenue au CMP',
-                'introHtml' => 'Bonjour <strong>'.e($this->guestPastor->full_name).'</strong>,<br>afin de mieux préparer votre accueil, merci de remplir la fiche&nbsp;: <em>'.e($this->formTitle).'</em>.',
+                'introHtml' => $introHtml,
                 'pastorName' => $this->guestPastor->full_name,
                 'projectTitle' => $this->guestPastor->project?->title ?? '—',
                 'metaRows' => array_values(array_filter([

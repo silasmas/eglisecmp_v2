@@ -18,8 +18,9 @@ final class SmsSender
      *
      * @param  string  $phone  Numero brut du destinataire.
      * @param  string  $message  Corps du message (UTF-8).
+     * @param  bool  $fitToSingle  Si true, tronque au format 1 SMS (comportement historique).
      */
-    public function send(string $phone, string $message): SmsSendResult
+    public function send(string $phone, string $message, bool $fitToSingle = true): SmsSendResult
     {
         $normalizedPhone = $this->normalizePhone($phone);
         $message = trim($message);
@@ -40,13 +41,38 @@ final class SmsSender
             );
         }
 
+        $payload = $fitToSingle ? $this->fitSingleSms($message) : trim($this->removeAccents($message));
         $driver = (string) config('sms.driver', 'log');
 
         return match ($driver) {
-            'keccel' => $this->sendViaKeccel($normalizedPhone, $message),
-            'http' => $this->sendViaHttp($normalizedPhone, $message),
-            default => $this->sendViaLog($normalizedPhone, $message),
+            'keccel' => $this->sendViaKeccel($normalizedPhone, $payload),
+            'http' => $this->sendViaHttp($normalizedPhone, $payload),
+            default => $this->sendViaLog($normalizedPhone, $payload),
         };
+    }
+
+    /**
+     * Estime la longueur et le nombre de segments SMS après normalisation.
+     *
+     * @return array{length: int, max: int, segments: int, preview: string}
+     */
+    public function estimateSegments(string $message): array
+    {
+        $preview = trim($this->removeAccents($message));
+        $length = strlen($preview);
+        $maxLength = max(1, (int) config('sms.max_length', 160));
+        $segments = max(1, (int) ceil(max(1, $length) / $maxLength));
+
+        if ($length === 0) {
+            $segments = 0;
+        }
+
+        return [
+            'length' => $length,
+            'max' => $maxLength,
+            'segments' => $segments,
+            'preview' => $preview,
+        ];
     }
 
     /**
@@ -72,7 +98,7 @@ final class SmsSender
         Log::info('SMS simule', [
             'to' => $phone,
             'from' => config('sms.from'),
-            'message' => $this->fitSingleSms($message),
+            'message' => $message,
         ]);
 
         return new SmsSendResult(
@@ -113,7 +139,7 @@ final class SmsSender
             'token' => $token,
             'from' => $from,
             'to' => $phone,
-            'message' => $this->fitSingleSms($message),
+            'message' => $message,
         ];
 
         try {
@@ -190,7 +216,7 @@ final class SmsSender
             $response = $request->post($url, [
                 'to' => $phone,
                 'from' => config('sms.from'),
-                'message' => $this->fitSingleSms($message),
+                'message' => $message,
             ]);
         } catch (\Throwable $exception) {
             return new SmsSendResult(

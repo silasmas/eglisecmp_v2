@@ -11,6 +11,7 @@ use App\Models\GuestPastoralProject;
 use App\Models\User;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 
 /**
  * Envoie les invitations pasteurs (e-mail, SMS, WhatsApp) et journalise chaque envoi.
@@ -22,53 +23,109 @@ final class GuestInviteDispatchService
     ) {}
 
     /**
-     * Envoie les invitations aux pasteurs choisis via les canaux demandés.
+     * Modèles de messages par défaut (placeholders : {nom}, {lien}, {fiche}, {projet}).
      *
-     * @param  list<int>  $pastorIds  Vide = tous les pasteurs du projet.
-     * @param  list<string>  $channels  email|sms|whatsapp
+     * @return array{email_subject: string, email_intro: string, sms_message: string, whatsapp_message: string}
+     */
+    public function defaultMessageTemplates(GuestPastoralProject $project, string $formTitle): array
+    {
+        $projectTitle = $project->title;
+
+        return [
+            'email_subject' => 'Fiche de renseignements — Centre Missionnaire Philadelphie',
+            'email_intro' => 'Bonjour {nom},'."\n\n"
+                .'Afin de mieux préparer votre accueil au Centre Missionnaire Philadelphie'
+                .' (projet « {projet} »), merci de remplir la fiche « {fiche} ».'."\n\n"
+                .'Lien : {lien}',
+            'sms_message' => 'CMP Philadelphie: fiche renseignement pasteur invite ({fiche}). Remplir ici: {lien}',
+            'whatsapp_message' => 'Bonjour {nom},'."\n\n"
+                .'Centre Missionnaire Philadelphie — projet « {projet} ».'."\n"
+                .'Merci de remplir votre fiche de renseignements « {fiche} » :'."\n"
+                .'{lien}',
+        ];
+    }
+
+    /**
+     * Remplace les placeholders d’un modèle pour un pasteur.
+     */
+    public function renderTemplate(string $template, GuestPastor $pastor, string $formTitle, ?string $projectTitle = null): string
+    {
+        return str_replace(
+            ['{nom}', '{lien}', '{fiche}', '{projet}'],
+            [
+                $pastor->full_name,
+                $pastor->shortFormUrl(),
+                $formTitle,
+                $projectTitle ?? ($pastor->project?->title ?? ''),
+            ],
+            $template,
+        );
+    }
+
+    /**
+     * Estimation du nombre de SMS (après normalisation GSM / accents).
+     *
+     * @return array{length: int, max: int, segments: int, preview: string}
+     */
+    public function estimateSms(string $message): array
+    {
+        return $this->smsSender->estimateSegments($message);
+    }
+
+    /**
+     * Construit l’URL wa.me cliquable pour un pasteur.
+     */
+    public function buildWhatsAppUrl(GuestPastor $pastor, string $message): ?string
+    {
+        $digits = $this->normalizePhoneDigits((string) ($pastor->phone ?? ''));
+        if ($digits === '') {
+            return null;
+        }
+
+        return 'https://wa.me/'.$digits.'?text='.rawurlencode($message);
+    }
+
+    /**
+     * Envoie un seul canal pour une sélection de pasteurs, avec messages personnalisés.
+     *
+     * @param  list<int>  $pastorIds  Vide = tous.
      * @return array{
      *     sent: int,
      *     failed: int,
      *     skipped: int,
      *     whatsapp_links: list<array{name: string, url: string, phone: string}>,
-     *     messages: list<string>
+     *     messages: list<string>,
+     *     whatsapp_html: HtmlString|null
      * }
      */
-    public function dispatch(
+    public function dispatchChannel(
         GuestPastoralProject $project,
         array $pastorIds,
-        array $channels,
+        string $channel,
         ?User $actor = null,
+        ?string $emailSubject = null,
+        ?string $emailIntro = null,
+        ?string $smsMessage = null,
+        ?string $whatsappMessage = null,
     ): array {
         $form = $project->form;
         if ($form === null || ! $form->is_published) {
-            return [
-                'sent' => 0,
-                'failed' => 0,
-                'skipped' => 0,
-                'whatsapp_links' => [],
-                'messages' => ['Formulaire manquant ou non publié.'],
-            ];
+            return $this->emptyResult(['Formulaire manquant ou non publié.']);
         }
 
-        $channels = array_values(array_intersect(
-            $channels,
-            [
-                GuestInviteDispatch::CHANNEL_EMAIL,
-                GuestInviteDispatch::CHANNEL_SMS,
-                GuestInviteDispatch::CHANNEL_WHATSAPP,
-            ],
-        ));
-
-        if ($channels === []) {
-            return [
-                'sent' => 0,
-                'failed' => 0,
-                'skipped' => 0,
-                'whatsapp_links' => [],
-                'messages' => ['Aucun canal sélectionné.'],
-            ];
+        if (! in_array($channel, [
+            GuestInviteDispatch::CHANNEL_EMAIL,
+            GuestInviteDispatch::CHANNEL_SMS,
+            GuestInviteDispatch::CHANNEL_WHATSAPP,
+        ], true)) {
+            return $this->emptyResult(['Canal inconnu.']);
         }
+
+        $defaults = $this->defaultMessageTemplates($project, $form->title);
+        $emailSubject = filled($emailSubject) ? (string) $emailSubject : $defaults['email_subject'];
+        $emailIntro = filled($emailIntro) ? (string) $emailIntro : $defaults['email_intro'];
+        $smsMessage = filled($smsMessage) ? (string) $smsMessage : $defaults['sms_message'];
+        $whatsappMessage = filled($whatsappMessage) ? (string) $whatsappMessage : $defaults['whatsapp_message'];
 
         $pastorsQuery = $project->guestPastors()->orderBy('full_name');
         if ($pastorIds !== []) {
@@ -85,31 +142,48 @@ final class GuestInviteDispatchService
         $messages = [];
 
         foreach ($pastors as $pastor) {
-            foreach ($channels as $channel) {
-                $result = match ($channel) {
-                    GuestInviteDispatch::CHANNEL_EMAIL => $this->sendEmail($project, $pastor, $form->title, $actor),
-                    GuestInviteDispatch::CHANNEL_SMS => $this->sendSms($project, $pastor, $form->title, $actor),
-                    GuestInviteDispatch::CHANNEL_WHATSAPP => $this->prepareWhatsApp($project, $pastor, $form->title, $actor),
-                    default => ['status' => GuestInviteDispatch::STATUS_SKIPPED, 'message' => 'Canal inconnu'],
-                };
+            $result = match ($channel) {
+                GuestInviteDispatch::CHANNEL_EMAIL => $this->sendEmail(
+                    $project,
+                    $pastor,
+                    $form->title,
+                    $emailSubject,
+                    $emailIntro,
+                    $actor,
+                ),
+                GuestInviteDispatch::CHANNEL_SMS => $this->sendSms(
+                    $project,
+                    $pastor,
+                    $form->title,
+                    $smsMessage,
+                    $actor,
+                ),
+                GuestInviteDispatch::CHANNEL_WHATSAPP => $this->prepareWhatsApp(
+                    $project,
+                    $pastor,
+                    $form->title,
+                    $whatsappMessage,
+                    $actor,
+                ),
+                default => ['status' => GuestInviteDispatch::STATUS_SKIPPED, 'message' => 'Canal inconnu'],
+            };
 
-                match ($result['status']) {
-                    GuestInviteDispatch::STATUS_SENT, GuestInviteDispatch::STATUS_LINK_READY => $sent++,
-                    GuestInviteDispatch::STATUS_FAILED => $failed++,
-                    default => $skipped++,
-                };
+            match ($result['status']) {
+                GuestInviteDispatch::STATUS_SENT, GuestInviteDispatch::STATUS_LINK_READY => $sent++,
+                GuestInviteDispatch::STATUS_FAILED => $failed++,
+                default => $skipped++,
+            };
 
-                if (($result['whatsapp_url'] ?? null) !== null) {
-                    $whatsappLinks[] = [
-                        'name' => $pastor->full_name,
-                        'url' => (string) $result['whatsapp_url'],
-                        'phone' => (string) ($result['recipient'] ?? ''),
-                    ];
-                }
+            if (($result['whatsapp_url'] ?? null) !== null) {
+                $whatsappLinks[] = [
+                    'name' => $pastor->full_name,
+                    'url' => (string) $result['whatsapp_url'],
+                    'phone' => (string) ($result['recipient'] ?? ''),
+                ];
+            }
 
-                if (filled($result['message'] ?? null)) {
-                    $messages[] = $pastor->full_name.' ('.$channel.') : '.$result['message'];
-                }
+            if (filled($result['message'] ?? null)) {
+                $messages[] = $pastor->full_name.' : '.$result['message'];
             }
         }
 
@@ -119,16 +193,61 @@ final class GuestInviteDispatchService
             'skipped' => $skipped,
             'whatsapp_links' => $whatsappLinks,
             'messages' => $messages,
+            'whatsapp_html' => $this->whatsappLinksHtml($whatsappLinks),
         ];
     }
 
     /**
-     * @return array{status: string, message?: string, whatsapp_url?: string, recipient?: string}
+     * @param  list<array{name: string, url: string, phone: string}>  $links
+     */
+    public function whatsappLinksHtml(array $links): ?HtmlString
+    {
+        if ($links === []) {
+            return null;
+        }
+
+        $items = [];
+        foreach ($links as $link) {
+            $items[] = '<li style="margin:0.4rem 0;">'
+                .'<strong>'.e($link['name']).'</strong> — '
+                .'<a href="'.e($link['url']).'" target="_blank" rel="noopener noreferrer" '
+                .'style="color:#128c7e;font-weight:600;text-decoration:underline;">'
+                .'Ouvrir WhatsApp</a>'
+                .(filled($link['phone']) ? ' <span style="color:#6b7280;">(+'.e($link['phone']).')</span>' : '')
+                .'</li>';
+        }
+
+        return new HtmlString(
+            '<p style="margin:0 0 0.5rem;font-weight:600;">Liens WhatsApp (cliquez pour envoyer) :</p>'
+            .'<ul style="margin:0;padding-left:1.1rem;">'.implode('', $items).'</ul>'
+        );
+    }
+
+    /**
+     * @param  list<string>  $messages
+     * @return array{sent: int, failed: int, skipped: int, whatsapp_links: list<array{name: string, url: string, phone: string}>, messages: list<string>, whatsapp_html: null}
+     */
+    private function emptyResult(array $messages): array
+    {
+        return [
+            'sent' => 0,
+            'failed' => 0,
+            'skipped' => 0,
+            'whatsapp_links' => [],
+            'messages' => $messages,
+            'whatsapp_html' => null,
+        ];
+    }
+
+    /**
+     * @return array{status: string, message?: string, recipient?: string}
      */
     private function sendEmail(
         GuestPastoralProject $project,
         GuestPastor $pastor,
         string $formTitle,
+        string $subject,
+        string $introTemplate,
         ?User $actor,
     ): array {
         if (! filled($pastor->email)) {
@@ -146,22 +265,27 @@ final class GuestInviteDispatchService
             return ['status' => GuestInviteDispatch::STATUS_SKIPPED, 'message' => 'E-mail manquant'];
         }
 
+        $introText = $this->renderTemplate($introTemplate, $pastor, $formTitle, $project->title);
+        $introHtml = nl2br(e($introText));
+        $formUrl = $pastor->shortFormUrl();
+
         try {
             Mail::to($pastor->email)->send(new GuestPastorInviteMail(
                 $pastor,
-                $pastor->publicFormUrl(),
+                $formUrl,
                 $formTitle,
+                $subject,
+                $introHtml,
             ));
 
-            $preview = 'Invitation e-mail — '.$formTitle;
             $this->logDispatch(
                 $project,
                 $pastor,
                 GuestInviteDispatch::CHANNEL_EMAIL,
                 (string) $pastor->email,
                 GuestInviteDispatch::STATUS_SENT,
-                $preview,
-                null,
+                mb_substr($introText, 0, 480),
+                ['subject' => $subject, 'form_url' => $formUrl],
                 $actor,
             );
 
@@ -189,6 +313,7 @@ final class GuestInviteDispatchService
         GuestPastoralProject $project,
         GuestPastor $pastor,
         string $formTitle,
+        string $smsTemplate,
         ?User $actor,
     ): array {
         if (! filled($pastor->phone)) {
@@ -206,11 +331,9 @@ final class GuestInviteDispatchService
             return ['status' => GuestInviteDispatch::STATUS_SKIPPED, 'message' => 'Téléphone manquant'];
         }
 
-        $body = $this->smsSender->fitSingleSms(
-            'CMP Philadelphie: merci de remplir votre fiche ('.$formTitle.'). '.$pastor->publicFormUrl()
-        );
-
-        $result = $this->smsSender->send((string) $pastor->phone, $body);
+        $body = $this->renderTemplate($smsTemplate, $pastor, $formTitle, $project->title);
+        $estimate = $this->estimateSms($body);
+        $result = $this->smsSender->send((string) $pastor->phone, $body, fitToSingle: false);
         $status = $result->success
             ? GuestInviteDispatch::STATUS_SENT
             : GuestInviteDispatch::STATUS_FAILED;
@@ -221,11 +344,14 @@ final class GuestInviteDispatchService
             GuestInviteDispatch::CHANNEL_SMS,
             (string) $pastor->phone,
             $status,
-            $body,
+            mb_substr($body, 0, 480),
             [
                 'sms_status' => $result->status,
                 'error' => $result->error,
                 'response' => $result->response,
+                'segments' => $estimate['segments'],
+                'length' => $estimate['length'],
+                'form_url' => $pastor->shortFormUrl(),
             ],
             $actor,
         );
@@ -238,18 +364,19 @@ final class GuestInviteDispatchService
     }
 
     /**
-     * Prépare un lien wa.me (pas d’API WhatsApp Business) et le journalise.
-     *
      * @return array{status: string, message?: string, whatsapp_url?: string, recipient?: string}
      */
     private function prepareWhatsApp(
         GuestPastoralProject $project,
         GuestPastor $pastor,
         string $formTitle,
+        string $whatsappTemplate,
         ?User $actor,
     ): array {
-        $digits = $this->normalizePhoneDigits((string) ($pastor->phone ?? ''));
-        if ($digits === '') {
+        $text = $this->renderTemplate($whatsappTemplate, $pastor, $formTitle, $project->title);
+        $url = $this->buildWhatsAppUrl($pastor, $text);
+
+        if ($url === null) {
             $this->logDispatch(
                 $project,
                 $pastor,
@@ -264,9 +391,7 @@ final class GuestInviteDispatchService
             return ['status' => GuestInviteDispatch::STATUS_SKIPPED, 'message' => 'Téléphone manquant pour WhatsApp'];
         }
 
-        $text = 'Bonjour '.$pastor->full_name.', Centre Missionnaire Philadelphie. '
-            .'Merci de remplir votre fiche « '.$formTitle.' » : '.$pastor->publicFormUrl();
-        $url = 'https://wa.me/'.$digits.'?text='.rawurlencode($text);
+        $digits = $this->normalizePhoneDigits((string) $pastor->phone);
 
         $this->logDispatch(
             $project,
@@ -275,7 +400,7 @@ final class GuestInviteDispatchService
             $digits,
             GuestInviteDispatch::STATUS_LINK_READY,
             mb_substr($text, 0, 480),
-            ['whatsapp_url' => $url],
+            ['whatsapp_url' => $url, 'form_url' => $pastor->shortFormUrl()],
             $actor,
         );
 
@@ -283,7 +408,6 @@ final class GuestInviteDispatchService
             'status' => GuestInviteDispatch::STATUS_LINK_READY,
             'whatsapp_url' => $url,
             'recipient' => $digits,
-            'message' => 'Ouvrir le lien WhatsApp pour envoyer',
         ];
     }
 

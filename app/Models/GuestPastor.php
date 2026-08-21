@@ -90,6 +90,14 @@ class GuestPastor extends Model
     }
 
     /**
+     * Lien court pour SMS / WhatsApp (redirige vers le formulaire).
+     */
+    public function shortFormUrl(): string
+    {
+        return url('/i/'.$this->invite_token);
+    }
+
+    /**
      * URL publique de la photo (ou null).
      */
     public function photoPublicUrl(): ?string

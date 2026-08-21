@@ -19,23 +19,7 @@ class EditGuestPastoralProject extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            Action::make('sendInvites')
-                ->label('Envoyer les invitations')
-                ->icon('heroicon-o-paper-airplane')
-                ->color('success')
-                ->modalHeading('Envoyer les invitations')
-                ->modalDescription('Tous les pasteurs ou une sélection — e-mail, SMS et/ou WhatsApp.')
-                ->form(function (): array {
-                    /** @var GuestPastoralProject $record */
-                    $record = $this->getRecord();
-
-                    return GuestPastoralProjectResource::sendInvitesForm($record);
-                })
-                ->action(function (array $data): void {
-                    /** @var GuestPastoralProject $record */
-                    $record = $this->getRecord();
-                    GuestPastoralProjectResource::runSendInvites($record, $data);
-                }),
+            GuestPastoralProjectResource::sendInvitesAction($this->getRecord()),
             Action::make('copyLinks')
                 ->label('Copier les liens')
                 ->icon('heroicon-o-link')
@@ -43,11 +27,11 @@ class EditGuestPastoralProject extends EditRecord
                     /** @var GuestPastoralProject $record */
                     $record = $this->getRecord();
                     $lines = $record->guestPastors->map(
-                        fn (GuestPastor $p): string => $p->full_name.': '.$p->publicFormUrl()
+                        fn (GuestPastor $p): string => $p->full_name.': '.$p->shortFormUrl()
                     )->implode("\n");
 
                     Notification::make()
-                        ->title('Liens des invitations')
+                        ->title('Liens courts des invitations')
                         ->body($lines !== '' ? $lines : 'Aucun pasteur invité.')
                         ->success()
                         ->persistent()

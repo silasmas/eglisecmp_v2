@@ -94,7 +94,15 @@ Route::middleware(['web', 'auth'])
     ->where('key', '[A-Za-z0-9._-]+')
     ->name('admin.qr-download');
 
-$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)).*$';
+Route::get('/i/{token}', function (string $token) {
+    return redirect('/accueil-invite/'.$token, 302);
+})->where('token', '[A-Za-z0-9]+')->name('guest.invite.short');
+
+Route::get('/public/i/{token}', function (string $token) {
+    return redirect('/public/accueil-invite/'.$token, 302);
+})->where('token', '[A-Za-z0-9]+')->name('guest.invite.short.public');
+
+$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)|i(?:/|$)).*$';
 
 Route::view('/', 'site')->name('site.spa.home');
 
