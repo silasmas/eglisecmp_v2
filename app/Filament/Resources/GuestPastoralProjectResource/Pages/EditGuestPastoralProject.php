@@ -19,7 +19,7 @@ class EditGuestPastoralProject extends EditRecord
     protected function getHeaderActions(): array
     {
         return [
-            GuestPastoralProjectResource::sendInvitesAction($this->getRecord()),
+            GuestPastoralProjectResource::sendInvitesAction(),
             Action::make('copyLinks')
                 ->label('Copier les liens')
                 ->icon('heroicon-o-link')

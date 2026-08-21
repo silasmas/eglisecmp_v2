@@ -11,11 +11,14 @@ use App\Models\GuestInfoSubmission;
 use App\Models\User;
 use App\Support\GuestFormAnswerScope;
 use BackedEnum;
+use Filament\Actions\Action;
+use Filament\Actions\ViewAction;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
+use Filament\Support\Enums\Width;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
@@ -85,8 +88,10 @@ class GuestInfoSubmissionResource extends Resource
                         TextEntry::make('submitted_at')->label('Reçu le')->dateTime('d/m/Y H:i')->columnSpan(4),
                     ]),
                 Section::make('Réponses du pasteur')
-                    ->description('Chaque question avec son libellé et la valeur saisie (filtrée selon votre périmètre).')
+                    ->description('Cliquez pour déplier / replier. Chaque question avec son libellé et sa valeur.')
                     ->columnSpanFull()
+                    ->collapsible()
+                    ->collapsed()
                     ->schema([
                         ViewEntry::make('filtered_answers_view')
                             ->hiddenLabel()
@@ -220,7 +225,19 @@ class GuestInfoSubmissionResource extends Resource
                     }),
             ])
             ->actions([
-                \Filament\Actions\ViewAction::make(),
+                Action::make('viewAnswers')
+                    ->label('Voir réponses')
+                    ->icon('heroicon-o-document-text')
+                    ->color('primary')
+                    ->modalHeading(fn (GuestInfoSubmission $record): string => 'Réponses — '.($record->guestPastor?->full_name ?? 'Pasteur'))
+                    ->modalWidth(Width::ThreeExtraLarge)
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Fermer')
+                    ->modalContent(fn (GuestInfoSubmission $record) => view('filament.guest-forms.submission-answers-modal', [
+                        'record' => $record,
+                        'answers' => self::answersForDisplay($record),
+                    ])),
+                ViewAction::make()->label('Détail'),
             ]);
     }
 

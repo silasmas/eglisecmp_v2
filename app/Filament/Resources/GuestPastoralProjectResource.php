@@ -147,8 +147,30 @@ class GuestPastoralProjectResource extends Resource
 
     /**
      * Assistant d’envoi : sélection puis aperçu éditable par canal.
+     * Le record est injecté par Filament (table ou page d’édition).
      */
-    public static function sendInvitesAction(GuestPastoralProject $record): Action
+    public static function sendInvitesAction(): Action
+    {
+        return Action::make('sendInvites')
+            ->label('Envoyer les invitations')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('success')
+            ->modalHeading('Envoyer les invitations')
+            ->modalWidth('5xl')
+            ->closeModalByClickingAway(false)
+            ->steps(fn (GuestPastoralProject $record): array => self::buildSendInviteWizardSteps($record))
+            ->modalSubmitActionLabel('Fermer')
+            ->action(function (): void {
+                // L’envoi se fait canal par canal via les boutons de l’aperçu.
+            });
+    }
+
+    /**
+     * Étapes de l’assistant d’invitation pour un projet.
+     *
+     * @return array<int, Step>
+     */
+    public static function buildSendInviteWizardSteps(GuestPastoralProject $record): array
     {
         $service = app(GuestInviteDispatchService::class);
         $formTitle = $record->form?->title ?? 'fiche';
@@ -166,180 +188,169 @@ class GuestPastoralProjectResource extends Resource
             })
             ->all();
 
-        return Action::make('sendInvites')
-            ->label('Envoyer les invitations')
-            ->icon('heroicon-o-paper-airplane')
-            ->color('success')
-            ->modalHeading('Envoyer les invitations')
-            ->modalWidth('5xl')
-            ->closeModalByClickingAway(false)
-            ->steps([
-                Step::make('Destinataires')
-                    ->description('Qui reçoit quoi')
-                    ->schema([
-                        Radio::make('recipient_mode')
-                            ->label('Destinataires')
-                            ->options([
-                                'all' => 'Tous les pasteurs du projet',
-                                'selected' => 'Sélectionner certains pasteurs',
-                            ])
-                            ->default('all')
-                            ->required()
-                            ->live(),
-                        CheckboxList::make('pastor_ids')
-                            ->label('Pasteurs')
-                            ->options($pastorOptions)
-                            ->columns(1)
-                            ->required()
-                            ->visible(fn (Get $get): bool => $get('recipient_mode') === 'selected')
-                            ->helperText('Cochez les pasteurs à qui envoyer le lien.'),
-                        CheckboxList::make('channels')
-                            ->label('Canaux à préparer')
-                            ->options(GuestInviteDispatch::channelOptions())
-                            ->default([GuestInviteDispatch::CHANNEL_EMAIL])
-                            ->required()
-                            ->columns(3)
-                            ->helperText('À l’étape suivante : aperçu, modification et envoi canal par canal.'),
-                    ])
-                    ->afterValidation(function (Get $get, Set $set) use ($defaults): void {
-                        if (blank($get('email_subject'))) {
-                            $set('email_subject', $defaults['email_subject']);
-                        }
-                        if (blank($get('email_intro'))) {
-                            $set('email_intro', $defaults['email_intro']);
-                        }
-                        if (blank($get('sms_message'))) {
-                            $set('sms_message', $defaults['sms_message']);
-                        }
-                        if (blank($get('whatsapp_message'))) {
-                            $set('whatsapp_message', $defaults['whatsapp_message']);
-                        }
-                    }),
-                Step::make('Aperçu & envoi')
-                    ->description('Modifiez puis validez chaque canal')
-                    ->schema([
-                        Placeholder::make('placeholders_help')
-                            ->label('Variables disponibles')
-                            ->content(new HtmlString(
-                                '<code>{nom}</code> · <code>{lien}</code> (lien court) · <code>{fiche}</code> · <code>{projet}</code>'
-                            )),
-                        Placeholder::make('sample_preview')
-                            ->label('Aperçu (1er pasteur sélectionné)')
-                            ->content(function (Get $get) use ($record, $service, $formTitle): HtmlString {
-                                $pastor = self::resolvePastorsForSend($record, $get)->first();
-                                if (! $pastor instanceof GuestPastor) {
-                                    return new HtmlString('<em>Aucun pasteur sélectionné.</em>');
-                                }
+        return [
+            Step::make('Destinataires')
+                ->description('Qui reçoit quoi')
+                ->schema([
+                    Radio::make('recipient_mode')
+                        ->label('Destinataires')
+                        ->options([
+                            'all' => 'Tous les pasteurs du projet',
+                            'selected' => 'Sélectionner certains pasteurs',
+                        ])
+                        ->default('all')
+                        ->required()
+                        ->live(),
+                    CheckboxList::make('pastor_ids')
+                        ->label('Pasteurs')
+                        ->options($pastorOptions)
+                        ->columns(1)
+                        ->required()
+                        ->visible(fn (Get $get): bool => $get('recipient_mode') === 'selected')
+                        ->helperText('Cochez les pasteurs à qui envoyer le lien.'),
+                    CheckboxList::make('channels')
+                        ->label('Canaux à préparer')
+                        ->options(GuestInviteDispatch::channelOptions())
+                        ->default([GuestInviteDispatch::CHANNEL_EMAIL])
+                        ->required()
+                        ->columns(3)
+                        ->helperText('À l’étape suivante : aperçu, modification et envoi canal par canal.'),
+                ])
+                ->afterValidation(function (Get $get, Set $set) use ($defaults): void {
+                    if (blank($get('email_subject'))) {
+                        $set('email_subject', $defaults['email_subject']);
+                    }
+                    if (blank($get('email_intro'))) {
+                        $set('email_intro', $defaults['email_intro']);
+                    }
+                    if (blank($get('sms_message'))) {
+                        $set('sms_message', $defaults['sms_message']);
+                    }
+                    if (blank($get('whatsapp_message'))) {
+                        $set('whatsapp_message', $defaults['whatsapp_message']);
+                    }
+                }),
+            Step::make('Aperçu & envoi')
+                ->description('Modifiez puis validez chaque canal')
+                ->schema([
+                    Placeholder::make('placeholders_help')
+                        ->label('Variables disponibles')
+                        ->content(new HtmlString(
+                            '<code>{nom}</code> · <code>{lien}</code> (lien court) · <code>{fiche}</code> · <code>{projet}</code>'
+                        )),
+                    Placeholder::make('sample_preview')
+                        ->label('Aperçu (1er pasteur sélectionné)')
+                        ->content(function (Get $get) use ($record, $service, $formTitle): HtmlString {
+                            $pastor = self::resolvePastorsForSend($record, $get)->first();
+                            if (! $pastor instanceof GuestPastor) {
+                                return new HtmlString('<em>Aucun pasteur sélectionné.</em>');
+                            }
 
-                                $link = e($pastor->shortFormUrl());
-                                $channels = (array) ($get('channels') ?? []);
-                                $parts = ['<p><strong>'.e($pastor->full_name).'</strong> — lien court : <a href="'.$link.'" target="_blank">'.$link.'</a></p>'];
+                            $link = e($pastor->shortFormUrl());
+                            $channels = (array) ($get('channels') ?? []);
+                            $parts = ['<p><strong>'.e($pastor->full_name).'</strong> — lien court : <a href="'.$link.'" target="_blank">'.$link.'</a></p>'];
 
-                                if (in_array(GuestInviteDispatch::CHANNEL_EMAIL, $channels, true)) {
-                                    $parts[] = '<p><u>E-mail</u><br><em>'.e((string) $get('email_subject')).'</em><br>'
-                                        .nl2br(e($service->renderTemplate((string) $get('email_intro'), $pastor, $formTitle, $record->title)))
-                                        .'</p>';
+                            if (in_array(GuestInviteDispatch::CHANNEL_EMAIL, $channels, true)) {
+                                $parts[] = '<p><u>E-mail</u><br><em>'.e((string) $get('email_subject')).'</em><br>'
+                                    .nl2br(e($service->renderTemplate((string) $get('email_intro'), $pastor, $formTitle, $record->title)))
+                                    .'</p>';
+                            }
+                            if (in_array(GuestInviteDispatch::CHANNEL_SMS, $channels, true)) {
+                                $sms = $service->renderTemplate((string) $get('sms_message'), $pastor, $formTitle, $record->title);
+                                $parts[] = '<p><u>SMS</u><br>'.nl2br(e($sms)).'</p>';
+                            }
+                            if (in_array(GuestInviteDispatch::CHANNEL_WHATSAPP, $channels, true)) {
+                                $wa = $service->renderTemplate((string) $get('whatsapp_message'), $pastor, $formTitle, $record->title);
+                                $url = $service->buildWhatsAppUrl($pastor, $wa);
+                                $parts[] = '<p><u>WhatsApp</u><br>'.nl2br(e($wa)).'</p>';
+                                if ($url) {
+                                    $parts[] = '<p><a href="'.e($url).'" target="_blank" rel="noopener" style="color:#128c7e;font-weight:700;text-decoration:underline;">Ouvrir WhatsApp (aperçu)</a></p>';
                                 }
-                                if (in_array(GuestInviteDispatch::CHANNEL_SMS, $channels, true)) {
-                                    $sms = $service->renderTemplate((string) $get('sms_message'), $pastor, $formTitle, $record->title);
-                                    $parts[] = '<p><u>SMS</u><br>'.nl2br(e($sms)).'</p>';
-                                }
-                                if (in_array(GuestInviteDispatch::CHANNEL_WHATSAPP, $channels, true)) {
-                                    $wa = $service->renderTemplate((string) $get('whatsapp_message'), $pastor, $formTitle, $record->title);
-                                    $url = $service->buildWhatsAppUrl($pastor, $wa);
-                                    $parts[] = '<p><u>WhatsApp</u><br>'.nl2br(e($wa)).'</p>';
-                                    if ($url) {
-                                        $parts[] = '<p><a href="'.e($url).'" target="_blank" rel="noopener" style="color:#128c7e;font-weight:700;text-decoration:underline;">Ouvrir WhatsApp (aperçu)</a></p>';
-                                    }
-                                }
+                            }
 
-                                return new HtmlString(implode('', $parts));
-                            }),
-                        TextInput::make('email_subject')
-                            ->label('Objet e-mail')
+                            return new HtmlString(implode('', $parts));
+                        }),
+                    TextInput::make('email_subject')
+                        ->label('Objet e-mail')
+                        ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_EMAIL, (array) $get('channels'), true))
+                        ->live(onBlur: true),
+                    Textarea::make('email_intro')
+                        ->label('Message e-mail (modifiable)')
+                        ->rows(5)
+                        ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_EMAIL, (array) $get('channels'), true))
+                        ->live(onBlur: true),
+                    Textarea::make('sms_message')
+                        ->label('Message SMS (modifiable)')
+                        ->rows(3)
+                        ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_SMS, (array) $get('channels'), true))
+                        ->live(debounce: 400)
+                        ->helperText('Soyez clair : précisez qu’il s’agit de la fiche de renseignements pasteur invité CMP.'),
+                    Placeholder::make('sms_stats')
+                        ->label('Compteur SMS')
+                        ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_SMS, (array) $get('channels'), true))
+                        ->content(function (Get $get) use ($record, $service, $formTitle): HtmlString {
+                            $pastor = self::resolvePastorsForSend($record, $get)->first();
+                            $template = (string) ($get('sms_message') ?? '');
+                            $body = $pastor instanceof GuestPastor
+                                ? $service->renderTemplate($template, $pastor, $formTitle, $record->title)
+                                : $template;
+                            $est = $service->estimateSms($body);
+                            $color = $est['segments'] > 1 ? '#b45309' : '#047857';
+
+                            return new HtmlString(
+                                '<p style="margin:0;color:'.$color.';font-weight:600;">'
+                                .$est['length'].' caractère(s) · <strong>'.$est['segments'].' SMS</strong>'
+                                .' (max '.$est['max'].' / segment après normalisation)</p>'
+                                .'<p style="margin:0.4rem 0 0;font-size:0.85rem;color:#6b7280;">Aperçu normalisé :<br>'
+                                .e($est['preview']).'</p>'
+                            );
+                        }),
+                    Textarea::make('whatsapp_message')
+                        ->label('Message WhatsApp (modifiable)')
+                        ->rows(5)
+                        ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_WHATSAPP, (array) $get('channels'), true))
+                        ->live(onBlur: true),
+                    SchemaActions::make([
+                        Action::make('dispatchEmail')
+                            ->label('Envoyer e-mail')
+                            ->icon('heroicon-o-envelope')
+                            ->color('primary')
+                            ->cancelParentActions(false)
                             ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_EMAIL, (array) $get('channels'), true))
-                            ->live(onBlur: true),
-                        Textarea::make('email_intro')
-                            ->label('Message e-mail (modifiable)')
-                            ->rows(5)
-                            ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_EMAIL, (array) $get('channels'), true))
-                            ->live(onBlur: true),
-                        Textarea::make('sms_message')
-                            ->label('Message SMS (modifiable)')
-                            ->rows(3)
-                            ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_SMS, (array) $get('channels'), true))
-                            ->live(debounce: 400)
-                            ->helperText('Soyez clair : précisez qu’il s’agit de la fiche de renseignements pasteur invité CMP.'),
-                        Placeholder::make('sms_stats')
-                            ->label('Compteur SMS')
-                            ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_SMS, (array) $get('channels'), true))
-                            ->content(function (Get $get) use ($record, $service, $formTitle): HtmlString {
-                                $pastor = self::resolvePastorsForSend($record, $get)->first();
-                                $template = (string) ($get('sms_message') ?? '');
-                                $body = $pastor instanceof GuestPastor
-                                    ? $service->renderTemplate($template, $pastor, $formTitle, $record->title)
-                                    : $template;
-                                $est = $service->estimateSms($body);
-                                $color = $est['segments'] > 1 ? '#b45309' : '#047857';
-
-                                return new HtmlString(
-                                    '<p style="margin:0;color:'.$color.';font-weight:600;">'
-                                    .$est['length'].' caractère(s) · <strong>'.$est['segments'].' SMS</strong>'
-                                    .' (max '.$est['max'].' / segment après normalisation)</p>'
-                                    .'<p style="margin:0.4rem 0 0;font-size:0.85rem;color:#6b7280;">Aperçu normalisé :<br>'
-                                    .e($est['preview']).'</p>'
-                                );
+                            ->action(function (Get $get) use ($record): void {
+                                self::dispatchSingleChannel($record, $get, GuestInviteDispatch::CHANNEL_EMAIL);
                             }),
-                        Textarea::make('whatsapp_message')
-                            ->label('Message WhatsApp (modifiable)')
-                            ->rows(5)
+                        Action::make('dispatchSms')
+                            ->label('Envoyer SMS')
+                            ->icon('heroicon-o-device-phone-mobile')
+                            ->color('warning')
+                            ->cancelParentActions(false)
+                            ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_SMS, (array) $get('channels'), true))
+                            ->action(function (Get $get) use ($record): void {
+                                self::dispatchSingleChannel($record, $get, GuestInviteDispatch::CHANNEL_SMS);
+                            }),
+                        Action::make('dispatchWhatsApp')
+                            ->label('Préparer WhatsApp')
+                            ->icon('heroicon-o-chat-bubble-left-right')
+                            ->color('success')
+                            ->cancelParentActions(false)
                             ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_WHATSAPP, (array) $get('channels'), true))
-                            ->live(onBlur: true),
-                        SchemaActions::make([
-                            Action::make('dispatchEmail')
-                                ->label('Envoyer e-mail')
-                                ->icon('heroicon-o-envelope')
-                                ->color('primary')
-                                ->cancelParentActions(false)
-                                ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_EMAIL, (array) $get('channels'), true))
-                                ->action(function (Get $get) use ($record): void {
-                                    self::dispatchSingleChannel($record, $get, GuestInviteDispatch::CHANNEL_EMAIL);
-                                }),
-                            Action::make('dispatchSms')
-                                ->label('Envoyer SMS')
-                                ->icon('heroicon-o-device-phone-mobile')
-                                ->color('warning')
-                                ->cancelParentActions(false)
-                                ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_SMS, (array) $get('channels'), true))
-                                ->action(function (Get $get) use ($record): void {
-                                    self::dispatchSingleChannel($record, $get, GuestInviteDispatch::CHANNEL_SMS);
-                                }),
-                            Action::make('dispatchWhatsApp')
-                                ->label('Préparer WhatsApp')
-                                ->icon('heroicon-o-chat-bubble-left-right')
-                                ->color('success')
-                                ->cancelParentActions(false)
-                                ->visible(fn (Get $get): bool => in_array(GuestInviteDispatch::CHANNEL_WHATSAPP, (array) $get('channels'), true))
-                                ->action(function (Get $get, Set $set) use ($record): void {
-                                    $html = self::dispatchSingleChannel($record, $get, GuestInviteDispatch::CHANNEL_WHATSAPP);
-                                    if ($html !== null) {
-                                        $set('whatsapp_links_html', (string) $html);
-                                    }
-                                }),
-                        ])->fullWidth(),
-                        Placeholder::make('whatsapp_links_box')
-                            ->label('Liens WhatsApp cliquables')
-                            ->visible(fn (Get $get): bool => filled($get('whatsapp_links_html')))
-                            ->content(fn (Get $get): HtmlString => new HtmlString((string) $get('whatsapp_links_html'))),
-                        Textarea::make('whatsapp_links_html')
-                            ->hidden()
-                            ->dehydrated(false),
-                    ]),
-            ])
-            ->modalSubmitActionLabel('Fermer')
-            ->action(function (): void {
-                // L’envoi se fait canal par canal via les boutons de l’aperçu.
-            });
+                            ->action(function (Get $get, Set $set) use ($record): void {
+                                $html = self::dispatchSingleChannel($record, $get, GuestInviteDispatch::CHANNEL_WHATSAPP);
+                                if ($html !== null) {
+                                    $set('whatsapp_links_html', (string) $html);
+                                }
+                            }),
+                    ])->fullWidth(),
+                    Placeholder::make('whatsapp_links_box')
+                        ->label('Liens WhatsApp cliquables')
+                        ->visible(fn (Get $get): bool => filled($get('whatsapp_links_html')))
+                        ->content(fn (Get $get): HtmlString => new HtmlString((string) $get('whatsapp_links_html'))),
+                    Textarea::make('whatsapp_links_html')
+                        ->hidden()
+                        ->dehydrated(false),
+                ]),
+        ];
     }
 
     /**
@@ -442,7 +453,7 @@ class GuestPastoralProjectResource extends Resource
             ])
             ->actions([
                 EditAction::make(),
-                fn (GuestPastoralProject $record): Action => self::sendInvitesAction($record),
+                self::sendInvitesAction(),
                 DeleteAction::make(),
             ]);
     }

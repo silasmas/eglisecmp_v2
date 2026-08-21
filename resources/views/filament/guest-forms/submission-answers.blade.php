@@ -2,10 +2,12 @@
     use App\Filament\Resources\GuestInfoSubmissionResource;
     use App\Models\GuestInfoSubmission;
 
-    $record = $getRecord();
-    $answers = $record instanceof GuestInfoSubmission
-        ? GuestInfoSubmissionResource::answersForDisplay($record)
-        : [];
+    if (! isset($answers)) {
+        $record = isset($getRecord) ? $getRecord() : ($record ?? null);
+        $answers = $record instanceof GuestInfoSubmission
+            ? GuestInfoSubmissionResource::answersForDisplay($record)
+            : [];
+    }
 @endphp
 
 @if($answers === [])
