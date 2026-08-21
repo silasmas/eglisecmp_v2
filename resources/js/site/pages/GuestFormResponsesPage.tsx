@@ -9,6 +9,20 @@ import {
 } from '../lib/siteApi';
 
 /**
+ * Échappe le HTML pour le DOM d’export image.
+ *
+ * @param text Texte brut.
+ */
+function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+/**
  * Formate une valeur de réponse de façon lisible.
  *
  * @param value Valeur brute.
@@ -130,27 +144,93 @@ export default function GuestFormResponsesPage() {
   };
 
   /**
-   * Télécharge les réponses en image PNG.
+   * Télécharge les réponses en image PNG (DOM dédié, styles inline RGB — compatible html2canvas).
    */
   const downloadImage = async () => {
-    if (!exportRef.current || !data || exportBusy) {
+    if (!data || exportBusy) {
       return;
     }
     setExportBusy(true);
+    setAckMessage(null);
+
+    const host = document.createElement('div');
+    host.setAttribute('aria-hidden', 'true');
+    host.style.cssText =
+      'position:fixed;left:-10000px;top:0;width:720px;background:#ffffff;color:#111827;font-family:Segoe UI,Helvetica,Arial,sans-serif;padding:28px;box-sizing:border-box;';
+
+    const title = document.createElement('h1');
+    title.textContent = 'Réponses — accueil pasteur invité';
+    title.style.cssText = 'margin:0 0 8px;font-size:22px;font-weight:700;color:#6b0f1a;';
+    host.appendChild(title);
+
+    const meta = document.createElement('p');
+    meta.style.cssText = 'margin:0 0 18px;font-size:13px;line-height:1.5;color:#4b5563;';
+    meta.innerHTML = [
+      `<strong>Pasteur :</strong> ${escapeHtml(data.pastor.full_name ?? '—')}`,
+      data.pastor.church_name ? `<br><strong>Église :</strong> ${escapeHtml(data.pastor.church_name)}` : '',
+      `<br><strong>Projet :</strong> ${escapeHtml(data.project_title ?? '—')}`,
+      data.submitted_at
+        ? `<br><strong>Reçu le :</strong> ${escapeHtml(new Date(data.submitted_at).toLocaleString('fr-FR'))}`
+        : '',
+    ].join('');
+    host.appendChild(meta);
+
+    const list = document.createElement('div');
+    list.style.cssText = 'border:1px solid #e5e7eb;border-radius:12px;overflow:hidden;';
+
+    if (data.answers.length === 0) {
+      const empty = document.createElement('p');
+      empty.textContent = 'Aucune réponse pour votre département.';
+      empty.style.cssText = 'margin:0;padding:14px;font-size:14px;color:#6b7280;';
+      list.appendChild(empty);
+    } else {
+      data.answers.forEach((answer, index) => {
+        const row = document.createElement('div');
+        row.style.cssText = `padding:12px 14px;background:${index % 2 === 0 ? '#ffffff' : '#f9fafb'};border-top:${index === 0 ? '0' : '1px solid #e5e7eb'};`;
+        const label = document.createElement('div');
+        label.textContent = answer.label;
+        label.style.cssText = 'font-size:11px;font-weight:700;letter-spacing:0.04em;text-transform:uppercase;color:#6b7280;margin-bottom:4px;';
+        const value = document.createElement('div');
+        value.textContent = formatValue(answer.value);
+        value.style.cssText = 'font-size:14px;color:#111827;white-space:pre-wrap;';
+        row.appendChild(label);
+        row.appendChild(value);
+        list.appendChild(row);
+      });
+    }
+
+    host.appendChild(list);
+    document.body.appendChild(host);
+
     try {
-      const canvas = await html2canvas(exportRef.current, {
+      const canvas = await html2canvas(host, {
         backgroundColor: '#ffffff',
         scale: 2,
-        useCORS: true,
+        useCORS: false,
+        allowTaint: false,
+        logging: false,
+        foreignObjectRendering: false,
       });
+      const blob = await new Promise<Blob | null>((resolve) => {
+        canvas.toBlob((result) => resolve(result), 'image/png');
+      });
+      if (!blob) {
+        throw new Error('blob_empty');
+      }
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      const slug = (data.pastor.full_name ?? 'reponses').replace(/\s+/g, '_');
+      const slug = (data.pastor.full_name ?? 'reponses').replace(/[^\w\-]+/g, '_');
       link.download = `reponses_${slug}.png`;
-      link.href = canvas.toDataURL('image/png');
+      link.href = url;
+      document.body.appendChild(link);
       link.click();
+      link.remove();
+      URL.revokeObjectURL(url);
+      setAckMessage('Image téléchargée.');
     } catch {
-      setAckMessage('Impossible de générer l’image.');
+      setAckMessage('Impossible de générer l’image. Utilisez « PDF / Imprimer » ou « Copier le texte ».');
     } finally {
+      host.remove();
       setExportBusy(false);
     }
   };

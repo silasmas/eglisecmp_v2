@@ -12,6 +12,7 @@ use App\Models\User;
 use App\Support\GuestFormAnswerScope;
 use BackedEnum;
 use Filament\Infolists\Components\TextEntry;
+use Filament\Infolists\Components\ViewEntry;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
@@ -82,52 +83,103 @@ class GuestInfoSubmissionResource extends Resource
                         TextEntry::make('guestPastor.full_name')->label('Pasteur')->columnSpan(4),
                         TextEntry::make('form.title')->label('Formulaire')->columnSpan(4),
                         TextEntry::make('submitted_at')->label('Reçu le')->dateTime('d/m/Y H:i')->columnSpan(4),
-                        TextEntry::make('filtered_answers')
-                            ->label('Réponses')
+                    ]),
+                Section::make('Réponses du pasteur')
+                    ->description('Chaque question avec son libellé et la valeur saisie (filtrée selon votre périmètre).')
+                    ->columnSpanFull()
+                    ->schema([
+                        ViewEntry::make('filtered_answers_view')
+                            ->hiddenLabel()
                             ->columnSpanFull()
-                            ->state(function (GuestInfoSubmission $record): string {
-                                $user = auth()->user() instanceof User ? auth()->user() : null;
-                                $payload = GuestFormAnswerScope::visiblePayloadForUser($user, $record);
-                                $labels = GuestInfoFormField::query()
-                                    ->whereHas('section', fn ($q) => $q->where('form_id', $record->form_id))
-                                    ->pluck('label', 'key');
-
-                                $lines = [];
-                                foreach ($payload as $key => $value) {
-                                    $label = $labels[$key] ?? $key;
-                                    $lines[] = $label.' : '.self::formatAnswerValue($value);
-                                }
-
-                                return $lines !== [] ? implode("\n", $lines) : 'Aucune réponse visible pour votre périmètre.';
-                            })
-                            ->markdown()
-                            ->prose(),
+                            ->view('filament.guest-forms.submission-answers'),
                     ]),
             ]);
     }
 
     /**
-     * Formate une valeur de réponse pour l’affichage admin.
+     * Prépare les réponses (libellé + valeur) pour l’affichage admin.
+     *
+     * @return list<array{label: string, value: string}>
      */
-    public static function formatAnswerValue(mixed $value): string
+    public static function answersForDisplay(GuestInfoSubmission $record): array
+    {
+        $user = auth()->user() instanceof User ? auth()->user() : null;
+        $payload = GuestFormAnswerScope::visiblePayloadForUser($user, $record);
+        $fields = GuestInfoFormField::query()
+            ->whereHas('section', fn ($q) => $q->where('form_id', $record->form_id))
+            ->orderBy('sort_order')
+            ->get(['key', 'label', 'type', 'options', 'sort_order']);
+
+        $ordered = [];
+        foreach ($fields as $field) {
+            if (! array_key_exists($field->key, $payload)) {
+                continue;
+            }
+            $ordered[] = [
+                'label' => (string) $field->label,
+                'value' => self::formatAnswerValue($payload[$field->key], $field->type, is_array($field->options) ? $field->options : null),
+            ];
+            unset($payload[$field->key]);
+        }
+
+        foreach ($payload as $key => $value) {
+            $ordered[] = [
+                'label' => (string) $key,
+                'value' => self::formatAnswerValue($value),
+            ];
+        }
+
+        return $ordered;
+    }
+
+    /**
+     * Formate une valeur de réponse pour l’affichage admin.
+     *
+     * @param  array<string, mixed>|null  $options
+     */
+    public static function formatAnswerValue(mixed $value, ?string $type = null, ?array $options = null): string
     {
         if (is_bool($value)) {
             return $value ? 'Oui' : 'Non';
         }
-        if (is_array($value)) {
-            return collect($value)
-                ->map(function ($item) {
-                    if (is_array($item)) {
-                        return json_encode($item, JSON_UNESCAPED_UNICODE);
-                    }
 
-                    return (string) $item;
-                })
-                ->filter()
-                ->implode(', ');
+        if ($value === null || $value === '') {
+            return '—';
         }
 
-        return (string) $value;
+        if (is_array($value)) {
+            $choices = is_array($options['choices'] ?? null) ? $options['choices'] : [];
+
+            return collect($value)
+                ->map(function ($item) use ($choices) {
+                    if (is_array($item)) {
+                        if (isset($item['category'], $item['item'])) {
+                            return (string) $item['category'].' : '.(string) $item['item'];
+                        }
+                        if (count($item) === 2 && array_is_list($item)) {
+                            return (string) $item[0].' : '.(string) $item[1];
+                        }
+
+                        return (string) json_encode($item, JSON_UNESCAPED_UNICODE);
+                    }
+
+                    $key = (string) $item;
+                    if ($choices !== [] && isset($choices[$key]) && is_scalar($choices[$key])) {
+                        return (string) $choices[$key];
+                    }
+
+                    return $key;
+                })
+                ->filter(fn ($line): bool => $line !== '')
+                ->implode("\n");
+        }
+
+        $scalar = (string) $value;
+        if (is_array($options['choices'] ?? null) && isset($options['choices'][$scalar]) && is_scalar($options['choices'][$scalar])) {
+            return (string) $options['choices'][$scalar];
+        }
+
+        return $scalar;
     }
 
     public static function table(Table $table): Table
