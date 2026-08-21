@@ -1,10 +1,6 @@
 {
-  "_WorkerBadgeLayout-Duc2n7nh.css": {
-    "file": "assets/WorkerBadgeLayout-Duc2n7nh.css",
-    "src": "_WorkerBadgeLayout-Duc2n7nh.css"
-  },
-  "_WorkerBadgeLayout-Wl87fTJq.js": {
-    "file": "assets/WorkerBadgeLayout-Wl87fTJq.js",
+  "_WorkerBadgeLayout-DrANMhq6.js": {
+    "file": "assets/WorkerBadgeLayout-DrANMhq6.js",
     "name": "WorkerBadgeLayout",
     "css": [
       "assets/WorkerBadgeLayout-Duc2n7nh.css"
@@ -15,6 +11,10 @@
       "assets/nom-badge-DUU25ZnV.png",
       "assets/Chambre-CfWZX87R.png"
     ]
+  },
+  "_WorkerBadgeLayout-Duc2n7nh.css": {
+    "file": "assets/WorkerBadgeLayout-Duc2n7nh.css",
+    "src": "_WorkerBadgeLayout-Duc2n7nh.css"
   },
   "node_modules/leaflet/dist/images/layers-2x.png": {
     "file": "assets/layers-2x-Bpkbi35X.png",
@@ -29,7 +29,7 @@
     "src": "node_modules/leaflet/dist/images/marker-icon.png"
   },
   "resources/css/app.css": {
-    "file": "assets/app-Wk1y85lj.css",
+    "file": "assets/app-D8uGX6uf.css",
     "src": "resources/css/app.css",
     "isEntry": true
   },
@@ -61,15 +61,15 @@
     "src": "resources/js/site/assets/worker-badge/nom-badge.png"
   },
   "resources/js/site/main.tsx": {
-    "file": "assets/main-wRYynK0t.js",
+    "file": "assets/main-COrHPcJV.js",
     "name": "main",
     "src": "resources/js/site/main.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-Wl87fTJq.js"
+      "_WorkerBadgeLayout-DrANMhq6.js"
     ],
     "css": [
-      "assets/main-DfuCx-Nu.css"
+      "assets/main-fUMv7ukn.css"
     ],
     "assets": [
       "assets/layers-BWBAp2CZ.png",
@@ -78,12 +78,12 @@
     ]
   },
   "resources/js/site/worker-badge-entry.tsx": {
-    "file": "assets/worker-badge-entry-CgGB1k6s.js",
+    "file": "assets/worker-badge-entry-D6B6a0nK.js",
     "name": "worker-badge-entry",
     "src": "resources/js/site/worker-badge-entry.tsx",
     "isEntry": true,
     "imports": [
-      "_WorkerBadgeLayout-Wl87fTJq.js"
+      "_WorkerBadgeLayout-DrANMhq6.js"
     ]
   }
 }

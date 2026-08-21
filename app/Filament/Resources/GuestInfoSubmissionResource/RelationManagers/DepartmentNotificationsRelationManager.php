@@ -5,7 +5,11 @@ declare(strict_types=1);
 namespace App\Filament\Resources\GuestInfoSubmissionResource\RelationManagers;
 
 use App\Models\GuestDepartmentNotification;
+use App\Models\GuestInfoSubmission;
+use App\Models\User;
+use App\Services\GuestFormSubmissionService;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Notifications\Notification;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables\Columns\IconColumn;
@@ -75,6 +79,66 @@ class DepartmentNotificationsRelationManager extends RelationManager
             ])
             ->headerActions([])
             ->actions([
+                Action::make('resendOne')
+                    ->label('Renvoyer')
+                    ->icon('heroicon-o-arrow-path')
+                    ->color('warning')
+                    ->form([
+                        CheckboxList::make('channels')
+                            ->label('Canaux')
+                            ->options([
+                                GuestDepartmentNotification::CHANNEL_EMAIL => 'E-mail',
+                                GuestDepartmentNotification::CHANNEL_SMS => 'SMS',
+                                GuestDepartmentNotification::CHANNEL_WHATSAPP => 'WhatsApp',
+                            ])
+                            ->default([GuestDepartmentNotification::CHANNEL_EMAIL])
+                            ->required()
+                            ->columns(3),
+                    ])
+                    ->action(function (GuestDepartmentNotification $record, array $data): void {
+                        /** @var GuestInfoSubmission|null $submission */
+                        $submission = $this->getOwnerRecord();
+                        $form = $submission?->form;
+                        if ($submission === null || $form === null) {
+                            Notification::make()->title('Soumission introuvable')->danger()->send();
+
+                            return;
+                        }
+
+                        $channels = array_values(array_map('strval', (array) ($data['channels'] ?? [])));
+                        $actor = auth()->user() instanceof User ? auth()->user() : null;
+                        $result = app(GuestFormSubmissionService::class)->notifyDepartments(
+                            $submission,
+                            $form,
+                            $actor,
+                            [(int) $record->church_department_id],
+                            $channels,
+                        );
+
+                        $body = "Envoyés : {$result['sent']} · Échecs : {$result['failed']} · Ignorés : {$result['skipped']}";
+                        if ($result['whatsapp_links'] !== []) {
+                            $body .= "\n\nWhatsApp :";
+                            foreach ($result['whatsapp_links'] as $link) {
+                                $body .= "\n• ".$link['name'].' : '.$link['url'];
+                            }
+                        }
+
+                        Notification::make()
+                            ->title('Renvoi effectué')
+                            ->body($body)
+                            ->success()
+                            ->persistent()
+                            ->send();
+                    }),
+                Action::make('openWhatsApp')
+                    ->label('WhatsApp')
+                    ->icon('heroicon-o-chat-bubble-left-right')
+                    ->url(fn (GuestDepartmentNotification $record): ?string => is_string($record->meta['whatsapp_url'] ?? null)
+                        ? (string) $record->meta['whatsapp_url']
+                        : null)
+                    ->openUrlInNewTab()
+                    ->visible(fn (GuestDepartmentNotification $record): bool => $record->channel === GuestDepartmentNotification::CHANNEL_WHATSAPP
+                        && filled($record->meta['whatsapp_url'] ?? null)),
                 Action::make('markAck')
                     ->label('Marquer reçu')
                     ->icon('heroicon-o-check-badge')

@@ -62,6 +62,19 @@ class GuestInfoSubmission extends Model
     }
 
     /**
+     * Lien court du portail réponses (optionnellement filtré par département).
+     */
+    public function shortResponsesUrl(?int $departmentId = null): string
+    {
+        $url = url('/r/'.$this->access_token);
+        if ($departmentId !== null && $departmentId > 0) {
+            $url .= '?dept='.$departmentId;
+        }
+
+        return $url;
+    }
+
+    /**
      * Pasteur invité.
      *
      * @return BelongsTo<GuestPastor, $this>

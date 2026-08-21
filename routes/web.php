@@ -102,7 +102,27 @@ Route::get('/public/i/{token}', function (string $token) {
     return redirect('/public/accueil-invite/'.$token, 302);
 })->where('token', '[A-Za-z0-9]+')->name('guest.invite.short.public');
 
-$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)|i(?:/|$)).*$';
+Route::get('/r/{token}', function (string $token) {
+    $dept = request()->query('dept');
+    $target = '/accueil-invite/reponses/'.$token;
+    if (filled($dept)) {
+        $target .= '?dept='.urlencode((string) $dept);
+    }
+
+    return redirect($target, 302);
+})->where('token', '[A-Za-z0-9]+')->name('guest.responses.short');
+
+Route::get('/public/r/{token}', function (string $token) {
+    $dept = request()->query('dept');
+    $target = '/public/accueil-invite/reponses/'.$token;
+    if (filled($dept)) {
+        $target .= '?dept='.urlencode((string) $dept);
+    }
+
+    return redirect($target, 302);
+})->where('token', '[A-Za-z0-9]+')->name('guest.responses.short.public');
+
+$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)|i(?:/|$)|r(?:/|$)).*$';
 
 Route::view('/', 'site')->name('site.spa.home');
 

@@ -14,6 +14,7 @@ use App\Models\User;
 use App\Support\GuestFormAnswerScope;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\HtmlString;
 use Illuminate\Support\Str;
 
 /**
@@ -21,6 +22,10 @@ use Illuminate\Support\Str;
  */
 final class GuestFormSubmissionService
 {
+    public function __construct(
+        private readonly SmsSender $smsSender,
+    ) {}
+
     /**
      * Crée la soumission, marque le pasteur, envoie les mails départements.
      *
@@ -50,24 +55,38 @@ final class GuestFormSubmissionService
     }
 
     /**
-     * Notifie chaque département lié aux champs du formulaire.
+     * Notifie chaque département lié (e-mail par défaut).
      *
-     * @return array{sent: int, failed: int, skipped: int}
+     * @param  list<int>|null  $onlyDepartmentIds
+     * @param  list<string>  $channels
+     * @return array{sent: int, failed: int, skipped: int, whatsapp_links: list<array{name: string, url: string}>, whatsapp_html: HtmlString|null}
      */
     public function notifyDepartments(
         GuestInfoSubmission $submission,
         GuestInfoForm $form,
         ?User $actor = null,
+        ?array $onlyDepartmentIds = null,
+        array $channels = [GuestDepartmentNotification::CHANNEL_EMAIL],
     ): array {
-        $departmentIds = $this->collectDepartmentIds($form);
+        $departmentIds = $onlyDepartmentIds ?? $this->collectDepartmentIds($form);
         if ($departmentIds === []) {
             $departmentIds = $form->project?->departments()->pluck('church_departments.id')->map(fn ($id): int => (int) $id)->all() ?? [];
+        }
+
+        $channels = array_values(array_intersect($channels, [
+            GuestDepartmentNotification::CHANNEL_EMAIL,
+            GuestDepartmentNotification::CHANNEL_SMS,
+            GuestDepartmentNotification::CHANNEL_WHATSAPP,
+        ]));
+        if ($channels === []) {
+            $channels = [GuestDepartmentNotification::CHANNEL_EMAIL];
         }
 
         $passwordHint = (string) Cache::get($this->passwordCacheKey($form->id), 'Voir l’administration CMP');
         $sent = 0;
         $failed = 0;
         $skipped = 0;
+        $whatsappLinks = [];
 
         foreach ($departmentIds as $departmentId) {
             $department = ChurchDepartment::query()->with('manager')->find($departmentId);
@@ -77,69 +96,72 @@ final class GuestFormSubmissionService
                 continue;
             }
 
-            $filtered = GuestFormAnswerScope::visiblePayloadForDepartment($submission, $departmentId);
+            $filtered = GuestFormAnswerScope::visiblePayloadForDepartment($submission, (int) $departmentId);
             if ($filtered === [] && $form->project?->departments()->where('church_departments.id', $departmentId)->exists() !== true) {
                 $skipped++;
 
                 continue;
             }
 
-            $portalUrl = $submission->publicResponsesUrl().'?dept='.$departmentId;
-            $recipients = $this->departmentRecipients($department);
-
-            if ($recipients === []) {
-                GuestDepartmentNotification::query()->create([
-                    'guest_info_submission_id' => $submission->id,
-                    'church_department_id' => $departmentId,
-                    'channel' => GuestDepartmentNotification::CHANNEL_EMAIL,
-                    'recipient' => null,
-                    'status' => GuestDepartmentNotification::STATUS_SKIPPED,
-                    'meta' => ['reason' => 'no_email'],
-                    'sent_by_user_id' => $actor?->id,
-                    'sent_at' => now(),
-                ]);
-                $skipped++;
-
-                continue;
-            }
-
-            foreach ($recipients as $email) {
-                try {
-                    Mail::to($email)->send(new GuestFormDepartmentMail(
+            foreach ($channels as $channel) {
+                $result = match ($channel) {
+                    GuestDepartmentNotification::CHANNEL_EMAIL => $this->sendDepartmentEmail(
                         $submission,
                         $department,
-                        $portalUrl,
                         $passwordHint,
-                    ));
+                        $actor,
+                    ),
+                    GuestDepartmentNotification::CHANNEL_SMS => $this->sendDepartmentSms(
+                        $submission,
+                        $department,
+                        $passwordHint,
+                        $actor,
+                    ),
+                    GuestDepartmentNotification::CHANNEL_WHATSAPP => $this->prepareDepartmentWhatsApp(
+                        $submission,
+                        $department,
+                        $passwordHint,
+                        $actor,
+                    ),
+                    default => ['sent' => 0, 'failed' => 0, 'skipped' => 1, 'whatsapp_links' => []],
+                };
 
-                    GuestDepartmentNotification::query()->create([
-                        'guest_info_submission_id' => $submission->id,
-                        'church_department_id' => $departmentId,
-                        'channel' => GuestDepartmentNotification::CHANNEL_EMAIL,
-                        'recipient' => $email,
-                        'status' => GuestDepartmentNotification::STATUS_SENT,
-                        'meta' => ['portal_url' => $portalUrl],
-                        'sent_by_user_id' => $actor?->id,
-                        'sent_at' => now(),
-                    ]);
-                    $sent++;
-                } catch (\Throwable $e) {
-                    GuestDepartmentNotification::query()->create([
-                        'guest_info_submission_id' => $submission->id,
-                        'church_department_id' => $departmentId,
-                        'channel' => GuestDepartmentNotification::CHANNEL_EMAIL,
-                        'recipient' => $email,
-                        'status' => GuestDepartmentNotification::STATUS_FAILED,
-                        'meta' => ['error' => $e->getMessage(), 'portal_url' => $portalUrl],
-                        'sent_by_user_id' => $actor?->id,
-                        'sent_at' => now(),
-                    ]);
-                    $failed++;
+                $sent += $result['sent'];
+                $failed += $result['failed'];
+                $skipped += $result['skipped'];
+                foreach ($result['whatsapp_links'] as $link) {
+                    $whatsappLinks[] = $link;
                 }
             }
         }
 
-        return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped];
+        return [
+            'sent' => $sent,
+            'failed' => $failed,
+            'skipped' => $skipped,
+            'whatsapp_links' => $whatsappLinks,
+            'whatsapp_html' => $this->whatsappLinksHtml($whatsappLinks),
+        ];
+    }
+
+    /**
+     * IDs des départements concernés par une soumission (pour l’UI Filament).
+     *
+     * @return list<int>
+     */
+    public function departmentIdsForSubmission(GuestInfoSubmission $submission): array
+    {
+        $form = $submission->form;
+        if ($form === null) {
+            return [];
+        }
+
+        $ids = $this->collectDepartmentIds($form);
+        if ($ids === []) {
+            $ids = $form->project?->departments()->pluck('church_departments.id')->map(fn ($id): int => (int) $id)->all() ?? [];
+        }
+
+        return $ids;
     }
 
     /**
@@ -159,7 +181,6 @@ final class GuestFormSubmissionService
             ->where('status', GuestDepartmentNotification::STATUS_SENT);
 
         if (! $query->exists()) {
-            // Pas d’historique d’envoi (ancien flux) : créer une ligne d’accusé.
             $notification = GuestDepartmentNotification::query()->create([
                 'guest_info_submission_id' => $submission->id,
                 'church_department_id' => $departmentId,
@@ -235,6 +256,218 @@ final class GuestFormSubmissionService
     }
 
     /**
+     * @return array{sent: int, failed: int, skipped: int, whatsapp_links: list<array{name: string, url: string}>}
+     */
+    private function sendDepartmentEmail(
+        GuestInfoSubmission $submission,
+        ChurchDepartment $department,
+        string $passwordHint,
+        ?User $actor,
+    ): array {
+        $portalUrl = $submission->shortResponsesUrl((int) $department->id);
+        $recipients = $this->departmentEmailRecipients($department);
+        $sent = 0;
+        $failed = 0;
+        $skipped = 0;
+
+        if ($recipients === []) {
+            GuestDepartmentNotification::query()->create([
+                'guest_info_submission_id' => $submission->id,
+                'church_department_id' => $department->id,
+                'channel' => GuestDepartmentNotification::CHANNEL_EMAIL,
+                'recipient' => null,
+                'status' => GuestDepartmentNotification::STATUS_SKIPPED,
+                'meta' => ['reason' => 'no_email', 'portal_url' => $portalUrl],
+                'sent_by_user_id' => $actor?->id,
+                'sent_at' => now(),
+            ]);
+
+            return ['sent' => 0, 'failed' => 0, 'skipped' => 1, 'whatsapp_links' => []];
+        }
+
+        foreach ($recipients as $email) {
+            try {
+                Mail::to($email)->send(new GuestFormDepartmentMail(
+                    $submission,
+                    $department,
+                    $portalUrl,
+                    $passwordHint,
+                ));
+
+                GuestDepartmentNotification::query()->create([
+                    'guest_info_submission_id' => $submission->id,
+                    'church_department_id' => $department->id,
+                    'channel' => GuestDepartmentNotification::CHANNEL_EMAIL,
+                    'recipient' => $email,
+                    'status' => GuestDepartmentNotification::STATUS_SENT,
+                    'meta' => ['portal_url' => $portalUrl],
+                    'sent_by_user_id' => $actor?->id,
+                    'sent_at' => now(),
+                ]);
+                $sent++;
+            } catch (\Throwable $e) {
+                GuestDepartmentNotification::query()->create([
+                    'guest_info_submission_id' => $submission->id,
+                    'church_department_id' => $department->id,
+                    'channel' => GuestDepartmentNotification::CHANNEL_EMAIL,
+                    'recipient' => $email,
+                    'status' => GuestDepartmentNotification::STATUS_FAILED,
+                    'meta' => ['error' => $e->getMessage(), 'portal_url' => $portalUrl],
+                    'sent_by_user_id' => $actor?->id,
+                    'sent_at' => now(),
+                ]);
+                $failed++;
+            }
+        }
+
+        return ['sent' => $sent, 'failed' => $failed, 'skipped' => $skipped, 'whatsapp_links' => []];
+    }
+
+    /**
+     * @return array{sent: int, failed: int, skipped: int, whatsapp_links: list<array{name: string, url: string}>}
+     */
+    private function sendDepartmentSms(
+        GuestInfoSubmission $submission,
+        ChurchDepartment $department,
+        string $passwordHint,
+        ?User $actor,
+    ): array {
+        $phone = $this->departmentPhone($department);
+        $portalUrl = $submission->shortResponsesUrl((int) $department->id);
+
+        if ($phone === null) {
+            GuestDepartmentNotification::query()->create([
+                'guest_info_submission_id' => $submission->id,
+                'church_department_id' => $department->id,
+                'channel' => GuestDepartmentNotification::CHANNEL_SMS,
+                'recipient' => null,
+                'status' => GuestDepartmentNotification::STATUS_SKIPPED,
+                'meta' => ['reason' => 'no_phone', 'portal_url' => $portalUrl],
+                'sent_by_user_id' => $actor?->id,
+                'sent_at' => now(),
+            ]);
+
+            return ['sent' => 0, 'failed' => 0, 'skipped' => 1, 'whatsapp_links' => []];
+        }
+
+        $pastor = $submission->guestPastor?->full_name ?? 'pasteur invite';
+        $body = $this->smsSender->fitSingleSms(
+            'CMP Philadelphie: reponses fiche '.$pastor.' ('.$department->name.'). Mot de passe: '.$passwordHint.'. Lien: '.$portalUrl
+        );
+
+        $result = $this->smsSender->send($phone, $body, fitToSingle: true);
+        $status = $result->success
+            ? GuestDepartmentNotification::STATUS_SENT
+            : GuestDepartmentNotification::STATUS_FAILED;
+
+        GuestDepartmentNotification::query()->create([
+            'guest_info_submission_id' => $submission->id,
+            'church_department_id' => $department->id,
+            'channel' => GuestDepartmentNotification::CHANNEL_SMS,
+            'recipient' => $phone,
+            'status' => $status,
+            'meta' => [
+                'portal_url' => $portalUrl,
+                'sms_status' => $result->status,
+                'error' => $result->error,
+                'message_preview' => $body,
+            ],
+            'sent_by_user_id' => $actor?->id,
+            'sent_at' => now(),
+        ]);
+
+        return [
+            'sent' => $result->success ? 1 : 0,
+            'failed' => $result->success ? 0 : 1,
+            'skipped' => 0,
+            'whatsapp_links' => [],
+        ];
+    }
+
+    /**
+     * @return array{sent: int, failed: int, skipped: int, whatsapp_links: list<array{name: string, url: string}>}
+     */
+    private function prepareDepartmentWhatsApp(
+        GuestInfoSubmission $submission,
+        ChurchDepartment $department,
+        string $passwordHint,
+        ?User $actor,
+    ): array {
+        $phone = $this->departmentPhone($department);
+        $portalUrl = $submission->shortResponsesUrl((int) $department->id);
+        $digits = $this->normalizePhoneDigits((string) ($phone ?? ''));
+
+        if ($digits === '') {
+            GuestDepartmentNotification::query()->create([
+                'guest_info_submission_id' => $submission->id,
+                'church_department_id' => $department->id,
+                'channel' => GuestDepartmentNotification::CHANNEL_WHATSAPP,
+                'recipient' => null,
+                'status' => GuestDepartmentNotification::STATUS_SKIPPED,
+                'meta' => ['reason' => 'no_phone', 'portal_url' => $portalUrl],
+                'sent_by_user_id' => $actor?->id,
+                'sent_at' => now(),
+            ]);
+
+            return ['sent' => 0, 'failed' => 0, 'skipped' => 1, 'whatsapp_links' => []];
+        }
+
+        $pastor = $submission->guestPastor?->full_name ?? 'pasteur invité';
+        $text = "Bonjour {$department->name},\n\n"
+            ."Centre Missionnaire Philadelphie — les réponses de la fiche « {$pastor} » sont disponibles.\n"
+            ."Mot de passe : {$passwordHint}\n"
+            ."Lien : {$portalUrl}";
+        $url = 'https://wa.me/'.$digits.'?text='.rawurlencode($text);
+
+        GuestDepartmentNotification::query()->create([
+            'guest_info_submission_id' => $submission->id,
+            'church_department_id' => $department->id,
+            'channel' => GuestDepartmentNotification::CHANNEL_WHATSAPP,
+            'recipient' => $digits,
+            'status' => GuestDepartmentNotification::STATUS_SENT,
+            'meta' => [
+                'portal_url' => $portalUrl,
+                'whatsapp_url' => $url,
+                'message_preview' => mb_substr($text, 0, 480),
+            ],
+            'sent_by_user_id' => $actor?->id,
+            'sent_at' => now(),
+        ]);
+
+        return [
+            'sent' => 1,
+            'failed' => 0,
+            'skipped' => 0,
+            'whatsapp_links' => [[
+                'name' => $department->name,
+                'url' => $url,
+            ]],
+        ];
+    }
+
+    /**
+     * @param  list<array{name: string, url: string}>  $links
+     */
+    private function whatsappLinksHtml(array $links): ?HtmlString
+    {
+        if ($links === []) {
+            return null;
+        }
+
+        $items = [];
+        foreach ($links as $link) {
+            $items[] = '<li style="margin:0.35rem 0;"><strong>'.e($link['name']).'</strong> — '
+                .'<a href="'.e($link['url']).'" target="_blank" rel="noopener noreferrer" '
+                .'style="color:#128c7e;font-weight:600;text-decoration:underline;">Ouvrir WhatsApp</a></li>';
+        }
+
+        return new HtmlString(
+            '<p style="margin:0 0 0.4rem;font-weight:600;">Liens WhatsApp à ouvrir :</p>'
+            .'<ul style="margin:0;padding-left:1.1rem;">'.implode('', $items).'</ul>'
+        );
+    }
+
+    /**
      * @return list<int>
      */
     private function collectDepartmentIds(GuestInfoForm $form): array
@@ -259,7 +492,7 @@ final class GuestFormSubmissionService
     /**
      * @return list<string>
      */
-    private function departmentRecipients(ChurchDepartment $department): array
+    private function departmentEmailRecipients(ChurchDepartment $department): array
     {
         $emails = [];
         if (filled($department->contact_email)) {
@@ -270,6 +503,38 @@ final class GuestFormSubmissionService
         }
 
         return array_values(array_unique($emails));
+    }
+
+    private function departmentPhone(ChurchDepartment $department): ?string
+    {
+        if (filled($department->contact_phone)) {
+            return (string) $department->contact_phone;
+        }
+
+        return null;
+    }
+
+    private function normalizePhoneDigits(string $phone): string
+    {
+        $digits = preg_replace('/\D+/', '', trim($phone)) ?? '';
+
+        if ($digits === '') {
+            return '';
+        }
+
+        if (str_starts_with($digits, '00')) {
+            $digits = substr($digits, 2);
+        }
+
+        if (str_starts_with($digits, '0') && strlen($digits) === 10) {
+            $digits = '243'.substr($digits, 1);
+        }
+
+        if (strlen($digits) === 9 && str_starts_with($digits, '8')) {
+            $digits = '243'.$digits;
+        }
+
+        return $digits;
     }
 
     private function passwordCacheKey(int $formId): string
