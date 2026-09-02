@@ -77,4 +77,24 @@ class ChurchDepartment extends Model
     {
         return $this->hasMany(ChurchWorker::class, 'department_id');
     }
+
+    /**
+     * Responsables du département (contacts + comptes éventuels).
+     *
+     * @return HasMany<ChurchDepartmentManager, $this>
+     */
+    public function managers(): HasMany
+    {
+        return $this->hasMany(ChurchDepartmentManager::class, 'department_id')->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Responsable principal (flag is_primary, sinon le premier).
+     */
+    public function primaryManager(): ?ChurchDepartmentManager
+    {
+        $this->loadMissing('managers');
+
+        return $this->managers->firstWhere('is_primary', true) ?? $this->managers->first();
+    }
 }

@@ -6,6 +6,7 @@ namespace App\Filament\Resources;
 
 use App\Filament\Concerns\ProvidesAdminTourStep;
 use App\Filament\Resources\ChurchDepartmentResource\Pages;
+use App\Filament\Resources\ChurchDepartmentResource\RelationManagers\ManagersRelationManager;
 use App\Models\ChurchDepartment;
 use BackedEnum;
 use Filament\Actions\BulkActionGroup;
@@ -63,21 +64,23 @@ class ChurchDepartmentResource extends Resource
                         TextInput::make('color')->label('Couleur badge')->type('color')->default('#7b1d3e')->columnSpan(3),
                         Textarea::make('description')->label('Description')->rows(2)->columnSpanFull(),
                         Select::make('manager_user_id')
-                            ->label('Responsable')
+                            ->label('Compte admin principal')
                             ->relationship('manager', 'name')
                             ->searchable()
                             ->preload()
-                            ->helperText('Peut valider les inscriptions et voir les réponses d’accueil invités de ce département.')
+                            ->helperText('Compte Filament du responsable principal. Les contacts (nom, tél., e-mail) se gèrent dans l’onglet Responsables.')
                             ->columnSpan(6),
                         TextInput::make('contact_phone')
-                            ->label('Téléphone')
+                            ->label('Tél. principal (legacy)')
                             ->tel()
                             ->maxLength(40)
+                            ->helperText('Rempli automatiquement à l’import (1er responsable).')
                             ->columnSpan(3),
                         TextInput::make('contact_email')
-                            ->label('E-mail')
+                            ->label('E-mail principal (legacy)')
                             ->email()
                             ->maxLength(120)
+                            ->helperText('Rempli automatiquement à l’import (1er responsable).')
                             ->columnSpan(3),
                         TextInput::make('sort_order')->label('Ordre')->numeric()->default(0)->columnSpan(3),
                         Toggle::make('is_active')->label('Actif')->default(true)->columnSpan(3),
@@ -95,7 +98,8 @@ class ChurchDepartmentResource extends Resource
                     ->label('Couleur')
                     ->formatStateUsing(fn (string $state): string => $state)
                     ->color(fn (string $state): string => 'gray'),
-                TextColumn::make('manager.name')->label('Responsable')->placeholder('—'),
+                TextColumn::make('manager.name')->label('Compte principal')->placeholder('—'),
+                TextColumn::make('managers_count')->counts('managers')->label('Responsables'),
                 TextColumn::make('contact_phone')->label('Tél.')->placeholder('—')->toggleable(),
                 TextColumn::make('contact_email')->label('E-mail')->placeholder('—')->toggleable(),
                 TextColumn::make('workers_count')->counts('workers')->label('Ouvriers'),
@@ -119,6 +123,13 @@ class ChurchDepartmentResource extends Resource
             ]);
     }
 
+    public static function getRelations(): array
+    {
+        return [
+            ManagersRelationManager::class,
+        ];
+    }
+
     public static function getPages(): array
     {
         return [
@@ -140,7 +151,8 @@ class ChurchDepartmentResource extends Resource
     {
         return [
             'Créer / modifier un département',
-            'Assigner un responsable',
+            'Importer les responsables depuis Excel',
+            'Assigner un ou plusieurs responsables',
             'Définir la couleur badge',
         ];
     }

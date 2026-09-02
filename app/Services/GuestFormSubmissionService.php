@@ -89,7 +89,7 @@ final class GuestFormSubmissionService
         $whatsappLinks = [];
 
         foreach ($departmentIds as $departmentId) {
-            $department = ChurchDepartment::query()->with('manager')->find($departmentId);
+            $department = ChurchDepartment::query()->with(['manager', 'managers.user'])->find($departmentId);
             if ($department === null) {
                 $skipped++;
 
@@ -332,10 +332,10 @@ final class GuestFormSubmissionService
         string $passwordHint,
         ?User $actor,
     ): array {
-        $phone = $this->departmentPhone($department);
+        $phones = $this->departmentPhoneRecipients($department);
         $portalUrl = $submission->shortResponsesUrl((int) $department->id);
 
-        if ($phone === null) {
+        if ($phones === []) {
             GuestDepartmentNotification::query()->create([
                 'guest_info_submission_id' => $submission->id,
                 'church_department_id' => $department->id,
@@ -355,30 +355,41 @@ final class GuestFormSubmissionService
             'CMP Philadelphie: reponses fiche '.$pastor.' ('.$department->name.'). Mot de passe: '.$passwordHint.'. Lien: '.$portalUrl
         );
 
-        $result = $this->smsSender->send($phone, $body, fitToSingle: true);
-        $status = $result->success
-            ? GuestDepartmentNotification::STATUS_SENT
-            : GuestDepartmentNotification::STATUS_FAILED;
+        $sent = 0;
+        $failed = 0;
 
-        GuestDepartmentNotification::query()->create([
-            'guest_info_submission_id' => $submission->id,
-            'church_department_id' => $department->id,
-            'channel' => GuestDepartmentNotification::CHANNEL_SMS,
-            'recipient' => $phone,
-            'status' => $status,
-            'meta' => [
-                'portal_url' => $portalUrl,
-                'sms_status' => $result->status,
-                'error' => $result->error,
-                'message_preview' => $body,
-            ],
-            'sent_by_user_id' => $actor?->id,
-            'sent_at' => now(),
-        ]);
+        foreach ($phones as $phone) {
+            $result = $this->smsSender->send($phone, $body, fitToSingle: true);
+            $status = $result->success
+                ? GuestDepartmentNotification::STATUS_SENT
+                : GuestDepartmentNotification::STATUS_FAILED;
+
+            GuestDepartmentNotification::query()->create([
+                'guest_info_submission_id' => $submission->id,
+                'church_department_id' => $department->id,
+                'channel' => GuestDepartmentNotification::CHANNEL_SMS,
+                'recipient' => $phone,
+                'status' => $status,
+                'meta' => [
+                    'portal_url' => $portalUrl,
+                    'sms_status' => $result->status,
+                    'error' => $result->error,
+                    'message_preview' => $body,
+                ],
+                'sent_by_user_id' => $actor?->id,
+                'sent_at' => now(),
+            ]);
+
+            if ($result->success) {
+                $sent++;
+            } else {
+                $failed++;
+            }
+        }
 
         return [
-            'sent' => $result->success ? 1 : 0,
-            'failed' => $result->success ? 0 : 1,
+            'sent' => $sent,
+            'failed' => $failed,
             'skipped' => 0,
             'whatsapp_links' => [],
         ];
@@ -393,11 +404,13 @@ final class GuestFormSubmissionService
         string $passwordHint,
         ?User $actor,
     ): array {
-        $phone = $this->departmentPhone($department);
+        $phones = $this->departmentPhoneRecipients($department);
         $portalUrl = $submission->shortResponsesUrl((int) $department->id);
-        $digits = $this->normalizePhoneDigits((string) ($phone ?? ''));
+        $whatsappLinks = [];
+        $sent = 0;
+        $skipped = 0;
 
-        if ($digits === '') {
+        if ($phones === []) {
             GuestDepartmentNotification::query()->create([
                 'guest_info_submission_id' => $submission->id,
                 'church_department_id' => $department->id,
@@ -417,31 +430,44 @@ final class GuestFormSubmissionService
             ."Centre Missionnaire Philadelphie — les réponses de la fiche « {$pastor} » sont disponibles.\n"
             ."Mot de passe : {$passwordHint}\n"
             ."Lien : {$portalUrl}";
-        $url = 'https://wa.me/'.$digits.'?text='.rawurlencode($text);
 
-        GuestDepartmentNotification::query()->create([
-            'guest_info_submission_id' => $submission->id,
-            'church_department_id' => $department->id,
-            'channel' => GuestDepartmentNotification::CHANNEL_WHATSAPP,
-            'recipient' => $digits,
-            'status' => GuestDepartmentNotification::STATUS_SENT,
-            'meta' => [
-                'portal_url' => $portalUrl,
-                'whatsapp_url' => $url,
-                'message_preview' => mb_substr($text, 0, 480),
-            ],
-            'sent_by_user_id' => $actor?->id,
-            'sent_at' => now(),
-        ]);
+        foreach ($phones as $phone) {
+            $digits = $this->normalizePhoneDigits($phone);
+            if ($digits === '') {
+                $skipped++;
+
+                continue;
+            }
+
+            $url = 'https://wa.me/'.$digits.'?text='.rawurlencode($text);
+
+            GuestDepartmentNotification::query()->create([
+                'guest_info_submission_id' => $submission->id,
+                'church_department_id' => $department->id,
+                'channel' => GuestDepartmentNotification::CHANNEL_WHATSAPP,
+                'recipient' => $digits,
+                'status' => GuestDepartmentNotification::STATUS_SENT,
+                'meta' => [
+                    'portal_url' => $portalUrl,
+                    'whatsapp_url' => $url,
+                    'message_preview' => mb_substr($text, 0, 480),
+                ],
+                'sent_by_user_id' => $actor?->id,
+                'sent_at' => now(),
+            ]);
+
+            $whatsappLinks[] = [
+                'name' => $department->name.' ('.$digits.')',
+                'url' => $url,
+            ];
+            $sent++;
+        }
 
         return [
-            'sent' => 1,
+            'sent' => $sent,
             'failed' => 0,
-            'skipped' => 0,
-            'whatsapp_links' => [[
-                'name' => $department->name,
-                'url' => $url,
-            ]],
+            'skipped' => $skipped,
+            'whatsapp_links' => $whatsappLinks,
         ];
     }
 
@@ -490,28 +516,67 @@ final class GuestFormSubmissionService
     }
 
     /**
+     * Collecte tous les e-mails des responsables (contacts + comptes liés).
+     *
      * @return list<string>
      */
     private function departmentEmailRecipients(ChurchDepartment $department): array
     {
+        $department->loadMissing(['manager', 'managers.user']);
+
         $emails = [];
         if (filled($department->contact_email)) {
-            $emails[] = (string) $department->contact_email;
+            $emails[] = mb_strtolower(trim((string) $department->contact_email));
         }
         if ($department->manager && filled($department->manager->email)) {
-            $emails[] = (string) $department->manager->email;
+            $emails[] = mb_strtolower(trim((string) $department->manager->email));
         }
 
-        return array_values(array_unique($emails));
+        foreach ($department->managers as $manager) {
+            if (filled($manager->email)) {
+                $emails[] = mb_strtolower(trim((string) $manager->email));
+            }
+            if ($manager->user && filled($manager->user->email)) {
+                $emails[] = mb_strtolower(trim((string) $manager->user->email));
+            }
+        }
+
+        return array_values(array_unique(array_filter($emails)));
     }
 
-    private function departmentPhone(ChurchDepartment $department): ?string
+    /**
+     * Collecte tous les téléphones des responsables pour SMS / WhatsApp.
+     *
+     * @return list<string>
+     */
+    private function departmentPhoneRecipients(ChurchDepartment $department): array
     {
+        $department->loadMissing('managers');
+
+        $phones = [];
         if (filled($department->contact_phone)) {
-            return (string) $department->contact_phone;
+            $phones[] = trim((string) $department->contact_phone);
         }
 
-        return null;
+        foreach ($department->managers as $manager) {
+            if (filled($manager->phone)) {
+                $phones[] = trim((string) $manager->phone);
+            }
+        }
+
+        $unique = [];
+        $seen = [];
+        foreach ($phones as $phone) {
+            $digits = $this->normalizePhoneDigits($phone);
+            $key = $digits !== '' ? $digits : mb_strtolower($phone);
+            if (isset($seen[$key])) {
+                continue;
+            }
+            $seen[$key] = true;
+            $unique[] = $phone;
+        }
+
+        return $unique;
     }
 
     private function normalizePhoneDigits(string $phone): string
