@@ -34,7 +34,7 @@ class ListChurchDepartments extends ListRecords
                 ->icon('heroicon-o-user-group')
                 ->color('success')
                 ->modalHeading('Importer départements & responsables')
-                ->modalDescription('Accepte le fichier « CREA DATABASE RESPO CMP » (colonnes Département / Responsables / Numéros / Email) ou un Excel plat département;responsable;téléphone;email.')
+                ->modalDescription('Accepte le fichier « CREA DATABASE RESPO CMP » (Département / Responsables / Numéros / Email). Crée aussi un dossier ouvrier (en attente) pour chaque responsable.')
                 ->form([
                     FileUpload::make('file')
                         ->label('Fichier Excel (.xlsx / .xls)')
@@ -49,7 +49,7 @@ class ListChurchDepartments extends ListRecords
                     Toggle::make('replace_managers')
                         ->label('Remplacer les responsables existants')
                         ->default(true)
-                        ->helperText('Si activé, les responsables actuels de chaque département importé sont effacés puis recréés.'),
+                        ->helperText('Si activé, les responsables actuels de chaque département importé sont effacés puis recréés. Les dossiers ouvriers déjà créés sont conservés / mis à jour.'),
                 ])
                 ->action(function (array $data): void {
                     $path = is_array($data['file'] ?? null)

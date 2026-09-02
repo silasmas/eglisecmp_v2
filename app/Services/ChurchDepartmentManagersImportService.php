@@ -18,10 +18,14 @@ use Throwable;
  */
 final class ChurchDepartmentManagersImportService
 {
+    public function __construct(
+        private readonly ChurchWorkerFromContactService $workerFromContact,
+    ) {}
+
     /**
      * Importe un fichier Excel de responsables.
      *
-     * @return array{success: bool, message: string, created_departments: int, updated_departments: int, managers: int, users: int, errors: list<string>}
+     * @return array{success: bool, message: string, created_departments: int, updated_departments: int, managers: int, users: int, workers_created: int, workers_updated: int, errors: list<string>}
      */
     public function importFromPath(string $absolutePath, bool $replaceManagers = true): array
     {
@@ -30,34 +34,20 @@ final class ChurchDepartmentManagersImportService
         $updatedDepartments = 0;
         $managersCount = 0;
         $usersCount = 0;
+        $workersCreated = 0;
+        $workersUpdated = 0;
 
         try {
             $spreadsheet = IOFactory::load($absolutePath);
             $sheet = $spreadsheet->getActiveSheet();
             $rows = $sheet->toArray(null, true, true, false);
         } catch (Throwable $e) {
-            return [
-                'success' => false,
-                'message' => 'Impossible de lire le fichier Excel : '.$e->getMessage(),
-                'created_departments' => 0,
-                'updated_departments' => 0,
-                'managers' => 0,
-                'users' => 0,
-                'errors' => [],
-            ];
+            return $this->emptyResult('Impossible de lire le fichier Excel : '.$e->getMessage());
         }
 
         $groups = $this->parseRows($rows);
         if ($groups === []) {
-            return [
-                'success' => false,
-                'message' => 'Aucune département / responsable détecté. Vérifiez le format du fichier.',
-                'created_departments' => 0,
-                'updated_departments' => 0,
-                'managers' => 0,
-                'users' => 0,
-                'errors' => [],
-            ];
+            return $this->emptyResult('Aucun département / responsable détecté. Vérifiez le format du fichier.');
         }
 
         $sortBase = 1;
@@ -137,6 +127,23 @@ final class ChurchDepartmentManagersImportService
                     ]);
                     $managersCount++;
 
+                    $workerResult = $this->workerFromContact->upsert(
+                        $department,
+                        $fullName,
+                        $phone,
+                        $email,
+                        $isPrimary,
+                    );
+                    if ($workerResult['worker'] === null) {
+                        if ($workerResult['skipped_reason'] !== null) {
+                            $errors[] = $workerResult['skipped_reason'];
+                        }
+                    } elseif ($workerResult['created']) {
+                        $workersCreated++;
+                    } else {
+                        $workersUpdated++;
+                    }
+
                     if ($isPrimary) {
                         $primaryUserId = $userId;
                         $primaryPhone = $phone;
@@ -155,30 +162,45 @@ final class ChurchDepartmentManagersImportService
         } catch (Throwable $e) {
             DB::rollBack();
 
-            return [
-                'success' => false,
-                'message' => 'Erreur pendant l’import : '.$e->getMessage(),
-                'created_departments' => 0,
-                'updated_departments' => 0,
-                'managers' => 0,
-                'users' => 0,
-                'errors' => [$e->getMessage()],
-            ];
+            return $this->emptyResult('Erreur pendant l’import : '.$e->getMessage(), [$e->getMessage()]);
         }
 
         return [
             'success' => $errors === [],
             'message' => sprintf(
-                'Départements créés : %d · mis à jour : %d · responsables : %d · comptes utilisateurs : %d',
+                'Départements créés : %d · mis à jour : %d · responsables : %d · dossiers ouvriers créés : %d · mis à jour : %d · comptes admin : %d',
                 $createdDepartments,
                 $updatedDepartments,
                 $managersCount,
+                $workersCreated,
+                $workersUpdated,
                 $usersCount,
             ),
             'created_departments' => $createdDepartments,
             'updated_departments' => $updatedDepartments,
             'managers' => $managersCount,
             'users' => $usersCount,
+            'workers_created' => $workersCreated,
+            'workers_updated' => $workersUpdated,
+            'errors' => $errors,
+        ];
+    }
+
+    /**
+     * @param  list<string>  $errors
+     * @return array{success: bool, message: string, created_departments: int, updated_departments: int, managers: int, users: int, workers_created: int, workers_updated: int, errors: list<string>}
+     */
+    private function emptyResult(string $message, array $errors = []): array
+    {
+        return [
+            'success' => false,
+            'message' => $message,
+            'created_departments' => 0,
+            'updated_departments' => 0,
+            'managers' => 0,
+            'users' => 0,
+            'workers_created' => 0,
+            'workers_updated' => 0,
             'errors' => $errors,
         ];
     }

@@ -10,20 +10,23 @@ use App\Models\ChurchDepartment;
 use App\Models\ChurchWorker;
 use App\Models\User;
 use App\Services\ChurchWorkerApprovalService;
+use App\Services\ChurchWorkerEditLinkNotifyService;
 use App\Support\FilamentImageUrl;
+use App\Support\KinshasaCommunes;
 use BackedEnum;
 use Filament\Actions\Action;
+use Filament\Actions\BulkAction;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Actions\ViewAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
-use App\Support\KinshasaCommunes;
 use Filament\Infolists\Components\ImageEntry;
 use Filament\Infolists\Components\TextEntry;
 use Filament\Notifications\Notification;
@@ -35,6 +38,7 @@ use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use JibayMcs\Tabbed\Traits\HasTabbedActions;
 use TinusG\FilamentHoverImageColumn\HoverImageColumn as ImageColumn;
 use UnitEnum;
@@ -378,6 +382,7 @@ class ChurchWorkerResource extends Resource
                         self::makeRejectAction()->cancelParentActions(),
                         self::makeGenerateBadgeAction()->cancelParentActions(),
                         self::makeGenerateEditLinkAction()->cancelParentActions(),
+                        self::makeNotifyEditLinkAction()->cancelParentActions(),
                         self::makeOpenBadgeAction(),
                         EditAction::make()
                             ->label('Modifier')
@@ -388,6 +393,7 @@ class ChurchWorkerResource extends Resource
                 self::makeRejectAction(),
                 self::makeGenerateBadgeAction(),
                 self::makeGenerateEditLinkAction(),
+                self::makeNotifyEditLinkAction(),
                 self::makeOpenBadgeAction(),
                 EditAction::make(),
                 DeleteAction::make()
@@ -396,6 +402,7 @@ class ChurchWorkerResource extends Resource
             ])
             ->bulkActions([
                 BulkActionGroup::make([
+                    self::makeNotifyEditLinkBulkAction(),
                     DeleteBulkAction::make()
                         ->label('Supprimer la sélection')
                         ->modalHeading('Supprimer les ouvriers sélectionnés')
@@ -496,6 +503,115 @@ class ChurchWorkerResource extends Resource
     }
 
     /**
+     * Envoie le lien de modification à un ouvrier (e-mail et/ou SMS).
+     */
+    public static function makeNotifyEditLinkAction(): Action
+    {
+        return Action::make('notifyEditLink')
+            ->label('Notifier lien')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('info')
+            ->modalHeading('Envoyer le lien de modification')
+            ->modalDescription('Génère un lien (14 jours) et l’envoie à cet ouvrier via le(s) canal(aux) choisi(s).')
+            ->form([
+                CheckboxList::make('channels')
+                    ->label('Canaux')
+                    ->options([
+                        ChurchWorkerEditLinkNotifyService::CHANNEL_EMAIL => 'E-mail',
+                        ChurchWorkerEditLinkNotifyService::CHANNEL_SMS => 'SMS',
+                    ])
+                    ->default([ChurchWorkerEditLinkNotifyService::CHANNEL_EMAIL])
+                    ->required()
+                    ->columns(2),
+            ])
+            ->action(function (ChurchWorker $record, array $data): void {
+                $channels = array_values($data['channels'] ?? []);
+                $result = app(ChurchWorkerEditLinkNotifyService::class)->notifyOne($record, $channels);
+
+                $parts = [];
+                if ($result['url']) {
+                    $parts[] = $result['url'];
+                }
+                if ($result['email']) {
+                    $parts[] = 'E-mail : '.$result['email'];
+                }
+                if ($result['sms']) {
+                    $parts[] = 'SMS : '.$result['sms'];
+                }
+                if ($result['errors'] !== []) {
+                    $parts = array_merge($parts, $result['errors']);
+                }
+
+                $notification = Notification::make()
+                    ->title($result['ok'] ? 'Lien envoyé' : 'Envoi partiel / échoué')
+                    ->body(implode("\n", $parts))
+                    ->persistent();
+
+                if ($result['ok']) {
+                    $notification->success()->send();
+                } else {
+                    $notification->warning()->send();
+                }
+            });
+    }
+
+    /**
+     * Envoie le lien de modification à plusieurs ouvriers sélectionnés (un par un).
+     */
+    public static function makeNotifyEditLinkBulkAction(): BulkAction
+    {
+        return BulkAction::make('notifyEditLinkBulk')
+            ->label('Notifier liens modification')
+            ->icon('heroicon-o-paper-airplane')
+            ->color('info')
+            ->modalHeading('Notifier les ouvriers sélectionnés')
+            ->modalDescription('Chaque ouvrier reçoit individuellement un lien de modification (14 jours) par e-mail et/ou SMS.')
+            ->deselectRecordsAfterCompletion()
+            ->form([
+                CheckboxList::make('channels')
+                    ->label('Canaux')
+                    ->options([
+                        ChurchWorkerEditLinkNotifyService::CHANNEL_EMAIL => 'E-mail',
+                        ChurchWorkerEditLinkNotifyService::CHANNEL_SMS => 'SMS',
+                    ])
+                    ->default([ChurchWorkerEditLinkNotifyService::CHANNEL_EMAIL])
+                    ->required()
+                    ->columns(2),
+            ])
+            ->action(function (Collection $records, array $data): void {
+                $channels = array_values($data['channels'] ?? []);
+                $summary = app(ChurchWorkerEditLinkNotifyService::class)->notifyMany($records, $channels);
+
+                $errors = [];
+                foreach ($summary['results'] as $row) {
+                    foreach ($row['errors'] as $error) {
+                        $errors[] = $error;
+                    }
+                }
+
+                $body = sprintf(
+                    'Envoyés OK : %d · échecs / partiels : %d',
+                    $summary['sent'],
+                    $summary['failed'],
+                );
+                if ($errors !== []) {
+                    $body .= "\n".implode("\n", array_slice($errors, 0, 8));
+                }
+
+                $notification = Notification::make()
+                    ->title('Notification liens modification')
+                    ->body($body)
+                    ->persistent();
+
+                if ($summary['failed'] === 0) {
+                    $notification->success()->send();
+                } else {
+                    $notification->warning()->send();
+                }
+            });
+    }
+
+    /**
      * Ouvre la page publique du badge.
      */
     protected static function makeOpenBadgeAction(): Action
@@ -533,6 +649,7 @@ class ChurchWorkerResource extends Resource
     {
         return [
             'Approuver ou rejeter une inscription',
+            'Notifier le lien d’édition (e-mail / SMS)',
             'Générer un lien d’édition / badge',
             'Exporter depuis le studio badges',
         ];

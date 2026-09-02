@@ -26,6 +26,7 @@ class EditChurchWorker extends EditRecord
     {
         return [
             ChurchWorkerResource::makeGenerateEditLinkAction(),
+            ChurchWorkerResource::makeNotifyEditLinkAction(),
             Action::make('copyEditLink')
                 ->label('Copier le lien actuel')
                 ->icon('heroicon-o-clipboard-document')
