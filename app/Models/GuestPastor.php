@@ -164,6 +164,36 @@ class GuestPastor extends Model
     }
 
     /**
+     * Jours d’intervention (routing).
+     *
+     * @return HasMany<GuestPastorAssignment, $this>
+     */
+    public function assignments(): HasMany
+    {
+        return $this->hasMany(GuestPastorAssignment::class, 'guest_pastor_id')->orderBy('day_date')->orderBy('sort_order');
+    }
+
+    /**
+     * Ouvriers assignés au service de ce pasteur.
+     *
+     * @return HasMany<GuestPastorWorker, $this>
+     */
+    public function assignedWorkers(): HasMany
+    {
+        return $this->hasMany(GuestPastorWorker::class, 'guest_pastor_id')->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Override de lettre d’invitation pour ce pasteur.
+     *
+     * @return HasOne<GuestInvitationLetter, $this>
+     */
+    public function invitationLetter(): HasOne
+    {
+        return $this->hasOne(GuestInvitationLetter::class, 'guest_pastor_id');
+    }
+
+    /**
      * Libellé de suivi (ouvert / répondu / en attente).
      */
     public function responseStatusLabel(): string

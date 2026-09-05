@@ -24,10 +24,11 @@ final class GuestFormSubmissionService
 {
     public function __construct(
         private readonly SmsSender $smsSender,
+        private readonly GuestPortalDispatchService $portalDispatch,
     ) {}
 
     /**
-     * Crée la soumission, marque le pasteur, envoie les mails départements.
+     * Crée la soumission, marque le pasteur, notifie départements + lien portail.
      *
      * @param  array<string, mixed>  $payload
      */
@@ -45,13 +46,30 @@ final class GuestFormSubmissionService
             ],
         );
 
+        $submission->ensurePortalToken();
+
         $pastor->update([
             'form_submitted_at' => now(),
         ]);
 
         $this->notifyDepartments($submission, $form);
 
-        return $submission;
+        $channels = [];
+        if (filled($pastor->email)) {
+            $channels[] = GuestPortalDispatchService::CHANNEL_EMAIL;
+        }
+        if (filled($pastor->phone)) {
+            $channels[] = GuestPortalDispatchService::CHANNEL_SMS;
+        }
+        if ($channels !== []) {
+            try {
+                $this->portalDispatch->dispatch($submission->fresh() ?? $submission, $channels);
+            } catch (\Throwable) {
+                // Best-effort : la soumission reste valide même si l’envoi portail échoue.
+            }
+        }
+
+        return $submission->refresh();
     }
 
     /**

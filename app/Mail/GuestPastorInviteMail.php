@@ -7,6 +7,7 @@ namespace App\Mail;
 use App\Models\GuestPastor;
 use Illuminate\Bus\Queueable;
 use Illuminate\Mail\Mailable;
+use Illuminate\Mail\Mailables\Attachment;
 use Illuminate\Mail\Mailables\Content;
 use Illuminate\Mail\Mailables\Envelope;
 use Illuminate\Queue\SerializesModels;
@@ -25,6 +26,7 @@ class GuestPastorInviteMail extends Mailable
         public string $formTitle,
         public ?string $customSubject = null,
         public ?string $customIntroHtml = null,
+        public ?string $pdfAbsolutePath = null,
     ) {}
 
     /**
@@ -75,5 +77,21 @@ class GuestPastorInviteMail extends Mailable
                 'pastorPhotoUrl' => $this->guestPastor->photoPublicUrl(),
             ],
         );
+    }
+
+    /**
+     * @return array<int, Attachment>
+     */
+    public function attachments(): array
+    {
+        if (! filled($this->pdfAbsolutePath) || ! is_file((string) $this->pdfAbsolutePath)) {
+            return [];
+        }
+
+        return [
+            Attachment::fromPath((string) $this->pdfAbsolutePath)
+                ->as('lettre-invitation-cmp.pdf')
+                ->withMime('application/pdf'),
+        ];
     }
 }

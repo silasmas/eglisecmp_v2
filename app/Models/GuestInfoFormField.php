@@ -39,6 +39,8 @@ class GuestInfoFormField extends Model
 
     public const TYPE_REPEATER_NAMES = 'repeater_names';
 
+    public const TYPE_SINGLE_CHOICE = 'single_choice';
+
     protected $fillable = [
         'section_id',
         'key',
@@ -87,6 +89,7 @@ class GuestInfoFormField extends Model
             self::TYPE_PHONE => 'Téléphone',
             self::TYPE_YES_NO => 'Oui / Non',
             self::TYPE_CHECKBOX_GROUP => 'Cases à cocher',
+            self::TYPE_SINGLE_CHOICE => 'Choix unique',
             self::TYPE_FOOD_GRID => 'Grille nourriture',
             self::TYPE_REPEATER_NAMES => 'Liste de noms',
         ];

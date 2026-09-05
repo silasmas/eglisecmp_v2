@@ -103,8 +103,9 @@ final class PublicGuestFormController extends Controller
         $submission = $service->submit($pastor, $form, $answers);
 
         return response()->json([
-            'message' => 'Merci ! Votre fiche a été enregistrée. Les départements concernés ont été notifiés.',
+            'message' => 'Merci ! Votre fiche a été enregistrée. Vous recevrez par e-mail ou SMS le lien de votre portail d’accueil (tenues, équipe, jours, liturgie).',
             'submission_id' => $submission->id,
+            'portal_url' => $submission->shortPortalUrl(),
         ], 201);
     }
 

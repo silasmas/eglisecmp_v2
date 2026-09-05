@@ -122,7 +122,15 @@ Route::get('/public/r/{token}', function (string $token) {
     return redirect($target, 302);
 })->where('token', '[A-Za-z0-9]+')->name('guest.responses.short.public');
 
-$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)|i(?:/|$)|r(?:/|$)).*$';
+Route::get('/p/{token}', function (string $token) {
+    return redirect('/accueil-invite/portail/'.$token, 302);
+})->where('token', '[A-Za-z0-9]+')->name('guest.portal.short');
+
+Route::get('/public/p/{token}', function (string $token) {
+    return redirect('/public/accueil-invite/portail/'.$token, 302);
+})->where('token', '[A-Za-z0-9]+')->name('guest.portal.short.public');
+
+$spaPathPattern = '^(?!admin(?:/|$)|api(?:/|$)|livewire(?:/|$)|broadcasting(?:/|$)|storage(?:/|$)|sanctum(?:/|$)|_ignition(?:/|$)|horizon(?:/|$)|telescope(?:/|$)|build(?:/|$)|paid(?:/|$)|ouvriers/badge(?:/|$)|worker-badge-studio(?:/|$)|i(?:/|$)|r(?:/|$)|p(?:/|$)).*$';
 
 Route::view('/', 'site')->name('site.spa.home');
 

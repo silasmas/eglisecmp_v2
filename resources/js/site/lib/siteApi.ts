@@ -1365,6 +1365,63 @@ export async function submitGuestInviteForm(
   });
 }
 
+/** Contenu du portail invité post-soumission. */
+export type GuestPortalResponse = {
+  pastor: {
+    full_name: string;
+    photo_url: string | null;
+    church_name: string | null;
+  };
+  project: {
+    title: string;
+    starts_at: string | null;
+    ends_at: string | null;
+  };
+  outfits: Array<{
+    session_key: string;
+    session_label: string;
+    title: string;
+    description: string | null;
+    image_url: string | null;
+  }>;
+  team: Array<{
+    title: string;
+    members: Array<{
+      name: string;
+      honorific: string;
+      phone: string | null;
+      photo_url: string | null;
+      department: string | null;
+    }>;
+  }>;
+  assignments: Array<{
+    day_date: string | null;
+    session_key: string;
+    label: string;
+    color: string;
+    location: string | null;
+  }>;
+  liturgy: Array<{
+    session_key: string;
+    title: string;
+    starts_at_time: string | null;
+    ends_at_time: string | null;
+    items: Array<{
+      starts_at_time: string | null;
+      ends_at_time: string | null;
+      duration_minutes: number | null;
+      label: string;
+    }>;
+  }>;
+};
+
+/**
+ * Charge le portail invité via son token.
+ */
+export async function fetchGuestPortal(token: string): Promise<GuestPortalResponse> {
+  return fetchSiteData<GuestPortalResponse>(`/guest-portal/${encodeURIComponent(token)}`);
+}
+
 export type GuestFormUnlockResponse = {
   pastor: { full_name: string | null; church_name: string | null; photo_url: string | null };
   project_title: string | null;

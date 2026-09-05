@@ -165,6 +165,7 @@ HTML;
                     ['key' => 'worship_equipment_other', 'label' => 'Préciser (autres besoins matériel)', 'type' => GuestInfoFormField::TYPE_TEXTAREA],
                 ],
             ],
+            $this->mensurationsSection($defaultDepartmentIds),
             [
                 'title' => 'Informations sur le culte — Breuvage & alimentation',
                 'department_ids' => $defaultDepartmentIds,
@@ -195,5 +196,121 @@ HTML;
                 ],
             ],
         ];
+    }
+
+    /**
+     * Rubrique mensurations orateur / épouse (tailles t-shirt / chemise).
+     *
+     * @param  list<int>  $defaultDepartmentIds
+     * @return array<string, mixed>
+     */
+    public function mensurationsSection(array $defaultDepartmentIds = []): array
+    {
+        $sizeChoices = [
+            's_32' => 'S / 32',
+            'm_40' => 'M / 40',
+            'l_42' => 'L / 42',
+            'xl_44' => 'XL / 44',
+            'xxl_46' => 'XXL / 46',
+            'xxxl_48' => 'XXXL / 48',
+            'autres' => 'Autres',
+        ];
+
+        return [
+            'title' => 'Mensurations',
+            'description' => 'Veuillez encercler / choisir la taille de t-shirt ou chemise.',
+            'department_ids' => $defaultDepartmentIds,
+            'fields' => [
+                [
+                    'key' => 'shirt_size_speaker',
+                    'label' => 'Taille T-shirt / Chemise — Orateur',
+                    'type' => GuestInfoFormField::TYPE_SINGLE_CHOICE,
+                    'required' => true,
+                    'options' => ['choices' => $sizeChoices],
+                ],
+                [
+                    'key' => 'shirt_size_speaker_other',
+                    'label' => 'Préciser la taille (orateur)',
+                    'type' => GuestInfoFormField::TYPE_TEXT,
+                    'options' => [
+                        'visible_when' => ['field' => 'shirt_size_speaker', 'equals' => 'autres'],
+                    ],
+                ],
+                [
+                    'key' => 'spouse_coming',
+                    'label' => 'L’épouse accompagne-t-elle l’orateur ?',
+                    'type' => GuestInfoFormField::TYPE_YES_NO,
+                    'required' => true,
+                ],
+                [
+                    'key' => 'shirt_size_spouse',
+                    'label' => 'Taille T-shirt / Chemise — Épouse',
+                    'type' => GuestInfoFormField::TYPE_SINGLE_CHOICE,
+                    'options' => [
+                        'choices' => $sizeChoices,
+                        'visible_when' => ['field' => 'spouse_coming', 'equals' => 'Oui'],
+                    ],
+                ],
+                [
+                    'key' => 'shirt_size_spouse_other',
+                    'label' => 'Préciser la taille (épouse)',
+                    'type' => GuestInfoFormField::TYPE_TEXT,
+                    'options' => [
+                        'visible_when' => ['field' => 'shirt_size_spouse', 'equals' => 'autres'],
+                    ],
+                ],
+            ],
+        ];
+    }
+
+    /**
+     * Ajoute les champs mensurations manquants sans écraser le reste du formulaire.
+     *
+     * @param  list<int>  $defaultDepartmentIds
+     * @return int Nombre de champs créés
+     */
+    public function mergeMensurationsFields(GuestInfoForm $form, array $defaultDepartmentIds = []): int
+    {
+        $sectionDef = $this->mensurationsSection($defaultDepartmentIds);
+        $existingKeys = $form->sections()
+            ->with('fields')
+            ->get()
+            ->flatMap(fn (GuestInfoFormSection $s) => $s->fields->pluck('key'))
+            ->all();
+
+        $section = $form->sections()->where('title', $sectionDef['title'])->first();
+        if ($section === null) {
+            $maxSort = (int) $form->sections()->max('sort_order');
+            $section = GuestInfoFormSection::query()->create([
+                'form_id' => $form->id,
+                'title' => $sectionDef['title'],
+                'description' => $sectionDef['description'] ?? null,
+                'sort_order' => $maxSort + 1,
+                'department_ids' => $sectionDef['department_ids'] ?? $defaultDepartmentIds,
+            ]);
+        }
+
+        $created = 0;
+        $fieldSort = (int) $section->fields()->max('sort_order');
+        foreach ($sectionDef['fields'] as $fieldDef) {
+            $key = $fieldDef['key'] ?? Str::slug($fieldDef['label'], '_');
+            if (in_array($key, $existingKeys, true)) {
+                continue;
+            }
+            GuestInfoFormField::query()->create([
+                'section_id' => $section->id,
+                'key' => $key,
+                'label' => $fieldDef['label'],
+                'type' => $fieldDef['type'],
+                'options' => $fieldDef['options'] ?? null,
+                'department_ids' => $fieldDef['department_ids'] ?? null,
+                'required' => (bool) ($fieldDef['required'] ?? false),
+                'sort_order' => ++$fieldSort,
+                'help_text' => $fieldDef['help_text'] ?? null,
+            ]);
+            $created++;
+        }
+
+        return $created;
     }
 }

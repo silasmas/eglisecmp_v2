@@ -58,6 +58,9 @@ function validateSection(
   answers: AnswersMap,
 ): string | null {
   for (const field of section.fields) {
+    if (!isFieldVisible(field, answers)) {
+      continue;
+    }
     if (!field.required) {
       continue;
     }
@@ -72,6 +75,20 @@ function validateSection(
     }
   }
   return null;
+}
+
+/**
+ * Vérifie la condition visible_when d’un champ.
+ */
+function isFieldVisible(
+  field: GuestInfoFormPublic['sections'][number]['fields'][number],
+  answers: AnswersMap,
+): boolean {
+  const rule = field.options?.visible_when as { field?: string; equals?: string } | undefined;
+  if (!rule?.field) {
+    return true;
+  }
+  return String(answers[rule.field] ?? '') === String(rule.equals ?? '');
 }
 
 /**
@@ -307,6 +324,10 @@ export default function GuestInviteFormPage() {
             <div className="mt-8 flex items-start gap-3 rounded-xl bg-emerald-50 p-4 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">
               <CheckCircle2 className="mt-0.5 h-5 w-5 shrink-0" />
               <p>Merci. Votre fiche a bien été enregistrée. Nos départements préparent votre accueil.</p>
+              <p className="mt-2 text-sm text-surface-600 dark:text-surface-400">
+                Un lien personnalisé vers votre portail (tenues, équipe, jours d’intervention, liturgie) vous sera
+                envoyé par e-mail ou SMS. Il reste valable jusqu’à la fin de l’événement.
+              </p>
             </div>
           ) : secondsLeft !== null && secondsLeft <= 0 ? (
             <div className="mt-8 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-900 dark:border-red-900 dark:bg-red-950/40 dark:text-red-200">
@@ -347,6 +368,7 @@ export default function GuestInviteFormPage() {
                       key={field.key}
                       field={field}
                       value={answers[field.key]}
+                      answers={answers}
                       onChange={(value) => setAnswer(field.key, value)}
                     />
                   ))}
@@ -414,19 +436,20 @@ export default function GuestInviteFormPage() {
 type FieldProps = {
   field: GuestInfoFormPublic['sections'][number]['fields'][number];
   value: unknown;
+  answers: AnswersMap;
   onChange: (value: unknown) => void;
 };
 
 /**
  * Rendu d’un champ dynamique du formulaire d’accueil.
- *
- * @param props.field Définition du champ.
- * @param props.value Valeur courante.
- * @param props.onChange Callback de mise à jour.
  */
-function FieldRenderer({ field, value, onChange }: FieldProps) {
+function FieldRenderer({ field, value, answers, onChange }: FieldProps) {
   const inputClass =
     'w-full rounded-lg border border-surface-200 bg-white px-3 py-2 text-sm text-surface-900 focus:outline-none focus:ring-2 dark:border-surface-700 dark:bg-surface-900 dark:text-white';
+
+  if (!isFieldVisible(field, answers)) {
+    return null;
+  }
 
   return (
     <div>
@@ -465,6 +488,23 @@ function FieldRenderer({ field, value, onChange }: FieldProps) {
                 name={field.key}
                 checked={value === label}
                 onChange={() => onChange(label)}
+                required={field.required}
+              />
+              {label}
+            </label>
+          ))}
+        </div>
+      ) : null}
+
+      {field.type === 'single_choice' ? (
+        <div className="grid gap-2 sm:grid-cols-2">
+          {Object.entries((field.options?.choices as Record<string, string> | undefined) ?? {}).map(([k, label]) => (
+            <label key={k} className="inline-flex items-center gap-2 text-sm">
+              <input
+                type="radio"
+                name={field.key}
+                checked={value === k}
+                onChange={() => onChange(k)}
                 required={field.required}
               />
               {label}

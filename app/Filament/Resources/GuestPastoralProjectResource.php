@@ -6,7 +6,10 @@ namespace App\Filament\Resources;
 
 use App\Filament\Resources\GuestPastoralProjectResource\Pages;
 use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\GuestPastorsRelationManager;
+use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\InvitationLettersRelationManager;
 use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\InviteDispatchesRelationManager;
+use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\LiturgySessionsRelationManager;
+use App\Filament\Resources\GuestPastoralProjectResource\RelationManagers\OutfitsRelationManager;
 use App\Models\GuestInviteDispatch;
 use App\Models\GuestPastor;
 use App\Models\GuestPastoralProject;
@@ -25,6 +28,7 @@ use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Components\Actions as SchemaActions;
@@ -215,6 +219,10 @@ class GuestPastoralProjectResource extends Resource
                         ->required()
                         ->columns(3)
                         ->helperText('À l’étape suivante : aperçu, modification et envoi canal par canal.'),
+                    Toggle::make('attach_pdf_letter')
+                        ->label('Joindre la lettre d’invitation PDF (e-mail)')
+                        ->default(true)
+                        ->helperText('Utilise le modèle projet ou l’override pasteur. Génère le PDF à la volée si besoin.'),
                 ])
                 ->afterValidation(function (Get $get, Set $set) use ($defaults): void {
                     if (blank($get('email_subject'))) {
@@ -410,6 +418,7 @@ class GuestPastoralProjectResource extends Resource
             emailIntro: (string) ($get('email_intro') ?? ''),
             smsMessage: (string) ($get('sms_message') ?? ''),
             whatsappMessage: (string) ($get('whatsapp_message') ?? ''),
+            attachPdfLetter: (bool) ($get('attach_pdf_letter') ?? false),
         );
 
         $channelLabel = GuestInviteDispatch::channelOptions()[$channel] ?? $channel;
@@ -461,6 +470,9 @@ class GuestPastoralProjectResource extends Resource
     public static function getRelations(): array
     {
         return [
+            OutfitsRelationManager::class,
+            LiturgySessionsRelationManager::class,
+            InvitationLettersRelationManager::class,
             GuestPastorsRelationManager::class,
             InviteDispatchesRelationManager::class,
         ];

@@ -393,6 +393,22 @@ class GuestInfoFormResource extends Resource
                             ->success()
                             ->send();
                     }),
+                Action::make('mergeMensurations')
+                    ->label('Ajouter mensurations')
+                    ->icon('heroicon-o-scissors')
+                    ->color('info')
+                    ->requiresConfirmation()
+                    ->modalHeading('Ajouter les champs mensurations ?')
+                    ->modalDescription('Ajoute uniquement les champs manquants (tailles orateur / épouse) sans effacer le reste du formulaire.')
+                    ->action(function (GuestInfoForm $record): void {
+                        $deptIds = $record->project?->departments()->pluck('church_departments.id')->map(fn ($id): int => (int) $id)->all() ?? [];
+                        $created = app(GuestInfoFormPdfTemplateService::class)->mergeMensurationsFields($record, $deptIds);
+                        Notification::make()
+                            ->title('Mensurations')
+                            ->body($created > 0 ? "{$created} champ(s) ajouté(s)." : 'Tous les champs mensurations étaient déjà présents.')
+                            ->success()
+                            ->send();
+                    }),
                 DeleteAction::make(),
             ]);
     }

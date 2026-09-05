@@ -17,6 +17,8 @@ use Illuminate\Support\Str;
  * @property int $guest_pastor_id
  * @property int $form_id
  * @property string $access_token
+ * @property string|null $portal_token
+ * @property Carbon|null $portal_link_sent_at
  * @property array<string, mixed> $payload
  * @property Carbon $submitted_at
  */
@@ -26,6 +28,8 @@ class GuestInfoSubmission extends Model
         'guest_pastor_id',
         'form_id',
         'access_token',
+        'portal_token',
+        'portal_link_sent_at',
         'payload',
         'submitted_at',
     ];
@@ -38,6 +42,7 @@ class GuestInfoSubmission extends Model
         return [
             'payload' => 'array',
             'submitted_at' => 'datetime',
+            'portal_link_sent_at' => 'datetime',
         ];
     }
 
@@ -47,10 +52,38 @@ class GuestInfoSubmission extends Model
             if (blank($submission->access_token)) {
                 $submission->access_token = Str::lower(Str::random(32));
             }
+            if (blank($submission->portal_token)) {
+                $submission->portal_token = self::generatePortalToken();
+            }
             if ($submission->submitted_at === null) {
                 $submission->submitted_at = now();
             }
         });
+    }
+
+    /**
+     * Génère un token unique pour le portail invité post-soumission.
+     */
+    public static function generatePortalToken(): string
+    {
+        do {
+            $token = Str::lower(Str::random(24));
+        } while (self::query()->where('portal_token', $token)->exists());
+
+        return $token;
+    }
+
+    /**
+     * Garantit un portal_token et le retourne.
+     */
+    public function ensurePortalToken(): string
+    {
+        if (blank($this->portal_token)) {
+            $this->portal_token = self::generatePortalToken();
+            $this->save();
+        }
+
+        return (string) $this->portal_token;
     }
 
     /**
@@ -72,6 +105,22 @@ class GuestInfoSubmission extends Model
         }
 
         return $url;
+    }
+
+    /**
+     * URL publique du portail invité (tenues, équipe, jours, liturgie).
+     */
+    public function publicPortalUrl(): string
+    {
+        return url('/accueil-invite/portail/'.$this->ensurePortalToken());
+    }
+
+    /**
+     * Lien court du portail invité.
+     */
+    public function shortPortalUrl(): string
+    {
+        return url('/p/'.$this->ensurePortalToken());
     }
 
     /**

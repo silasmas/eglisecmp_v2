@@ -116,4 +116,54 @@ class GuestPastoralProject extends Model
     {
         return $this->hasMany(GuestInviteDispatch::class, 'guest_pastoral_project_id');
     }
+
+    /**
+     * Tenues prévues pour l’événement.
+     *
+     * @return HasMany<GuestEventOutfit, $this>
+     */
+    public function outfits(): HasMany
+    {
+        return $this->hasMany(GuestEventOutfit::class, 'project_id')->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Sessions liturgiques du projet.
+     *
+     * @return HasMany<GuestLiturgySession, $this>
+     */
+    public function liturgySessions(): HasMany
+    {
+        return $this->hasMany(GuestLiturgySession::class, 'project_id')->orderBy('sort_order')->orderBy('id');
+    }
+
+    /**
+     * Lettres d’invitation (modèle projet + overrides pasteurs).
+     *
+     * @return HasMany<GuestInvitationLetter, $this>
+     */
+    public function invitationLetters(): HasMany
+    {
+        return $this->hasMany(GuestInvitationLetter::class, 'project_id');
+    }
+
+    /**
+     * Modèle de lettre du projet (sans pasteur).
+     */
+    public function projectLetterTemplate(): ?GuestInvitationLetter
+    {
+        return $this->invitationLetters()->whereNull('guest_pastor_id')->first();
+    }
+
+    /**
+     * Indique si le portail invité est encore accessible (avant ends_at).
+     */
+    public function portalIsOpen(): bool
+    {
+        if ($this->ends_at === null) {
+            return true;
+        }
+
+        return now()->lte($this->ends_at->copy()->endOfDay());
+    }
 }

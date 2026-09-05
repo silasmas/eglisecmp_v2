@@ -107,6 +107,7 @@ final class GuestInviteDispatchService
         ?string $emailIntro = null,
         ?string $smsMessage = null,
         ?string $whatsappMessage = null,
+        bool $attachPdfLetter = false,
     ): array {
         $form = $project->form;
         if ($form === null || ! $form->is_published) {
@@ -150,6 +151,7 @@ final class GuestInviteDispatchService
                     $emailSubject,
                     $emailIntro,
                     $actor,
+                    $attachPdfLetter,
                 ),
                 GuestInviteDispatch::CHANNEL_SMS => $this->sendSms(
                     $project,
@@ -249,6 +251,7 @@ final class GuestInviteDispatchService
         string $subject,
         string $introTemplate,
         ?User $actor,
+        bool $attachPdfLetter = false,
     ): array {
         if (! filled($pastor->email)) {
             $this->logDispatch(
@@ -269,6 +272,15 @@ final class GuestInviteDispatchService
         $introHtml = nl2br(e($introText));
         $formUrl = $pastor->shortFormUrl();
 
+        $pdfPath = null;
+        if ($attachPdfLetter) {
+            try {
+                $pdfPath = app(GuestInvitationLetterService::class)->absolutePdfPathForPastor($pastor, $actor);
+            } catch (\Throwable) {
+                $pdfPath = null;
+            }
+        }
+
         try {
             Mail::to($pastor->email)->send(new GuestPastorInviteMail(
                 $pastor,
@@ -276,6 +288,7 @@ final class GuestInviteDispatchService
                 $formTitle,
                 $subject,
                 $introHtml,
+                $pdfPath,
             ));
 
             $this->logDispatch(
@@ -285,7 +298,11 @@ final class GuestInviteDispatchService
                 (string) $pastor->email,
                 GuestInviteDispatch::STATUS_SENT,
                 mb_substr($introText, 0, 480),
-                ['subject' => $subject, 'form_url' => $formUrl],
+                [
+                    'subject' => $subject,
+                    'form_url' => $formUrl,
+                    'pdf_attached' => $pdfPath !== null,
+                ],
                 $actor,
             );
 

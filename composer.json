@@ -9,6 +9,7 @@
         "php": "^8.3",
         "ahmed-abdelrhman/filament-media-gallery": "^2.0",
         "awcodes/richer-editor": "^2.1",
+        "barryvdh/laravel-dompdf": "^3.1",
         "bezhansalleh/filament-shield": "^4.2",
         "cms-multi/filament-clear-cache": "^3.0",
         "devletes/filament-pinnable-navigation": "^1.0",

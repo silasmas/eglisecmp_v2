@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\Site\PublicEventController;
 use App\Http\Controllers\Api\Site\PublicFeaturedPostController;
 use App\Http\Controllers\Api\Site\PublicGalleryController;
 use App\Http\Controllers\Api\Site\PublicGuestFormController;
+use App\Http\Controllers\Api\Site\PublicGuestPortalController;
 use App\Http\Controllers\Api\Site\PublicHeroMetaController;
 use App\Http\Controllers\Api\Site\PublicMinisterController;
 use App\Http\Controllers\Api\Site\PublicOffrandePaymentController;
@@ -127,6 +128,8 @@ Route::prefix('site')->middleware(SetSiteApiLocale::class)->group(function (): v
         ->middleware('throttle:60,1');
     Route::post('guest-forms/{token}/submit', [PublicGuestFormController::class, 'submit'])
         ->middleware('throttle:20,1');
+    Route::get('guest-portal/{token}', [PublicGuestPortalController::class, 'show'])
+        ->middleware('throttle:60,1');
     Route::post('workers', [PublicChurchWorkerController::class, 'store'])
         ->middleware('throttle:10,1');
     Route::get('workers/edit/{token}', [PublicChurchWorkerController::class, 'showForEdit'])
